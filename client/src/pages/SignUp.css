@@ -68,15 +68,25 @@ body {
 }
 
 .logo-container {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.85rem;
   margin-bottom: 3.5rem;
+  right: 200px;
 }
 
+.lcc-name {
+  font-family: 'Inria Serif', serif !important;  /* Add !important to override */
+  font-size: 30px !important;
+  line-height: 1.2;  /* Add line-height for better control */
+  white-space: nowrap;
+}
+
+
 .logo-img {
-  width: 3.4rem;
-  height: 3.4rem;
+  width: 5.4rem;
+  height: 5.4rem;
   object-fit: contain;
 }
 
@@ -96,7 +106,13 @@ body {
 }
 
 .hero-copy {
+  position: relative;
+  top: 30px;
+  left: 300px;
   margin-top: 1rem;
+  margin-left: auto; /* Add this - moves it 100px to the right */
+  margin-right: 0;
+  max-width: 560px;
 }
 
 .hero-tag {
@@ -269,8 +285,8 @@ body {
 .hero-left-img {
   position: absolute;
   bottom: 0;
-  left: -2%;
-  height: 75vh; /* Make it taller */
+  left: 0%;
+  height: 65vh; /* Make it taller */
   max-height: 700px;
   z-index: 30; /* Overlays form-card & background */
   object-fit: contain;
@@ -283,9 +299,9 @@ body {
   bottom: 0;
   right: 0;
   margin-bottom: -55px; /* Ensure no margin pushes it up */
-  display: block;    /* Prevents inline-element gaps */
+  display: block; /* Prevents inline-element gaps */
   height: 45vh;
-  width: 125vw; 
+  width: 125vw;
   max-height: 500px;
   z-index: 28;
   object-fit: contain;
