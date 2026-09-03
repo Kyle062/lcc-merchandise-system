@@ -13,21 +13,17 @@ const SignUp = () => {
 
   return (
     <div className="signup-container">
-      {/* Background Image */}
+      {/* Background Image & Overlay */}
       <div
         className="bg-image"
         style={{ backgroundImage: `url('${bgImage}')` }}
       />
+      <div className="bg-overlay" />
 
-      {/* Characters Layer */}
-      <img src={heroLeft} alt="Students" className="hero-left-img" />
-      <img src={groupRight} alt="Campus Group" className="group-right-img" />
-
-      {/* Main Content Layout */}
+      {/* Main Grid Content */}
       <div className="content-wrapper">
-        {/* Left Section: Typography & Branding */}
+        {/* Left Section: Branding & Hero Text */}
         <div className="left-section">
-          {/* Logo & Header */}
           <div className="logo-container">
             <img src={logo} alt="LCC Logo" className="logo-img" />
             <div className="logo-text">
@@ -36,7 +32,6 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Hero Copy */}
           <div className="hero-copy">
             <p className="hero-tag">
               For students, staff, and the merchandise office
@@ -67,13 +62,11 @@ const SignUp = () => {
           </div>
 
           <form onSubmit={(e) => e.preventDefault()}>
-            {/* Username/Email */}
             <div className="form-group">
               <label>Email or username:</label>
               <input type="text" className="form-input" />
             </div>
 
-            {/* Role Selection */}
             <div className="form-group">
               <label>Sign as:</label>
               <select className="form-select">
@@ -84,7 +77,6 @@ const SignUp = () => {
               </select>
             </div>
 
-            {/* Create Password */}
             <div className="form-group">
               <label>Create Password:</label>
               <div className="password-wrapper">
@@ -96,13 +88,13 @@ const SignUp = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
+                  aria-label="Toggle password visibility"
                 >
-                  {showPassword ? <Eye size={16} /> : <EyeOff size={16} />}
+                  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                 </button>
               </div>
             </div>
 
-            {/* Confirm Password */}
             <div className="form-group">
               <label>Confirm Password:</label>
               <div className="password-wrapper">
@@ -114,28 +106,31 @@ const SignUp = () => {
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="password-toggle"
+                  aria-label="Toggle confirm password visibility"
                 >
                   {showConfirmPassword ? (
-                    <Eye size={16} />
+                    <Eye size={18} />
                   ) : (
-                    <EyeOff size={16} />
+                    <EyeOff size={18} />
                   )}
                 </button>
               </div>
             </div>
 
-            {/* Submit Button */}
             <button type="submit" className="submit-btn">
               SIGN UP
             </button>
           </form>
 
-          {/* Footer Link */}
           <div className="form-footer">
-            Already have an account? <a href="/login">Log In</a>
+            Don't have account? <a href="/login">Sign Up</a>
           </div>
         </div>
       </div>
+
+      {/* Characters Layer (Overlays the bottom of form card) */}
+      <img src={heroLeft} alt="Students" className="hero-left-img" />
+      <img src={groupRight} alt="Campus Group" className="group-right-img" />
     </div>
   );
 };

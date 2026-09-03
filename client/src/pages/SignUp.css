@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
 
 * {
   box-sizing: border-box;
@@ -7,129 +7,137 @@
   font-family: "Inter", sans-serif;
 }
 
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  background-color: #032b1e;
+}
+
 .signup-container {
   position: relative;
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  min-height: 700px;
+  background-color: #032b1e;
   overflow: hidden;
-  background-color: #0a3b2c;
 }
 
 .bg-image {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-.hero-left-img {
+.bg-overlay {
   position: absolute;
-  bottom: 0;
-  left: -2%;
-  height: 72%;
-  z-index: 10;
-  object-fit: contain;
-  pointer-events: none;
-}
-
-.group-right-img {
-  position: absolute;
-  bottom: 0;
-  right: 28%;
-  height: 42%;
-  z-index: 10;
-  object-fit: contain;
+  inset: 0;
+  z-index: 2;
+  background: radial-gradient(
+    circle at center,
+    rgba(3, 43, 30, 0.4) 0%,
+    rgba(2, 28, 19, 0.8) 100%
+  );
   pointer-events: none;
 }
 
 .content-wrapper {
   position: relative;
-  z-index: 20;
+  z-index: 10;
   width: 100%;
-  max-width: 1440px;
+  height: 100%;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 3rem 4rem;
+  padding: 3rem 4rem 1rem 4rem;
   display: flex;
   flex-direction: row;
-  align-items: center;
   justify-content: space-between;
-  height: 100%;
+  align-items: flex-start;
 }
 
+/* Left Branding & Copy */
 .left-section {
   flex: 1;
   color: white;
-  padding-left: 30%;
+  max-width: 560px;
+  padding-top: 0.5rem;
 }
 
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 2.5rem;
+  gap: 0.85rem;
+  margin-bottom: 3.5rem;
 }
 
 .logo-img {
-  width: 3rem;
-  height: 3rem;
+  width: 3.4rem;
+  height: 3.4rem;
   object-fit: contain;
 }
 
 .logo-text h1 {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: white;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #10b981;
+  line-height: 1.2;
 }
 
 .logo-text p {
   font-size: 12px;
-  color: #6ee7b7;
-  font-weight: 300;
-  letter-spacing: 0.025em;
+  color: #a7f3d0;
+  font-weight: 400;
+  margin-top: 2px;
 }
 
 .hero-copy {
-  max-width: 32rem;
+  margin-top: 1rem;
 }
 
 .hero-tag {
-  color: #34d399;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
-  font-size: 12px;
-  letter-spacing: 0.025em;
+  color: #10b981;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
 }
 
 .hero-copy h2 {
-  font-size: 3rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 3.4rem;
   font-weight: 700;
   line-height: 1.1;
-  margin-bottom: 1rem;
-  letter-spacing: -0.025em;
+  margin-bottom: 1.2rem;
+  color: #ffffff;
+  letter-spacing: -0.01em;
 }
 
 .hero-desc {
-  color: #d1fae5;
-  font-size: 12px;
+  color: #a7f3d0;
+  font-size: 13px;
   line-height: 1.6;
-  max-width: 22rem;
-  opacity: 0.9;
+  max-width: 390px;
+  opacity: 0.85;
 }
 
+/* Right Side Form Card */
 .form-card {
+  position: relative;
+  z-index: 20; /* Lower than characters so they overlap bottom */
   width: 100%;
-  max-width: 420px;
-  background: white;
-  border-radius: 24px;
-  padding: 2rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  flex-shrink: 0;
+  max-width: 430px;
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 2.2rem 2.4rem 2rem 2.4rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  margin-top: 0.5rem;
+  /* Push form higher up to give room for characters below */
+  transform: translateY(-20px);
 }
 
 .form-header {
@@ -138,116 +146,195 @@
 }
 
 .form-header h3 {
-  font-size: 22px;
-  font-weight: 700;
-  color: #0b6b43;
-  line-height: 1.3;
+  font-size: 26px;
+  font-weight: 800;
+  color: #00874e;
+  line-height: 1.2;
 }
 
 .form-header p {
-  color: #9ca3af;
+  color: #6b7280;
   font-size: 11px;
-  margin-top: 0.25rem;
+  margin-top: 0.4rem;
 }
 
 .form-group {
-  margin-bottom: 0.875rem;
+  margin-bottom: 0.95rem;
 }
 
 .form-group label {
   display: block;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: #374151;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
 }
 
 .form-input,
 .form-select {
   width: 100%;
-  padding: 0.625rem 0.875rem;
+  height: 42px;
+  padding: 0 0.85rem;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1.5px solid #d1d5db;
   outline: none;
-  font-size: 14px;
-  background: white;
-  color: #374151;
+  font-size: 13.5px;
+  background: #ffffff;
+  color: #1f2937;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%3a6b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
 }
 
 .form-input:focus,
 .form-select:focus {
-  border-color: #0b6b43;
-  box-shadow: 0 0 0 1px #0b6b43;
+  border-color: #00874e;
+  box-shadow: 0 0 0 3px rgba(0, 135, 78, 0.15);
 }
 
 .password-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper .form-input {
+  padding-right: 2.5rem;
 }
 
 .password-toggle {
   position: absolute;
   right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
-  color: #9ca3af;
+  color: #6b7280;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .password-toggle:hover {
-  color: #4b5563;
+  color: #111827;
 }
 
 .submit-btn {
   width: 100%;
-  background-color: #0b6b43;
-  color: white;
-  font-weight: 700;
-  padding: 0.75rem;
+  height: 46px;
+  background-color: #007a43;
+  color: #ffffff;
+  font-weight: 800;
   border-radius: 8px;
   border: none;
-  margin-top: 1.25rem;
+  margin-top: 1.2rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s ease;
   letter-spacing: 0.05em;
-  font-size: 14px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  font-size: 15px;
+  box-shadow: 0 4px 10px rgba(0, 122, 67, 0.3);
 }
 
 .submit-btn:hover {
-  background-color: #095735;
+  background-color: #006336;
 }
 
 .form-footer {
   text-align: center;
-  margin-top: 1.25rem;
-  font-size: 11px;
-  color: #9ca3af;
+  margin-top: 1.1rem;
+  font-size: 11.5px;
+  color: #6b7280;
 }
 
 .form-footer a {
-  color: #0b6b43;
-  font-weight: 600;
+  color: #007a43;
+  font-weight: 700;
   text-decoration: none;
+  margin-left: 0.2rem;
 }
 
 .form-footer a:hover {
   text-decoration: underline;
 }
 
-@media (max-width: 1024px) {
+/* Bottom Character Graphics Layer */
+.hero-left-img {
+  position: absolute;
+  bottom: 0;
+  left: -2%;
+  height: 75vh; /* Make it taller */
+  max-height: 700px;
+  z-index: 30; /* Overlays form-card & background */
+  object-fit: contain;
+  object-position: bottom left;
+  pointer-events: none;
+}
+
+.group-right-img {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  margin-bottom: -55px; /* Ensure no margin pushes it up */
+  display: block;    /* Prevents inline-element gaps */
+  height: 45vh;
+  width: 125vw; 
+  max-height: 500px;
+  z-index: 28;
+  object-fit: contain;
+  object-position: bottom right;
+  pointer-events: none;
+}
+/* Responsive Scaling */
+@media (max-width: 1200px) {
+  .hero-left-img {
+    height: 65vh;
+  }
   .group-right-img {
-    display: none;
+    height: 40vh;
+  }
+  .hero-copy h2 {
+    font-size: 2.8rem;
+  }
+}
+
+@media (max-width: 960px) {
+  .signup-container {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
   }
   .content-wrapper {
     flex-direction: column;
-    padding: 2rem;
+    align-items: center;
+    padding: 2rem 1.5rem;
+    height: auto;
   }
   .left-section {
-    padding-left: 0;
+    max-width: 100%;
     margin-bottom: 2rem;
+    text-align: center;
+  }
+  .logo-container {
+    justify-content: center;
+  }
+  .hero-desc {
+    margin: 0 auto;
+  }
+  .form-card {
+    margin-bottom: 10rem; /* Add space for characters below on mobile */
+    transform: none;
+  }
+  .hero-left-img,
+  .group-right-img {
+    opacity: 0.25;
+    height: 50vh;
   }
 }
