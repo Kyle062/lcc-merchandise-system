@@ -28,7 +28,7 @@ const SignUp = () => {
             <img src={logo} alt="LCC Logo" className="logo-img" />
             <div className="logo-text">
               <h1 className="lcc-name">LEGACY COLLEGE OF COMPOSTELA</h1>
-              <p>Merchandise Order Management System</p>
+              <p className="lcc-name-sub">Merchandise Order Management System</p>
             </div>
           </div>
 
