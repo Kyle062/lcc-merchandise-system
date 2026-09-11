@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { EyeOff, Eye } from "lucide-react";
+import { EyeOff, Eye, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import "./SignUp.css"; // Reusing the same CSS file for consistent styling
+import "./Login.css";
 
 import bgImage from "../assets/images/Background Merchandising.png";
 import logo from "../assets/images/LCClogo1.png";
@@ -12,27 +12,40 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Add your backend API login call here later
-    console.log("Logging in with:", email, password);
-    navigate("/dashboard"); // Redirect to dashboard on success
+    setErrorMessage("");
+    setIsLoading(true);
+
+    setTimeout(() => {
+      if (email === "admin" && password === "admin123") {
+        navigate("/admin-dashboard");
+      } else if (email === "staff" && password === "staff123") {
+        navigate("/staff-dashboard");
+      } else if (email === "student" && password === "student123") {
+        navigate("/student-dashboard");
+      } else if (email === "finance" && password === "finance123") {
+        navigate("/finance-dashboard");
+      } else {
+        setErrorMessage("Invalid username or password. Please try again.");
+        setIsLoading(false);
+      }
+    }, 600);
   };
 
   return (
     <div className="signup-container">
-      {/* Background Image & Overlay */}
       <div
         className="bg-image"
         style={{ backgroundImage: `url('${bgImage}')` }}
       />
       <div className="bg-overlay" />
 
-      {/* Main Grid Content */}
       <div className="content-wrapper">
-        {/* Left Section: Branding & Hero Text */}
         <div className="left-section">
           <div className="logo-container">
             <img src={logo} alt="LCC Logo" className="logo-img" />
@@ -62,7 +75,6 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Right Section: Form Card */}
         <div className="form-card">
           <div className="form-header">
             <h3>
@@ -73,14 +85,24 @@ const Login = () => {
             <p>Log in to access your merchandising account</p>
           </div>
 
+          {errorMessage && (
+            <div className="error-banner">
+              <AlertCircle size={18} />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Email or username:</label>
               <input
                 type="text"
-                className="form-input"
+                className={`form-input ${errorMessage ? "input-error" : ""}`}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setErrorMessage("");
+                }}
                 required
               />
             </div>
@@ -90,9 +112,12 @@ const Login = () => {
               <div className="password-wrapper">
                 <input
                   type={showPassword ? "text" : "password"}
-                  className="form-input"
+                  className={`form-input ${errorMessage ? "input-error" : ""}`}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setErrorMessage("");
+                  }}
                   required
                 />
                 <button
@@ -106,29 +131,19 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Forgot Password Link */}
-            <div
-              style={{
-                textAlign: "right",
-                marginTop: "-5px",
-                marginBottom: "15px",
-              }}
-            >
-              <a
-                href="/forgot-password"
-                style={{
-                  fontSize: "12px",
-                  color: "#007a43",
-                  fontWeight: "600",
-                  textDecoration: "none",
-                }}
-              >
+            <div className="forgot-password-wrapper">
+              <a href="/forgot-password" className="forgot-password-link">
                 Forgot Password?
               </a>
             </div>
 
-            <button type="submit" className="submit-btn">
-              LOG IN
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={isLoading}
+              style={{ opacity: isLoading ? 0.7 : 1 }}
+            >
+              {isLoading ? "LOGGING IN..." : "LOG IN"}
             </button>
           </form>
 
@@ -138,7 +153,6 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Characters Layer (Overlays the bottom of form card) */}
       <img src={heroLeft} alt="Students" className="hero-left-img" />
       <img src={groupRight} alt="Campus Group" className="group-right-img" />
     </div>

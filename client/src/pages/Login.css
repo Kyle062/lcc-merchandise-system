@@ -15,6 +15,7 @@ body {
   background-color: #032b1e;
 }
 
+/* --- MAIN CONTAINER --- */
 .signup-container {
   position: relative;
   width: 100vw;
@@ -59,7 +60,7 @@ body {
   align-items: flex-start;
 }
 
-/* Left Branding & Copy */
+/* --- LEFT SECTION (Branding) --- */
 .left-section {
   flex: 1;
   color: white;
@@ -77,16 +78,15 @@ body {
 }
 
 .lcc-name {
-  font-family: 'Inria Serif', serif !important;  /* Add !important to override */
+  font-family: "Inria Serif", serif !important;
   font-size: 30px !important;
-  line-height: 1.2;  /* Add line-height for better control */
+  line-height: 1.2;
   white-space: nowrap;
 }
 
-.lcc-name-sub{
+.lcc-name-sub {
   color: white !important;
 }
-
 
 .logo-img {
   width: 5.4rem;
@@ -114,7 +114,7 @@ body {
   top: 30px;
   left: 300px;
   margin-top: 1rem;
-  margin-left: auto; /* Add this - moves it 100px to the right */
+  margin-left: auto;
   margin-right: 0;
   max-width: 560px;
 }
@@ -145,6 +145,7 @@ body {
   opacity: 0.85;
 }
 
+/* --- RIGHT SECTION (Form Card) --- */
 .form-card {
   position: relative;
   z-index: 20;
@@ -153,7 +154,7 @@ body {
   background: #ffffff;
   border-radius: 22px;
   padding: 2.2rem 2.4rem 2rem 2.4rem;
-  box-shadow: 
+  box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.4),
     0 0 15px rgba(16, 185, 129, 0.4),
     0 0 30px rgba(16, 185, 129, 0.2),
@@ -161,6 +162,7 @@ body {
   margin-top: 0.5rem;
   transform: translateY(-20px);
 }
+
 .form-header {
   text-align: center;
   margin-bottom: 1.5rem;
@@ -205,16 +207,6 @@ body {
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
-}
-
-
-.form-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%3a6b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1em;
-  padding-right: 2.5rem;
 }
 
 .form-input:focus,
@@ -265,8 +257,12 @@ body {
   box-shadow: 0 4px 10px rgba(0, 122, 67, 0.3);
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   background-color: #006336;
+}
+
+.submit-btn:disabled {
+  cursor: not-allowed;
 }
 
 .form-footer {
@@ -287,14 +283,69 @@ body {
   text-decoration: underline;
 }
 
-/* Bottom Character Graphics Layer */
+/* --- FORGOT PASSWORD --- */
+.forgot-password-wrapper {
+  text-align: right;
+  margin-top: -5px;
+  margin-bottom: 15px;
+}
+
+.forgot-password-link {
+  font-size: 12px;
+  color: #007a43;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
+}
+
+/* --- PROFESSIONAL ERROR NOTIFICATION --- */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-bottom: 15px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.input-error {
+  border-color: #f87171 !important;
+  background-color: #fef2f2;
+}
+
+.input-error:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+/* --- BOTTOM CHARACTER GRAPHICS --- */
 .hero-left-img {
   position: absolute;
   bottom: 0;
   left: 0%;
-  height: 65vh; /* Make it taller */
+  height: 65vh;
   max-height: 700px;
-  z-index: 30; /* Overlays form-card & background */
+  z-index: 30;
   object-fit: contain;
   object-position: bottom left;
   pointer-events: none;
@@ -305,8 +356,8 @@ body {
   top: 555px;
   bottom: 0;
   right: 15px;
-  margin-bottom: -55px; /* Ensure no margin pushes it up */
-  display: block; /* Prevents inline-element gaps */
+  margin-bottom: -55px;
+  display: block;
   height: 170vh;
   width: 125vw;
   max-height: 500px;
@@ -315,7 +366,8 @@ body {
   object-position: bottom right;
   pointer-events: none;
 }
-/* Responsive Scaling */
+
+/* --- RESPONSIVE SCALING --- */
 @media (max-width: 1200px) {
   .hero-left-img {
     height: 65vh;
@@ -347,12 +399,17 @@ body {
   }
   .logo-container {
     justify-content: center;
+    right: 0;
+  }
+  .hero-copy {
+    left: 0;
+    text-align: center;
   }
   .hero-desc {
     margin: 0 auto;
   }
   .form-card {
-    margin-bottom: 10rem; /* Add space for characters below on mobile */
+    margin-bottom: 10rem;
     transform: none;
   }
   .hero-left-img,
