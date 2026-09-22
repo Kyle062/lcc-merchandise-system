@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -8,36 +8,64 @@ import { LayoutDashboard, Package, ShoppingCart, Users, Settings, LogOut, Search
 import './AdminDashboard.css';
 import logo from '../../assets/images/LCClogo1.png';
 
-// --- MOCK DATA ---
-const salesData = [
-  { name: 'Jan', sales: 4000, orders: 240 },
-  { name: 'Feb', sales: 3000, orders: 198 },
-  { name: 'Mar', sales: 2000, orders: 150 },
-  { name: 'Apr', sales: 2780, orders: 190 },
-  { name: 'May', sales: 1890, orders: 120 },
-  { name: 'Jun', sales: 2390, orders: 170 },
-];
-
-const inventoryData = [
-  { name: 'Uniforms', value: 400 },
-  { name: 'IDs', value: 300 },
-  { name: 'Apparel', value: 300 },
-  { name: 'Accessories', value: 200 },
-];
-
 const COLORS = ['#00874e', '#10b981', '#34d399', '#a7f3d0'];
-
-const recentOrders = [
-  { id: '#ORD-001', student: 'Juan Dela Cruz', item: 'PE Uniform', status: 'Pending', date: '2026-09-11' },
-  { id: '#ORD-002', student: 'Maria Santos', item: 'School ID', status: 'Ready for Pickup', date: '2026-09-11' },
-  { id: '#ORD-003', student: 'Pedro Reyes', item: 'LCC Hoodie', status: 'Completed', date: '2026-09-10' },
-  { id: '#ORD-004', student: 'Ana Lopez', item: 'PE Uniform', status: 'Processing', date: '2026-09-10' },
-];
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
 
+  // --- STATE FOR DYNAMIC DATA ---
+  const [stats, setStats] = useState({
+    totalSales: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
+    lowStock: 0,
+  });
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [salesData, setSalesData] = useState<any[]>([]);
+  const [inventoryData, setInventoryData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- FETCH ALL DATA FROM BACKEND ---
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const fetchData = async () => {
+      try {
+        const [statsRes, ordersRes, salesRes, invRes] = await Promise.all([
+          fetch('http://localhost:5000/api/dashboard/stats', { headers }),
+          fetch('http://localhost:5000/api/dashboard/recent-orders', { headers }),
+          fetch('http://localhost:5000/api/dashboard/monthly-sales', { headers }),
+          fetch('http://localhost:5000/api/dashboard/inventory-distribution', { headers }),
+        ]);
+
+        const statsData = await statsRes.json();
+        const ordersData = await ordersRes.json();
+        const salesDataRes = await salesRes.json();
+        const invData = await invRes.json();
+
+        setStats(statsData);
+        setRecentOrders(ordersData);
+        setSalesData(salesDataRes);
+        setInventoryData(invData);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [navigate]);
+
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
     navigate('/login');
   };
 
@@ -50,6 +78,19 @@ const AdminDashboard = () => {
       default: return 'admin-badge';
     }
   };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <h2>Loading dashboard...</h2>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-dashboard-container">
@@ -86,7 +127,6 @@ const AdminDashboard = () => {
 
       {/* --- MAIN CONTENT --- */}
       <div className="admin-main-content">
-        {/* Header */}
         <div className="admin-header">
           <h1 className="admin-header-title">Dashboard Overview</h1>
           <div className="admin-header-right">
@@ -99,29 +139,28 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Dashboard Content */}
         <div className="admin-dashboard-content">
-          {/* Stats Cards */}
+          {/* Stats Cards - Now Dynamic */}
           <div className="admin-stats-grid">
             <div className="admin-stat-card">
               <p className="admin-stat-label">Total Sales</p>
-              <h3 className="admin-stat-value">₱12,450</h3>
-              <p className="admin-stat-change-positive">+12% from last month</p>
+              <h3 className="admin-stat-value">₱{Number(stats.totalSales).toLocaleString()}</h3>
+              <p className="admin-stat-change-positive">All-time revenue</p>
             </div>
             <div className="admin-stat-card">
               <p className="admin-stat-label">Total Orders</p>
-              <h3 className="admin-stat-value">156</h3>
-              <p className="admin-stat-change-positive">+8% from last month</p>
+              <h3 className="admin-stat-value">{stats.totalOrders}</h3>
+              <p className="admin-stat-change-positive">Orders placed</p>
             </div>
             <div className="admin-stat-card">
               <p className="admin-stat-label">Pending Orders</p>
-              <h3 className="admin-stat-value">24</h3>
-              <p className="admin-stat-change-negative">-3% from last month</p>
+              <h3 className="admin-stat-value">{stats.pendingOrders}</h3>
+              <p className="admin-stat-change-negative">Needs action</p>
             </div>
             <div className="admin-stat-card">
               <p className="admin-stat-label">Low Stock Items</p>
-              <h3 className="admin-stat-value">5</h3>
-              <p className="admin-stat-change-negative">Needs attention</p>
+              <h3 className="admin-stat-value">{stats.lowStock}</h3>
+              <p className="admin-stat-change-negative">Below 10 units</p>
             </div>
           </div>
 
@@ -132,7 +171,7 @@ const AdminDashboard = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={salesData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} />
                   <YAxis axisLine={false} tickLine={false} />
                   <Tooltip />
                   <Legend />
@@ -167,7 +206,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Recent Orders Table */}
+          {/* Recent Orders Table - Now Dynamic */}
           <div className="admin-table-card">
             <h3 className="admin-chart-title">Recent Orders</h3>
             <table className="admin-table">
@@ -181,19 +220,27 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td>{order.id}</td>
-                    <td>{order.student}</td>
-                    <td>{order.item}</td>
-                    <td>
-                      <span className={getBadgeClass(order.status)}>
-                        {order.status}
-                      </span>
+                {recentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                      No orders yet
                     </td>
-                    <td>{order.date}</td>
                   </tr>
-                ))}
+                ) : (
+                  recentOrders.map((order) => (
+                    <tr key={order.id}>
+                      <td>#ORD-{String(order.id).padStart(3, '0')}</td>
+                      <td>{order.full_name || order.username}</td>
+                      <td>{order.product_name}</td>
+                      <td>
+                        <span className={getBadgeClass(order.status)}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td>{formatDate(order.order_date)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
