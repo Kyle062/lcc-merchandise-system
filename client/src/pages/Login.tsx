@@ -75,7 +75,7 @@ const Login = () => {
           </div>
         </div>
 
-        <div className="form-card">
+        <div className="form-card1">
           <div className="form-header">
             <h3>
               Welcome Back to

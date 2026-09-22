@@ -147,6 +147,7 @@ body {
 
 .form-card {
   position: relative;
+  top: -5px;
   z-index: 20;
   width: 100%;
   max-width: 430px;

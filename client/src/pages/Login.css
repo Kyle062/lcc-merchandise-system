@@ -146,9 +146,10 @@ body {
 }
 
 /* --- RIGHT SECTION (Form Card) --- */
-.form-card {
+.form-card1 {
   position: relative;
   z-index: 20;
+  top: 100px;
   width: 100%;
   max-width: 430px;
   background: #ffffff;
