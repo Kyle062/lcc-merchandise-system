@@ -16,7 +16,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
     setIsLoading(true);
@@ -31,6 +31,12 @@ const Login = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle Pending / Rejected with special styling
+        if (response.status === 403) {
+          setErrorMessage(data.message || "Your account is not yet active.");
+          setIsLoading(false);
+          return;
+        }
         setErrorMessage(data.message || "Invalid username or password.");
         setIsLoading(false);
         return;
@@ -41,7 +47,7 @@ const Login = () => {
       localStorage.setItem("username", data.username);
 
       if (data.role === "admin") navigate("/admin-dashboard");
-      else if (data.role === "staff") navigate("/staff-dashboard");
+      else if (data.role === "staff") navigate("/orders");
       else if (data.role === "student") navigate("/student-dashboard");
       else if (data.role === "finance") navigate("/finance-dashboard");
       else setErrorMessage("Unknown role. Contact administrator.");

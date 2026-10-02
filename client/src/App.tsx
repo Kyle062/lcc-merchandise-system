@@ -4,6 +4,7 @@ import SignUp from "./pages/SignUp";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import Inventory from "./pages/Inventory/Inventory";
 import Orders from "./pages/Orders/Orders";
+import Users from "./pages/Users/Users";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/inventory" element={<Inventory />} />
       <Route path="/orders" element={<Orders />} />
+      <Route path="/users" element={<Users />} />
     </Routes>
   );
 }
