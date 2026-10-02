@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",
-    "dev": "nodemon src/server.ts",
+    "dev": "kill-port 5000 && nodemon src/server.ts",
     "build": "tsc"
   },
   "dependencies": {
@@ -24,6 +24,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.9",
     "@types/nodemailer": "^6.4.15",
+    "kill-port": "^2.0.1",
     "nodemon": "^3.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3"
