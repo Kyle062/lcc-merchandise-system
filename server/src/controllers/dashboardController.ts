@@ -1,20 +1,20 @@
-import { Request, Response } from 'express';
-import db from '../config/db';
+import { Request, Response } from "express";
+import db from "../config/db";
 
 export const getAdminStats = async (req: Request, res: Response) => {
   try {
     const [salesResult]: any = await db.query(
-      'SELECT COALESCE(SUM(total_price), 0) as totalSales FROM orders'
+      "SELECT COALESCE(SUM(total_price), 0) as totalSales FROM orders",
     );
     const [ordersResult]: any = await db.query(
-      'SELECT COUNT(*) as totalOrders FROM orders'
+      "SELECT COUNT(*) as totalOrders FROM orders",
     );
     const [pendingResult]: any = await db.query(
-      'SELECT COUNT(*) as pendingOrders FROM orders WHERE status = ?',
-      ['Pending']
+      "SELECT COUNT(*) as pendingOrders FROM orders WHERE status = ?",
+      ["Pending"],
     );
     const [lowStockResult]: any = await db.query(
-      'SELECT COUNT(*) as lowStock FROM products WHERE stock_quantity < 10'
+      "SELECT COUNT(*) as lowStock FROM products WHERE stock_quantity < 10",
     );
 
     res.json({
@@ -24,7 +24,9 @@ export const getAdminStats = async (req: Request, res: Response) => {
       lowStock: lowStockResult[0].lowStock,
     });
   } catch (error: any) {
-    res.status(500).json({ message: 'Error fetching stats', details: error.message });
+    res
+      .status(500)
+      .json({ message: "Error fetching stats", details: error.message });
   }
 };
 
@@ -43,7 +45,9 @@ export const getRecentOrders = async (req: Request, res: Response) => {
     `);
     res.json(rows);
   } catch (error: any) {
-    res.status(500).json({ message: 'Error fetching orders', details: error.message });
+    res
+      .status(500)
+      .json({ message: "Error fetching orders", details: error.message });
   }
 };
 
@@ -61,25 +65,36 @@ export const getMonthlySales = async (req: Request, res: Response) => {
     `);
     res.json(rows);
   } catch (error: any) {
-    res.status(500).json({ message: 'Error fetching monthly sales', details: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Error fetching monthly sales",
+        details: error.message,
+      });
   }
 };
 
+// Get inventory distribution by product category (course-based)
 export const getInventoryDistribution = async (req: Request, res: Response) => {
   try {
     const [rows]: any = await db.query(`
-      SELECT p.name AS name, SUM(o.quantity) AS value
-      FROM orders o
-      JOIN products p ON o.product_id = p.id
-      GROUP BY p.id, p.name
+      SELECT 
+        course AS name,
+        SUM(stock_quantity) AS value
+      FROM products
+      GROUP BY course
       ORDER BY value DESC
-      LIMIT 5
     `);
+
     if (rows.length === 0) {
-      return res.json([{ name: 'No Data', value: 0 }]);
+      return res.json([{ name: "No Data", value: 0 }]);
     }
+
     res.json(rows);
   } catch (error: any) {
-    res.status(500).json({ message: 'Error fetching distribution', details: error.message });
+    console.error("❌ Inventory distribution error:", error.message);
+    res
+      .status(500)
+      .json({ message: "Error fetching distribution", details: error.message });
   }
 };
