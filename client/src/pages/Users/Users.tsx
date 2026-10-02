@@ -8,22 +8,21 @@ import {
   Settings,
   LogOut,
   Search,
-  Bell,
   UserPlus,
   Check,
   X,
   AlertCircle,
-  Eye,
   Trash2,
-  ShieldCheck,
   Clock,
   UserX,
-  RefreshCw,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
 import "./Users.css";
 import logo from "../../assets/images/LCClogo1.png";
+import Toast from "../../components/Toast/Toast";
+import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
+import ConfirmDialog from "../../components/Toast/ConfirmDialog";
 
 interface User {
   id: number;
@@ -69,15 +68,40 @@ const Users = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState<User | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [showRejected, setShowRejected] = useState(false);
+
+  // ✅ Toasts
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const showToast = (type: ToastType, title: string, message?: string) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+  };
+  const removeToast = (id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // ✅ Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    variant: "danger" | "warning" | "info";
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    confirmLabel: "Confirm",
+    variant: "danger",
+    onConfirm: () => {},
+  });
 
   const [sortRules, setSortRules] = useState<SortRule[]>([
     { key: "created_at", order: "desc" },
   ]);
 
-  // Add user form state
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -111,7 +135,6 @@ const Users = () => {
     fetchUsers();
   }, [token, navigate]);
 
-  // Split users by status
   const pendingUsers = useMemo(
     () => users.filter((u) => u.status === "Pending"),
     [users],
@@ -125,7 +148,6 @@ const Users = () => {
     [users],
   );
 
-  // Filter + Sort active users
   const filteredActiveUsers = useMemo(() => {
     const term = searchTerm.toLowerCase();
     const filtered = activeUsers.filter((u) => {
@@ -160,23 +182,36 @@ const Users = () => {
     navigate("/login");
   };
 
-  const handleApprove = async (user: User) => {
-    if (
-      !window.confirm(`Approve ${user.full_name || user.username}'s account?`)
-    )
-      return;
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/users/${user.id}/approve`,
-        {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (res.ok) await fetchUsers();
-    } catch (error) {
-      alert("Cannot connect to server.");
-    }
+  // ✅ APPROVE — professional
+  const handleApprove = (user: User) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Approve Account?",
+      message: `Approve ${user.full_name || user.username}'s account? They will be able to log in immediately.`,
+      confirmLabel: "Approve",
+      variant: "info",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(
+            `http://localhost:5000/api/users/${user.id}/approve`,
+            { method: "PUT", headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (res.ok) {
+            showToast(
+              "success",
+              "Account Approved",
+              `${user.full_name || user.username} can now log in.`,
+            );
+            await fetchUsers();
+          } else {
+            showToast("error", "Approval Failed", "Could not approve account.");
+          }
+        } catch {
+          showToast("error", "Connection Error", "Cannot reach the server.");
+        }
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   const handleRejectClick = (user: User) => {
@@ -184,6 +219,7 @@ const Users = () => {
     setRejectReason("");
   };
 
+  // ✅ REJECT — professional
   const handleRejectConfirm = async () => {
     if (!showRejectModal) return;
     try {
@@ -199,30 +235,54 @@ const Users = () => {
         },
       );
       if (res.ok) {
+        showToast(
+          "warning",
+          "Account Rejected",
+          `${showRejectModal.full_name || showRejectModal.username} will not be able to log in.`,
+        );
         setShowRejectModal(null);
         await fetchUsers();
+      } else {
+        showToast("error", "Rejection Failed", "Could not reject account.");
       }
-    } catch (error) {
-      alert("Cannot connect to server.");
+    } catch {
+      showToast("error", "Connection Error", "Cannot reach the server.");
     }
   };
 
-  const handleDelete = async (user: User) => {
-    if (
-      !window.confirm(
-        `Permanently delete "${user.username}"? This cannot be undone.`,
-      )
-    )
-      return;
-    try {
-      const res = await fetch(`http://localhost:5000/api/users/${user.id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) await fetchUsers();
-    } catch (error) {
-      alert("Cannot connect to server.");
-    }
+  // ✅ DELETE — professional
+  const handleDelete = (user: User) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete User Permanently?",
+      message: `This will permanently delete "${user.username}" and all their order history. This action cannot be undone.`,
+      confirmLabel: "Delete Permanently",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(
+            `http://localhost:5000/api/users/${user.id}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          if (res.ok) {
+            showToast(
+              "success",
+              "User Deleted",
+              `${user.username} has been removed.`,
+            );
+            await fetchUsers();
+          } else {
+            showToast("error", "Delete Failed", "Could not delete user.");
+          }
+        } catch {
+          showToast("error", "Connection Error", "Cannot reach the server.");
+        }
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   const handleRoleChange = async (userId: number, newRole: string) => {
@@ -238,9 +298,16 @@ const Users = () => {
           body: JSON.stringify({ role: newRole }),
         },
       );
-      if (res.ok) await fetchUsers();
-    } catch (error) {
-      alert("Cannot connect to server.");
+      if (res.ok) {
+        showToast(
+          "success",
+          "Role Updated",
+          `User role changed to ${newRole}.`,
+        );
+        await fetchUsers();
+      }
+    } catch {
+      showToast("error", "Connection Error", "Cannot reach the server.");
     }
   };
 
@@ -264,6 +331,11 @@ const Users = () => {
         return;
       }
 
+      showToast(
+        "success",
+        "User Created",
+        `${formData.full_name} has been added as ${formData.role}.`,
+      );
       setShowAddModal(false);
       setFormData({
         username: "",
@@ -274,7 +346,7 @@ const Users = () => {
         course: "",
       });
       await fetchUsers();
-    } catch (error) {
+    } catch {
       setErrorMessage("Cannot connect to server.");
     }
   };
@@ -325,6 +397,26 @@ const Users = () => {
 
   return (
     <div className="users-container">
+      {/* TOASTS */}
+      <div className="toast-container">
+        {toasts.map((t) => (
+          <Toast key={t.id} toast={t} onClose={removeToast} />
+        ))}
+      </div>
+
+      {/* CONFIRM DIALOG */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+        }
+      />
+
       {/* SIDEBAR */}
       <div className="users-sidebar">
         <div className="users-sidebar-header">
@@ -394,7 +486,7 @@ const Users = () => {
         </div>
 
         <div className="users-content">
-          {/* ===== PENDING APPROVALS ===== */}
+          {/* PENDING APPROVALS */}
           {pendingUsers.length > 0 && (
             <div className="pending-section">
               <div className="pending-banner">
@@ -440,14 +532,12 @@ const Users = () => {
                             <button
                               className="btn-approve"
                               onClick={() => handleApprove(user)}
-                              title="Approve"
                             >
                               <Check size={16} /> Approve
                             </button>
                             <button
                               className="btn-reject"
                               onClick={() => handleRejectClick(user)}
-                              title="Reject"
                             >
                               <X size={16} /> Reject
                             </button>
@@ -461,7 +551,7 @@ const Users = () => {
             </div>
           )}
 
-          {/* ===== ACTIVE USERS ===== */}
+          {/* ACTIVE USERS */}
           <div className="section-title-row">
             <h2>Active Users ({filteredActiveUsers.length})</h2>
             <div className="role-filter">
@@ -563,7 +653,6 @@ const Users = () => {
                         <button
                           className="action-btn delete"
                           onClick={() => handleDelete(user)}
-                          title="Delete"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -575,7 +664,7 @@ const Users = () => {
             </div>
           )}
 
-          {/* ===== REJECTED USERS (COLLAPSIBLE) ===== */}
+          {/* REJECTED USERS */}
           {rejectedUsers.length > 0 && (
             <div className="rejected-section">
               <button
@@ -612,8 +701,22 @@ const Users = () => {
                           <td>{user.username}</td>
                           <td>{user.full_name}</td>
                           <td>{user.course || "—"}</td>
-                          <td style={{ color: "#dc2626", fontSize: 13 }}>
-                            {user.rejection_reason || "No reason given"}
+                          <td>
+                            {user.rejection_reason ? (
+                              <span className="rejection-reason-badge">
+                                <AlertCircle size={12} />
+                                {user.rejection_reason}
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  color: "#9ca3af",
+                                  fontStyle: "italic",
+                                }}
+                              >
+                                No reason given
+                              </span>
+                            )}
                           </td>
                           <td>{formatDate(user.created_at)}</td>
                           <td>
@@ -636,7 +739,7 @@ const Users = () => {
         </div>
       </div>
 
-      {/* ===== ADD USER MODAL ===== */}
+      {/* ADD USER MODAL */}
       {showAddModal && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -669,7 +772,6 @@ const Users = () => {
                   required
                 />
               </div>
-
               <div className="modal-group">
                 <label>Full Name *</label>
                 <input
@@ -681,7 +783,6 @@ const Users = () => {
                   required
                 />
               </div>
-
               <div className="modal-group">
                 <label>Email *</label>
                 <input
@@ -693,7 +794,6 @@ const Users = () => {
                   required
                 />
               </div>
-
               <div className="modal-group">
                 <label>Password *</label>
                 <input
@@ -705,7 +805,6 @@ const Users = () => {
                   required
                 />
               </div>
-
               <div className="modal-row">
                 <div className="modal-group">
                   <label>Role *</label>
@@ -741,7 +840,6 @@ const Users = () => {
                   </div>
                 )}
               </div>
-
               <div className="modal-actions">
                 <button
                   type="button"
@@ -759,7 +857,7 @@ const Users = () => {
         </div>
       )}
 
-      {/* ===== REJECT MODAL ===== */}
+      {/* REJECT MODAL */}
       {showRejectModal && (
         <div className="modal-overlay" onClick={() => setShowRejectModal(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -772,7 +870,6 @@ const Users = () => {
                 <X size={20} />
               </button>
             </div>
-
             <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 16 }}>
               Rejecting{" "}
               <strong>
@@ -780,7 +877,6 @@ const Users = () => {
               </strong>{" "}
               will prevent them from logging in. Optionally provide a reason.
             </p>
-
             <div className="modal-group">
               <label>Reason (optional)</label>
               <textarea
@@ -798,7 +894,6 @@ const Users = () => {
                 }}
               />
             </div>
-
             <div className="modal-actions">
               <button
                 className="btn-cancel"
@@ -807,7 +902,6 @@ const Users = () => {
                 Cancel
               </button>
               <button
-                className="btn-reject-confirm"
                 onClick={handleRejectConfirm}
                 style={{
                   background: "#dc2626",
