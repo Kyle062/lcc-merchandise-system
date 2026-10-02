@@ -7,7 +7,6 @@ export const getProducts = async (req: Request, res: Response) => {
     const [rows] = await db.query('SELECT * FROM products ORDER BY id DESC');
     res.json(rows);
   } catch (error: any) {
-    console.error('❌ getProducts error:', error.message);
     res.status(500).json({ message: 'Error fetching products', details: error.message });
   }
 };
@@ -25,15 +24,14 @@ export const getProduct = async (req: Request, res: Response) => {
 
 // CREATE product
 export const createProduct = async (req: Request, res: Response) => {
-  const { name, description, price, size, stock_quantity, image_url } = req.body;
+  const { name, course, description, price, size, stock_quantity, image_url } = req.body;
   try {
     const [result]: any = await db.query(
-      'INSERT INTO products (name, description, price, size, stock_quantity, image_url) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, description, price, size, stock_quantity, image_url || null]
+      'INSERT INTO products (name, course, description, price, size, stock_quantity, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name, course || 'All', description, price, size, stock_quantity, image_url || null]
     );
     res.status(201).json({ message: 'Product created', id: result.insertId });
   } catch (error: any) {
-    console.error('❌ createProduct error:', error.message);
     res.status(500).json({ message: 'Error creating product', details: error.message });
   }
 };
@@ -41,15 +39,14 @@ export const createProduct = async (req: Request, res: Response) => {
 // UPDATE product
 export const updateProduct = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, description, price, size, stock_quantity, image_url } = req.body;
+  const { name, course, description, price, size, stock_quantity, image_url } = req.body;
   try {
     await db.query(
-      'UPDATE products SET name = ?, description = ?, price = ?, size = ?, stock_quantity = ?, image_url = ? WHERE id = ?',
-      [name, description, price, size, stock_quantity, image_url || null, id]
+      'UPDATE products SET name = ?, course = ?, description = ?, price = ?, size = ?, stock_quantity = ?, image_url = ? WHERE id = ?',
+      [name, course || 'All', description, price, size, stock_quantity, image_url || null, id]
     );
     res.json({ message: 'Product updated' });
   } catch (error: any) {
-    console.error('❌ updateProduct error:', error.message);
     res.status(500).json({ message: 'Error updating product', details: error.message });
   }
 };
@@ -60,7 +57,6 @@ export const deleteProduct = async (req: Request, res: Response) => {
     await db.query('DELETE FROM products WHERE id = ?', [req.params.id]);
     res.json({ message: 'Product deleted' });
   } catch (error: any) {
-    console.error('❌ deleteProduct error:', error.message);
     res.status(500).json({ message: 'Error deleting product', details: error.message });
   }
 };

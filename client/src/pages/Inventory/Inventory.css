@@ -522,3 +522,131 @@
     padding: 10px 8px;
   }
 }
+/* Sortable table headers */
+.inventory-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.inventory-table th.sortable:hover {
+  background-color: #f3f4f6;
+}
+
+.th-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Sort icon with priority number */
+.sort-icon-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sort-priority {
+  font-size: 10px;
+  font-weight: 700;
+  color: #00874e;
+  background-color: #ecfdf5;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Clear sort button */
+.clear-sort-btn {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.clear-sort-btn:hover {
+  background-color: #e5e7eb;
+}
+
+/* Course filter tabs */
+.course-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-right: 6px;
+}
+
+.course-tab {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid #e5e7eb;
+  background-color: #ffffff;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.course-tab:hover {
+  border-color: #00874e;
+  color: #00874e;
+}
+
+.course-tab.active {
+  background-color: #00874e;
+  color: #ffffff;
+  border-color: #00874e;
+}
+
+/* Course badge in table */
+.course-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background-color: #ecfdf5;
+  color: #065f46;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  letter-spacing: 0.03em;
+}
+
+/* Modal select dropdown */
+.modal-group select {
+  padding: 10px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border 0.2s,
+    box-shadow 0.2s;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.modal-group select:focus {
+  border-color: #00874e;
+  box-shadow: 0 0 0 3px rgba(0, 135, 78, 0.15);
+}
