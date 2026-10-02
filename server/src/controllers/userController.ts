@@ -11,8 +11,10 @@ import {
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const users = await getAllUsers();
+    console.log(`📋 Fetched ${users.length} users from DB`);
     res.json(users);
   } catch (error: any) {
+    console.error("❌ getUsers error:", error.message);
     res
       .status(500)
       .json({ message: "Error fetching users", details: error.message });
@@ -32,10 +34,11 @@ export const getSingleUser = async (req: Request, res: Response) => {
   }
 };
 
-// APPROVE user (set status to Active)
+// APPROVE user
 export const approveUser = async (req: Request, res: Response) => {
   try {
     await updateUserStatus(Number(req.params.id), "Active", null);
+    console.log(`✅ User ${req.params.id} approved`);
     res.json({ message: "User approved" });
   } catch (error: any) {
     res
@@ -44,11 +47,14 @@ export const approveUser = async (req: Request, res: Response) => {
   }
 };
 
-// REJECT user (set status to Rejected + optional reason)
+// REJECT user (with reason)
 export const rejectUser = async (req: Request, res: Response) => {
   const { reason } = req.body;
   try {
     await updateUserStatus(Number(req.params.id), "Rejected", reason || null);
+    console.log(
+      `❌ User ${req.params.id} rejected. Reason: ${reason || "None"}`,
+    );
     res.json({ message: "User rejected" });
   } catch (error: any) {
     res

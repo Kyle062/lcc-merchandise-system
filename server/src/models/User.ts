@@ -26,12 +26,14 @@ export const createUser = async (userData: any) => {
   return result.insertId;
 };
 
+// ✅ FIXED: Ensure we return a flat array
 export const getAllUsers = async () => {
-  const [rows] = await db.query(
+  const [rows]: any = await db.query(
     `SELECT id, username, email, role, full_name, course, status, rejection_reason, created_at 
      FROM users ORDER BY created_at DESC`,
   );
-  return rows;
+  // Ensure it's always an array
+  return Array.isArray(rows) ? rows : [];
 };
 
 export const getUserById = async (id: number) => {

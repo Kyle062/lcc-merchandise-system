@@ -369,7 +369,7 @@ const SignUp = () => {
       </div>
 
       <img src={heroLeft} alt="Students" className="hero-left-img" />
-      <img src={groupRight} alt="Campus Group" className="group-right-img" />
+    
     </div>
   );
 };
