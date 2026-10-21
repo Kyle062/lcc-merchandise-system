@@ -253,3 +253,34 @@ export const deleteOrder = async (req: Request, res: Response) => {
       .json({ message: "Error deleting order", details: error.message });
   }
 };
+
+// DELETE PENDING ORDER (student only)
+export const deleteMyPendingOrder = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = (req as any).user.id;
+
+  try {
+
+    const [orderRows]: any = await db.query(
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+      [id, userId]
+    );
+
+    if (orderRows.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const order = orderRows[0];
+
+
+    if (order.status !== 'Pending') {
+      return res.status(400).json({ message: 'Cannot delete an order that has already been scanned/processed.' });
+    }
+
+    await db.query('DELETE FROM orders WHERE id = ?', [id]);
+
+    res.json({ message: 'Pending order cancelled successfully' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error deleting order', details: error.message });
+  }
+};
