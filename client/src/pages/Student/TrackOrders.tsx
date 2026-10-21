@@ -10,17 +10,31 @@ import {
   Check,
   Truck,
   Inbox,
+  Trash2,
 } from "lucide-react";
-import "./TrackOrders.css"; // ✅ Import the new CSS
+import "./TrackOrders.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
+import ConfirmDialog from "../../components/Toast/ConfirmDialog";
 
 const TrackOrders = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedQR, setSelectedQR] = useState<number | null>(null);
+
+  // ✅ Filtering state
+  const [filter, setFilter] = useState("All");
+
+  // ✅ Confirm dialog state for deletion
+  const [confirmDelete, setConfirmDelete] = useState<{
+    isOpen: boolean;
+    orderId: number | null;
+  }>({
+    isOpen: false,
+    orderId: null,
+  });
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -32,29 +46,25 @@ const TrackOrders = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/orders/my-orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) setOrders(data);
+      setLoading(false);
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!token) {
       navigate("/login");
       return;
     }
-
-    const fetchOrders = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/orders/my-orders", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setOrders(data);
-        }
-        setLoading(false);
-      } catch (error) {
-        console.error(error);
-        showToast("error", "Error", "Could not load your orders.");
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
   }, [token, navigate]);
 
@@ -72,7 +82,6 @@ const TrackOrders = () => {
     });
   };
 
-  // ✅ Helper function to determine the timeline step
   const getStep = (status: string) => {
     switch (status) {
       case "Pending":
@@ -88,13 +97,71 @@ const TrackOrders = () => {
     }
   };
 
+  // ✅ Delete Order Logic
+  const handleDeleteClick = (id: number) => {
+    setConfirmDelete({ isOpen: true, orderId: id });
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!confirmDelete.orderId) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/orders/my-orders/${confirmDelete.orderId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast(
+          "success",
+          "Order Cancelled",
+          "Your pending order has been removed.",
+        );
+        fetchOrders(); // Refresh list
+      } else {
+        showToast("error", "Delete Failed", data.message);
+      }
+    } catch {
+      showToast("error", "Connection Error", "Could not reach server.");
+    }
+    setConfirmDelete({ isOpen: false, orderId: null });
+  };
+
+  // ✅ Filter the orders based on the selected tab
+  const filteredOrders = orders.filter((o) => {
+    if (filter === "All") return true;
+    return o.status === filter;
+  });
+
+  const FILTERS = [
+    "All",
+    "Pending",
+    "Processing",
+    "Ready for Pickup",
+    "Completed",
+  ];
+
   return (
     <div className="track-container">
       <div className="toast-container">
         {toasts.map((t) => (
-         <Toast key={t.id} toast={t} onClose={removeToast} />
+          <Toast key={t.id} toast={t} onClose={removeToast} />
         ))}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDelete.isOpen}
+        title="Cancel this Order?"
+        message="Are you sure you want to cancel this pending order? This action cannot be undone."
+        confirmLabel="Cancel Order"
+        variant="danger"
+        onConfirm={confirmDeleteOrder}
+        onCancel={() => setConfirmDelete({ isOpen: false, orderId: null })}
+      />
 
       {/* SIDEBAR */}
       <div className="track-sidebar">
@@ -161,9 +228,22 @@ const TrackOrders = () => {
         </div>
 
         <div className="track-content">
+          {/* ✅ Filter Tabs */}
+          <div className="track-filters">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                className={`track-filter-btn ${filter === f ? "active" : ""}`}
+                onClick={() => setFilter(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
           {loading ? (
             <p>Loading your orders...</p>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div
               style={{
                 textAlign: "center",
@@ -178,11 +258,11 @@ const TrackOrders = () => {
                 color="#9ca3af"
                 style={{ margin: "0 auto 10px" }}
               />
-              You haven't placed any orders yet.
+              No orders found for "{filter}".
             </div>
           ) : (
             <div className="order-list">
-              {orders.map((order) => {
+              {filteredOrders.map((order) => {
                 const currentStep = getStep(order.status);
 
                 return (
@@ -257,12 +337,28 @@ const TrackOrders = () => {
                       </div>
 
                       {order.status === "Pending" ? (
-                        <button
-                          className="qr-btn"
-                          onClick={() => setSelectedQR(order.id)}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px",
+                            width: "100%",
+                          }}
                         >
-                          <QrCode size={16} /> View QR
-                        </button>
+                          <button
+                            className="qr-btn"
+                            onClick={() => setSelectedQR(order.id)}
+                          >
+                            <QrCode size={16} /> View QR
+                          </button>
+                          {/* ✅ DELETE BUTTON */}
+                          <button
+                            className="delete-btn"
+                            onClick={() => handleDeleteClick(order.id)}
+                          >
+                            <Trash2 size={14} /> Cancel Order
+                          </button>
+                        </div>
                       ) : (
                         <span className="processed-text">Scanned</span>
                       )}
@@ -275,7 +371,7 @@ const TrackOrders = () => {
         </div>
       </div>
 
-      {/* ✅ QR CODE MODAL */}
+      {/* QR CODE MODAL */}
       {selectedQR !== null && (
         <div className="modal-overlay" onClick={() => setSelectedQR(null)}>
           <div

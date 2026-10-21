@@ -308,3 +308,48 @@
 .checkout-submit-btn:hover {
   background: #006336;
 }
+/* Status Filter Tabs */
+.track-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+.track-filter-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid #d1d5db;
+  background: white;
+  font-weight: 600;
+  font-size: 13px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.track-filter-btn.active {
+  background: #00874e;
+  color: white;
+  border-color: #00874e;
+}
+
+/* Delete Button */
+.delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  transition: 0.2s;
+  width: 100%;
+}
+.delete-btn:hover {
+  background: #fee2e2;
+}
