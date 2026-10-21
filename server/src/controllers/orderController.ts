@@ -26,7 +26,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
     `);
     res.json(rows);
   } catch (error: any) {
-    console.error('❌ getAllOrders error:', error.message);
+    console.error('getAllOrders error:', error.message);
     res.status(500).json({ message: 'Error fetching orders', details: error.message });
   }
 };
@@ -126,7 +126,7 @@ export const placeOrder = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     await conn.rollback();
-    console.error('❌ placeOrder error:', error.message);
+    console.error('placeOrder error:', error.message);
     res.status(500).json({ message: 'Error placing order', details: error.message });
   } finally {
     conn.release();
@@ -198,7 +198,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     res.json({ message: 'Order status updated', oldStatus, newStatus: status });
   } catch (error: any) {
     await conn.rollback();
-    console.error('❌ updateOrderStatus error:', error.message);
+    console.error(' updateOrderStatus error:', error.message);
     res.status(500).json({ message: 'Error updating status', details: error.message });
   } finally {
     conn.release();

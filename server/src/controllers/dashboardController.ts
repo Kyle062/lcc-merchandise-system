@@ -65,7 +65,7 @@ export const getMonthlySales = async (req: Request, res: Response) => {
       ORDER BY MONTH(order_date)
     `);
 
-    // ✅ Convert to numbers
+    // Convert to numbers
     const formatted = rows.map((row: any) => ({
       month: row.month,
       sales: Number(row.sales),
@@ -74,7 +74,7 @@ export const getMonthlySales = async (req: Request, res: Response) => {
 
     res.json(formatted);
   } catch (error: any) {
-    console.error('❌ Monthly sales error:', error.message);
+    console.error(' Monthly sales error:', error.message);
     res.status(500).json({ message: 'Error fetching monthly sales', details: error.message });
   }
 };
@@ -95,17 +95,17 @@ export const getInventoryDistribution = async (req: Request, res: Response) => {
       return res.json([{ name: 'No Data', value: 0 }]);
     }
 
-    // ✅ Convert value to Number (MySQL returns SUM as string sometimes)
+    //  Convert value to Number (MySQL returns SUM as string sometimes)
     const formatted = rows.map((row: any) => ({
       name: row.name,
       value: Number(row.value),
     }));
 
-    console.log('📊 Inventory distribution:', formatted);
+    console.log('Inventory distribution:', formatted);
 
     res.json(formatted);
   } catch (error: any) {
-    console.error('❌ Inventory distribution error:', error.message);
+    console.error('Inventory distribution error:', error.message);
     res.status(500).json({ message: 'Error fetching distribution', details: error.message });
   }
 };

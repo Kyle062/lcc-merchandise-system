@@ -14,7 +14,7 @@ export const login = async (req: Request, res: Response) => {
     if (!isMatch)
       return res.status(401).json({ message: "Invalid credentials" });
 
-    // ✅ Check approval status
+    // Check approval status
     if (user.status === "Pending") {
       return res.status(403).json({
         message:
@@ -45,7 +45,7 @@ export const login = async (req: Request, res: Response) => {
       full_name: user.full_name,
     });
   } catch (error: any) {
-    console.error("❌ Login error:", error.message);
+    console.error("Login error:", error.message);
     res.status(500).json({ message: "Server error", details: error.message });
   }
 };
@@ -53,7 +53,7 @@ export const login = async (req: Request, res: Response) => {
 // REGISTER (public sign-up — always creates a Student with Pending status)
 export const register = async (req: Request, res: Response) => {
   const { username, email, password, full_name, course } = req.body;
-  console.log("📝 Public register attempt:", { username, email, course });
+  console.log(" Public register attempt:", { username, email, course });
 
   try {
     const existing = await findUserByUsername(username);
@@ -66,20 +66,20 @@ export const register = async (req: Request, res: Response) => {
       username,
       email,
       password: hashedPassword,
-      role: "student", // ✅ forced to student
+      role: "student", // forced to student
       full_name,
       course: course || null,
-      status: "Pending", // ✅ pending approval
+      status: "Pending", // pending approval
     });
 
-    console.log("✅ Pending user created with ID:", userId);
+    console.log("Pending user created with ID:", userId);
     res.status(201).json({
       message: "Account created! Please wait for admin approval.",
       userId,
       status: "Pending",
     });
   } catch (error: any) {
-    console.error("❌ Registration error:", error);
+    console.error(" Registration error:", error);
     res.status(500).json({
       message: "Error creating user",
       details: error.message,
