@@ -7,9 +7,11 @@ import {
   ShoppingBag,
   Bell,
   QrCode,
-  X,
+  Check,
+  Truck,
+  Inbox,
 } from "lucide-react";
-import "./Shop.css"; // Reusing the Shop CSS for consistency
+import "./TrackOrders.css"; // ✅ Import the new CSS
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
@@ -61,54 +63,53 @@ const TrackOrders = () => {
     navigate("/login");
   };
 
-  const getBadgeClass = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "status-badge badge-completed";
-      case "Pending":
-        return "status-badge badge-pending";
-      case "Processing":
-        return "status-badge badge-processing";
-      case "Ready for Pickup":
-        return "status-badge badge-ready";
-      default:
-        return "status-badge";
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-PH", {
       year: "numeric",
       month: "short",
       day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 
+  // ✅ Helper function to determine the timeline step
+  const getStep = (status: string) => {
+    switch (status) {
+      case "Pending":
+        return 1;
+      case "Processing":
+        return 2;
+      case "Ready for Pickup":
+        return 3;
+      case "Completed":
+        return 4;
+      default:
+        return 1;
+    }
+  };
+
   return (
-    <div className="shop-container">
+    <div className="track-container">
       <div className="toast-container">
         {toasts.map((t) => (
-          <Toast key={t.id} toast={t} onClose={removeToast} />
+         <Toast key={t.id} toast={t} onClose={removeToast} />
         ))}
       </div>
 
       {/* SIDEBAR */}
-      <div className="shop-sidebar">
-        <div className="shop-sidebar-header">
-          <img src={logo} alt="LCC Logo" className="shop-sidebar-logo" />
+      <div className="track-sidebar">
+        <div className="track-sidebar-header">
+          <img src={logo} alt="LCC Logo" className="track-sidebar-logo" />
           <div>
-            <div className="shop-sidebar-title">LCC Student</div>
-            <div className="shop-sidebar-subtitle">Merchandise System</div>
+            <div className="track-sidebar-title">LCC Student</div>
+            <div className="track-sidebar-subtitle">Merchandise System</div>
           </div>
         </div>
-        <nav className="shop-sidebar-nav">
+        <nav className="track-sidebar-nav">
           <NavLink
             to="/student-dashboard"
             className={({ isActive }) =>
-              isActive ? "shop-nav-item active" : "shop-nav-item"
+              isActive ? "track-nav-item active" : "track-nav-item"
             }
           >
             <LayoutDashboard size={20} /> <span>Dashboard</span>
@@ -116,7 +117,7 @@ const TrackOrders = () => {
           <NavLink
             to="/shop"
             className={({ isActive }) =>
-              isActive ? "shop-nav-item active" : "shop-nav-item"
+              isActive ? "track-nav-item active" : "track-nav-item"
             }
           >
             <ShoppingBag size={20} /> <span>Shop Merchandise</span>
@@ -124,21 +125,21 @@ const TrackOrders = () => {
           <NavLink
             to="/track-orders"
             className={({ isActive }) =>
-              isActive ? "shop-nav-item active" : "shop-nav-item"
+              isActive ? "track-nav-item active" : "track-nav-item"
             }
           >
             <Package size={20} /> <span>Track Orders</span>
           </NavLink>
         </nav>
-        <div className="shop-sidebar-footer" onClick={handleLogout}>
+        <div className="track-sidebar-footer" onClick={handleLogout}>
           <LogOut size={20} /> <span>Logout</span>
         </div>
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="shop-main-content">
-        <div className="shop-header">
-          <h1 className="shop-header-title">Track My Orders</h1>
+      <div className="track-main-content">
+        <div className="track-header">
+          <h1 className="track-header-title">Track My Orders</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <Bell size={20} color="#6b7280" />
             <div
@@ -159,7 +160,7 @@ const TrackOrders = () => {
           </div>
         </div>
 
-        <div className="shop-content">
+        <div className="track-content">
           {loading ? (
             <p>Loading your orders...</p>
           ) : orders.length === 0 ? (
@@ -172,91 +173,114 @@ const TrackOrders = () => {
                 borderRadius: 12,
               }}
             >
+              <Inbox
+                size={48}
+                color="#9ca3af"
+                style={{ margin: "0 auto 10px" }}
+              />
               You haven't placed any orders yet.
             </div>
           ) : (
-            <div
-              style={{
-                background: "white",
-                borderRadius: 12,
-                padding: 20,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                overflowX: "auto",
-              }}
-            >
-              <table className="student-table">
-                <thead>
-                  <tr>
-                    <th>Order ID</th>
-                    <th>Item</th>
-                    <th>Size</th>
-                    <th>Total</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <tr key={order.id}>
-                      <td>#ORD-{String(order.id).padStart(3, "0")}</td>
-                      <td style={{ fontWeight: 600 }}>{order.product_name}</td>
-                      <td>{order.product_size || "—"}</td>
-                      <td>₱{Number(order.total_price).toLocaleString()}</td>
-                      <td>{formatDate(order.order_date)}</td>
-                      <td>
-                        <span className={getBadgeClass(order.status)}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td>
-                        {/* ✅ ONLY show View QR if the order is Pending */}
-                        {order.status === "Pending" ? (
-                          <button
-                            onClick={() => setSelectedQR(order.id)}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "6px 12px",
-                              background: "#ecfdf5",
-                              color: "#00874e",
-                              border: "1px solid #a7f3d0",
-                              borderRadius: 6,
-                              cursor: "pointer",
-                              fontWeight: 600,
-                              fontSize: 12,
-                            }}
-                          >
-                            <QrCode size={14} /> View QR
-                          </button>
-                        ) : (
-                          <span
-                            style={{
-                              fontSize: 12,
-                              color: "#9ca3af",
-                              fontStyle: "italic",
-                            }}
-                          >
-                            Processed
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="order-list">
+              {orders.map((order) => {
+                const currentStep = getStep(order.status);
+
+                return (
+                  <div key={order.id} className="order-card">
+                    {/* Left: Order Info */}
+                    <div className="order-info">
+                      <div className="order-id">
+                        #ORD-{String(order.id).padStart(3, "0")}
+                      </div>
+                      <div className="order-date">
+                        {formatDate(order.order_date)}
+                      </div>
+                      <div className="order-product">{order.product_name}</div>
+                      <div className="order-details">
+                        Size: {order.product_size || "N/A"} • Qty:{" "}
+                        {order.quantity}
+                      </div>
+                    </div>
+
+                    {/* Center: Timeline */}
+                    <div className="order-timeline">
+                      <div
+                        className={`timeline-step ${currentStep >= 1 ? "active" : ""} ${currentStep === 1 ? "current" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Inbox size={12} />
+                        </div>
+                        <span className="timeline-label">Pending</span>
+                      </div>
+                      <div
+                        className={`timeline-line ${currentStep >= 2 ? "active" : ""}`}
+                      />
+
+                      <div
+                        className={`timeline-step ${currentStep >= 2 ? "active" : ""} ${currentStep === 2 ? "current" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Package size={12} />
+                        </div>
+                        <span className="timeline-label">Processing</span>
+                      </div>
+                      <div
+                        className={`timeline-line ${currentStep >= 3 ? "active" : ""}`}
+                      />
+
+                      <div
+                        className={`timeline-step ${currentStep >= 3 ? "active" : ""} ${currentStep === 3 ? "current" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Truck size={12} />
+                        </div>
+                        <span className="timeline-label">Ready</span>
+                      </div>
+                      <div
+                        className={`timeline-line ${currentStep >= 4 ? "active" : ""}`}
+                      />
+
+                      <div
+                        className={`timeline-step ${currentStep >= 4 ? "active" : ""} ${currentStep === 4 ? "current" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Check size={12} />
+                        </div>
+                        <span className="timeline-label">Completed</span>
+                      </div>
+                    </div>
+
+                    {/* Right: Action & Price */}
+                    <div className="order-action">
+                      <div className="order-total">
+                        ₱{Number(order.total_price).toLocaleString()}
+                      </div>
+
+                      {order.status === "Pending" ? (
+                        <button
+                          className="qr-btn"
+                          onClick={() => setSelectedQR(order.id)}
+                        >
+                          <QrCode size={16} /> View QR
+                        </button>
+                      ) : (
+                        <span className="processed-text">Scanned</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {/* ✅ QR CODE MODAL (Reusable) */}
+      {/* ✅ QR CODE MODAL */}
       {selectedQR !== null && (
         <div className="modal-overlay" onClick={() => setSelectedQR(null)}>
           <div
             className="cart-modal"
-            style={{ maxWidth: "400px", textAlign: "center" }}
+            style={{ textAlign: "center" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
