@@ -29,6 +29,9 @@ const Shop = () => {
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  // ✅ NEW: State to hold the Order IDs after checkout for the QR modal
+  const [qrOrders, setQrOrders] = useState<number[]>([]);
+
   // Toasts & Confirm
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -70,7 +73,7 @@ const Shop = () => {
     fetchData();
   }, [token, navigate]);
 
-  // ✅ STRICT Filter by course
+  // Filter by course
   useEffect(() => {
     if (selectedCourse === "All") {
       setFilteredProducts(products);
@@ -171,6 +174,12 @@ const Shop = () => {
             );
             setCart([]);
             setIsCartOpen(false);
+
+            // ✅ THIS IS THE CRUCIAL FIX:
+            // Set the QR order IDs so the modal opens!
+            if (data.orderIds && data.orderIds.length > 0) {
+              setQrOrders(data.orderIds);
+            }
 
             // Refresh products to reflect new stock
             const updatedRes = await fetch(
@@ -275,7 +284,6 @@ const Shop = () => {
         <div className="shop-header">
           <h1 className="shop-header-title">Shop Merchandise</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            {/* ✅ CART BUTTON */}
             <button className="cart-btn" onClick={() => setIsCartOpen(true)}>
               <ShoppingCart size={18} /> Cart
               {cart.length > 0 && (
@@ -284,7 +292,6 @@ const Shop = () => {
                 </span>
               )}
             </button>
-
             <Bell size={20} color="#6b7280" />
             <div
               style={{
@@ -305,7 +312,6 @@ const Shop = () => {
         </div>
 
         <div className="shop-content">
-          {/* Filter Tabs */}
           <div className="shop-filters">
             {COURSES.map((course) => (
               <button
@@ -318,7 +324,6 @@ const Shop = () => {
             ))}
           </div>
 
-          {/* Product Grid */}
           {loading ? (
             <p>Loading products...</p>
           ) : filteredProducts.length === 0 ? (
@@ -334,17 +339,14 @@ const Shop = () => {
                   <div className="product-size">
                     Size: {product.size || "N/A"}
                   </div>
-
                   <div
                     className={`product-stock ${product.stock_quantity < 10 ? "low" : ""}`}
                   >
                     {product.stock_quantity} in stock
                   </div>
-
                   <div className="product-price">
                     ₱{Number(product.price).toLocaleString()}
                   </div>
-
                   <button
                     className="order-btn"
                     onClick={() => addToCart(product)}
@@ -444,6 +446,74 @@ const Shop = () => {
                 Checkout {cart.length} Item(s)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NEW: QR CODE MODAL */}
+      {qrOrders.length > 0 && (
+        <div className="modal-overlay" onClick={() => setQrOrders([])}>
+          <div
+            className="cart-modal"
+            style={{ maxWidth: "400px", textAlign: "center" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="cart-modal-title" style={{ marginBottom: "10px" }}>
+              Scan to Process Order
+            </h2>
+            <p
+              style={{
+                color: "#6b7280",
+                fontSize: "13px",
+                marginBottom: "20px",
+              }}
+            >
+              Please present this QR code to the merchandise staff to claim your
+              items.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "15px",
+                alignItems: "center",
+              }}
+            >
+              {qrOrders.map((id) => (
+                <div
+                  key={id}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    padding: "10px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontWeight: "bold",
+                      marginBottom: "10px",
+                      color: "#00874e",
+                    }}
+                  >
+                    Order #ORD-{String(id).padStart(3, "0")}
+                  </p>
+                  <img
+                    src={`http://localhost:8000/generate-qr?order_id=${id}`}
+                    alt={`QR for Order ${id}`}
+                    style={{ width: "150px", height: "150px" }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <button
+              className="checkout-submit-btn"
+              style={{ marginTop: "20px" }}
+              onClick={() => setQrOrders([])}
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

@@ -1,0 +1,38 @@
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+import qrcode
+import io
+
+app = Flask(__name__)
+CORS(app)
+
+
+@app.route("/generate-qr", methods=["GET"])
+def generate_qr():
+    order_id = request.args.get("order_id")
+    if not order_id:
+        return jsonify({"error": "Order ID is required"}), 400
+
+    # Generate the QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    # The data encoded in the QR is just the Order ID
+    qr.add_data(f"LCC-ORDER-{order_id}")
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Save to memory buffer
+    buf = io.BytesIO()
+    img.save(buf)
+    buf.seek(0)
+
+    return send_file(buf, mimetype="image/png")
+
+
+if __name__ == "__main__":
+    app.run(port=8000, debug=True)
