@@ -6,6 +6,11 @@ import {
   LogOut,
   ShoppingBag,
   Bell,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  X,
 } from "lucide-react";
 import "./Shop.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -19,6 +24,10 @@ const Shop = () => {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>("All");
   const [loading, setLoading] = useState(true);
+
+  // ✅ CART STATE
+  const [cart, setCart] = useState<any[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   // Toasts & Confirm
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -45,13 +54,10 @@ const Shop = () => {
       navigate("/login");
       return;
     }
-
     const fetchData = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/products");
         const data = await res.json();
-
-        // Filter out items with 0 stock
         const available = data.filter((p: any) => p.stock_quantity > 0);
         setProducts(available);
         setFilteredProducts(available);
@@ -69,48 +75,109 @@ const Shop = () => {
     if (selectedCourse === "All") {
       setFilteredProducts(products);
     } else {
-      // Only show products that match the selected course exactly
       setFilteredProducts(products.filter((p) => p.course === selectedCourse));
     }
   }, [selectedCourse, products]);
 
-  const handlePlaceOrder = (product: any) => {
+  // ✅ CART FUNCTIONS
+  const addToCart = (product: any) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        if (existing.cartQuantity >= product.stock_quantity) {
+          showToast(
+            "warning",
+            "Stock Limit Reached",
+            `Only ${product.stock_quantity} available.`,
+          );
+          return prev;
+        }
+        return prev.map((item) =>
+          item.id === product.id
+            ? { ...item, cartQuantity: item.cartQuantity + 1 }
+            : item,
+        );
+      }
+      return [...prev, { ...product, cartQuantity: 1 }];
+    });
+    showToast("success", "Added to Cart", `${product.name} added.`);
+  };
+
+  const updateCartQty = (id: number, delta: number) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const newQty = item.cartQuantity + delta;
+          if (newQty < 1) return item;
+          if (newQty > item.stock_quantity) {
+            showToast(
+              "warning",
+              "Stock Limit Reached",
+              `Only ${item.stock_quantity} available.`,
+            );
+            return item;
+          }
+          return { ...item, cartQuantity: newQty };
+        }
+        return item;
+      }),
+    );
+  };
+
+  const removeFromCart = (id: number) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const cartTotal = cart.reduce(
+    (sum, item) => sum + item.price * item.cartQuantity,
+    0,
+  );
+
+  const handleCheckout = () => {
+    if (cart.length === 0) return;
+
     setConfirmDialog({
       isOpen: true,
-      title: "Confirm Order",
-      message: `Are you sure you want to order ${product.name} for ₱${product.price}?`,
+      title: "Confirm Checkout",
+      message: `Place order for ${cart.length} item(s) totaling ₱${cartTotal.toLocaleString()}?`,
       confirmLabel: "Place Order",
       variant: "info",
       onConfirm: async () => {
         try {
+          const payload = {
+            items: cart.map((item) => ({
+              product_id: item.id,
+              quantity: item.cartQuantity,
+            })),
+          };
+
           const res = await fetch("http://localhost:5000/api/orders", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ product_id: product.id, quantity: 1 }),
+            body: JSON.stringify(payload),
           });
           const data = await res.json();
 
           if (!res.ok) {
-            showToast("error", "Order Failed", data.message);
+            showToast("error", "Checkout Failed", data.message);
           } else {
             showToast(
               "success",
               "Order Placed!",
-              `Your order #${data.orderId} has been submitted.`,
+              `Successfully ordered ${cart.length} item(s).`,
             );
-            // Refresh local stock display by removing 1
-            setProducts((prev) =>
-              prev
-                .map((p) =>
-                  p.id === product.id
-                    ? { ...p, stock_quantity: p.stock_quantity - 1 }
-                    : p,
-                )
-                .filter((p) => p.stock_quantity > 0),
+            setCart([]);
+            setIsCartOpen(false);
+
+            // Refresh products to reflect new stock
+            const updatedRes = await fetch(
+              "http://localhost:5000/api/products",
             );
+            const updatedData = await updatedRes.json();
+            setProducts(updatedData.filter((p: any) => p.stock_quantity > 0));
           }
         } catch {
           showToast(
@@ -181,8 +248,6 @@ const Shop = () => {
           >
             <LayoutDashboard size={20} /> <span>Dashboard</span>
           </NavLink>
-
-          {/* ✅ Shop is above Track Orders */}
           <NavLink
             to="/shop"
             className={({ isActive }) =>
@@ -191,7 +256,6 @@ const Shop = () => {
           >
             <ShoppingBag size={20} /> <span>Shop Merchandise</span>
           </NavLink>
-
           <NavLink
             to="/track-orders"
             className={({ isActive }) =>
@@ -211,6 +275,16 @@ const Shop = () => {
         <div className="shop-header">
           <h1 className="shop-header-title">Shop Merchandise</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            {/* ✅ CART BUTTON */}
+            <button className="cart-btn" onClick={() => setIsCartOpen(true)}>
+              <ShoppingCart size={18} /> Cart
+              {cart.length > 0 && (
+                <span className="cart-badge">
+                  {cart.reduce((s, i) => s + i.cartQuantity, 0)}
+                </span>
+              )}
+            </button>
+
             <Bell size={20} color="#6b7280" />
             <div
               style={{
@@ -273,9 +347,9 @@ const Shop = () => {
 
                   <button
                     className="order-btn"
-                    onClick={() => handlePlaceOrder(product)}
+                    onClick={() => addToCart(product)}
                   >
-                    Order Now
+                    <Plus size={16} /> Add to Cart
                   </button>
                 </div>
               ))}
@@ -283,6 +357,96 @@ const Shop = () => {
           )}
         </div>
       </div>
+
+      {/* ✅ CART MODAL */}
+      {isCartOpen && (
+        <div className="modal-overlay" onClick={() => setIsCartOpen(false)}>
+          <div className="cart-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cart-modal-header">
+              <h2 className="cart-modal-title">Your Cart</h2>
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+                onClick={() => setIsCartOpen(false)}
+              >
+                <X size={24} color="#6b7280" />
+              </button>
+            </div>
+
+            <div className="cart-items-list">
+              {cart.length === 0 ? (
+                <p
+                  style={{
+                    textAlign: "center",
+                    padding: "40px 0",
+                    color: "#6b7280",
+                  }}
+                >
+                  Your cart is empty.
+                </p>
+              ) : (
+                cart.map((item) => (
+                  <div key={item.id} className="cart-item-row">
+                    <div className="cart-item-info">
+                      <span className="cart-item-name">{item.name}</span>
+                      <span className="cart-item-price">
+                        ₱{Number(item.price).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="cart-item-actions">
+                      <button
+                        className="qty-btn"
+                        onClick={() => updateCartQty(item.id, -1)}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          width: 20,
+                          textAlign: "center",
+                        }}
+                      >
+                        {item.cartQuantity}
+                      </span>
+                      <button
+                        className="qty-btn"
+                        onClick={() => updateCartQty(item.id, 1)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                      <button
+                        className="remove-btn"
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="cart-footer">
+              <div className="cart-total-row">
+                <span>Total:</span>
+                <span>₱{cartTotal.toLocaleString()}</span>
+              </div>
+              <button
+                className="checkout-submit-btn"
+                onClick={handleCheckout}
+                disabled={cart.length === 0}
+                style={{ opacity: cart.length === 0 ? 0.5 : 1 }}
+              >
+                Checkout {cart.length} Item(s)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

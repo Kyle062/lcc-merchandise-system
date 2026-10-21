@@ -2,12 +2,11 @@ import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  ShoppingCart,
   LogOut,
   Package,
   Bell,
   ArrowRight,
-  ShoppingBag, // ✅ Added this
+  ShoppingBag,
 } from "lucide-react";
 import "./StudentDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -132,15 +131,8 @@ const StudentDashboard = () => {
           >
             <LayoutDashboard size={20} /> <span>Dashboard</span>
           </NavLink>
-          <NavLink
-            to="/track-orders"
-            className={({ isActive }) =>
-              isActive ? "student-nav-item active" : "student-nav-item"
-            }
-          >
-            <Package size={20} /> <span>Track Orders</span>
-          </NavLink>
-          {/* ✅ Added Shop Link */}
+
+          {/* ✅ SHOP IS NOW ABOVE TRACK ORDERS */}
           <NavLink
             to="/shop"
             className={({ isActive }) =>
@@ -148,6 +140,15 @@ const StudentDashboard = () => {
             }
           >
             <ShoppingBag size={20} /> <span>Shop Merchandise</span>
+          </NavLink>
+
+          <NavLink
+            to="/track-orders"
+            className={({ isActive }) =>
+              isActive ? "student-nav-item active" : "student-nav-item"
+            }
+          >
+            <Package size={20} /> <span>Track Orders</span>
           </NavLink>
         </nav>
         <div className="student-sidebar-footer" onClick={handleLogout}>
@@ -172,7 +173,6 @@ const StudentDashboard = () => {
               <h2>Welcome back, {studentName}!</h2>
               <p>Track your orders and shop for official LCC merchandise.</p>
             </div>
-            {/* ✅ Fixed route from /products to /shop */}
             <button className="shop-btn" onClick={() => navigate("/shop")}>
               Browse Store <ArrowRight size={16} />
             </button>
