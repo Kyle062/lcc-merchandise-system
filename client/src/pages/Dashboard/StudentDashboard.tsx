@@ -7,6 +7,7 @@ import {
   Package,
   Bell,
   ArrowRight,
+  ShoppingBag, // ✅ Added this
 } from "lucide-react";
 import "./StudentDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -139,6 +140,15 @@ const StudentDashboard = () => {
           >
             <Package size={20} /> <span>Track Orders</span>
           </NavLink>
+          {/* ✅ Added Shop Link */}
+          <NavLink
+            to="/shop"
+            className={({ isActive }) =>
+              isActive ? "student-nav-item active" : "student-nav-item"
+            }
+          >
+            <ShoppingBag size={20} /> <span>Shop Merchandise</span>
+          </NavLink>
         </nav>
         <div className="student-sidebar-footer" onClick={handleLogout}>
           <LogOut size={20} /> <span>Logout</span>
@@ -162,7 +172,8 @@ const StudentDashboard = () => {
               <h2>Welcome back, {studentName}!</h2>
               <p>Track your orders and shop for official LCC merchandise.</p>
             </div>
-            <button className="shop-btn" onClick={() => navigate("/products")}>
+            {/* ✅ Fixed route from /products to /shop */}
+            <button className="shop-btn" onClick={() => navigate("/shop")}>
               Browse Store <ArrowRight size={16} />
             </button>
           </div>
