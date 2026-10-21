@@ -29,7 +29,7 @@ const Shop = () => {
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // ✅ NEW: State to hold the Order IDs after checkout for the QR modal
+  // ✅ State to hold the Group ID after checkout for the QR modal
   const [qrOrders, setQrOrders] = useState<number[]>([]);
 
   // Toasts & Confirm
@@ -175,13 +175,12 @@ const Shop = () => {
             setCart([]);
             setIsCartOpen(false);
 
-            // ✅ THIS IS THE CRUCIAL FIX:
-            // Set the QR order IDs so the modal opens!
-            if (data.orderIds && data.orderIds.length > 0) {
-              setQrOrders(data.orderIds);
+            // ✅ Set the single Group ID for the QR
+            if (data.groupId) {
+              setQrOrders([data.groupId]);
             }
 
-            // Refresh products to reflect new stock
+            // Refresh products
             const updatedRes = await fetch(
               "http://localhost:5000/api/products",
             );
@@ -450,7 +449,7 @@ const Shop = () => {
         </div>
       )}
 
-      {/* ✅ NEW: QR CODE MODAL */}
+      {/* ✅ QR CODE MODAL */}
       {qrOrders.length > 0 && (
         <div className="modal-overlay" onClick={() => setQrOrders([])}>
           <div
@@ -496,11 +495,11 @@ const Shop = () => {
                       color: "#00874e",
                     }}
                   >
-                    Order #ORD-{String(id).padStart(3, "0")}
+                    Group #GRP-{String(id).padStart(3, "0")}
                   </p>
                   <img
                     src={`http://localhost:8000/generate-qr?order_id=${id}`}
-                    alt={`QR for Order ${id}`}
+                    alt={`QR for Group ${id}`}
                     style={{ width: "150px", height: "150px" }}
                   />
                 </div>
