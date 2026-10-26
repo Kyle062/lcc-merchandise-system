@@ -103,7 +103,7 @@
   height: 3px;
   background-color: currentColor;
   opacity: 0.3;
-  animation: toastProgress 4s linear forwards;
+  animation: toastProgress 1s linear forwards;
 }
 
 .toast-success .toast-progress { background-color: #00874e; }

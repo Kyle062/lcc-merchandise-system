@@ -107,7 +107,7 @@ const AdminDashboard = () => {
 
         setLoading(false);
       } catch (error) {
-        console.error("❌ Error fetching dashboard data:", error);
+        console.error(" Error fetching dashboard data:", error);
         setLoading(false);
       }
     };

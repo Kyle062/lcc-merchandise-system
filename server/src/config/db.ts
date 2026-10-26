@@ -14,9 +14,9 @@ const pool = mysql.createPool({
 // Test the connection
 pool.getConnection((err, connection) => {
   if (err) {
-    console.error('❌ Database connection failed:', err.message);
+    console.error(' Database connection failed:', err.message);
   } else {
-    console.log('✅ Connected to MySQL Database (lcc_merchandise)');
+    console.log('Connected to MySQL Database (lcc_merchandise)');
     connection.release();
   }
 });

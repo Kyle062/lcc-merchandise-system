@@ -66,10 +66,10 @@ export const register = async (req: Request, res: Response) => {
       username,
       email,
       password: hashedPassword,
-      role: "student", // forced to student
+      role: "student", 
       full_name,
       course: course || null,
-      status: "Pending", // pending approval
+      status: "Pending",
     });
 
     console.log("Pending user created with ID:", userId);

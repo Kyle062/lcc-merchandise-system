@@ -20,20 +20,20 @@ import ConfirmDialog from "../../components/Toast/ConfirmDialog";
 
 const TrackOrders = () => {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<any[]>([]);
+  //  Changed to hold grouped orders
+  const [groupedOrders, setGroupedOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedQR, setSelectedQR] = useState<number | null>(null);
 
-  // ✅ Filtering state
+  //  QR state now holds the Group ID
+  const [selectedQR, setSelectedQR] = useState<number | null>(null);
   const [filter, setFilter] = useState("All");
 
-  // ✅ Confirm dialog state for deletion
   const [confirmDelete, setConfirmDelete] = useState<{
     isOpen: boolean;
-    orderId: number | null;
+    groupId: number | null;
   }>({
     isOpen: false,
-    orderId: null,
+    groupId: null,
   });
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -52,7 +52,30 @@ const TrackOrders = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (Array.isArray(data)) setOrders(data);
+
+      //  Group the orders by group_id
+      if (Array.isArray(data)) {
+        const grouped = data.reduce((acc: any, item: any) => {
+          const gid = item.group_id;
+          if (!acc[gid]) {
+            acc[gid] = {
+              group_id: gid,
+              status: item.status,
+              order_date: item.order_date,
+              total_price: 0,
+              items: [],
+            };
+          }
+          acc[gid].total_price += Number(item.total_price);
+          acc[gid].items.push({
+            name: item.product_name,
+            size: item.product_size,
+            qty: item.quantity,
+          });
+          return acc;
+        }, {});
+        setGroupedOrders(Object.values(grouped));
+      }
       setLoading(false);
     } catch (error) {
       console.error(error);
@@ -97,17 +120,12 @@ const TrackOrders = () => {
     }
   };
 
-  // ✅ Delete Order Logic
-  const handleDeleteClick = (id: number) => {
-    setConfirmDelete({ isOpen: true, orderId: id });
-  };
-
   const confirmDeleteOrder = async () => {
-    if (!confirmDelete.orderId) return;
+    if (!confirmDelete.groupId) return;
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/orders/my-orders/${confirmDelete.orderId}`,
+        `http://localhost:5000/api/orders/my-orders/${confirmDelete.groupId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -121,18 +139,17 @@ const TrackOrders = () => {
           "Order Cancelled",
           "Your pending order has been removed.",
         );
-        fetchOrders(); // Refresh list
+        fetchOrders();
       } else {
         showToast("error", "Delete Failed", data.message);
       }
     } catch {
       showToast("error", "Connection Error", "Could not reach server.");
     }
-    setConfirmDelete({ isOpen: false, orderId: null });
+    setConfirmDelete({ isOpen: false, groupId: null });
   };
 
-  // ✅ Filter the orders based on the selected tab
-  const filteredOrders = orders.filter((o) => {
+  const filteredOrders = groupedOrders.filter((o) => {
     if (filter === "All") return true;
     return o.status === filter;
   });
@@ -160,7 +177,7 @@ const TrackOrders = () => {
         confirmLabel="Cancel Order"
         variant="danger"
         onConfirm={confirmDeleteOrder}
-        onCancel={() => setConfirmDelete({ isOpen: false, orderId: null })}
+        onCancel={() => setConfirmDelete({ isOpen: false, groupId: null })}
       />
 
       {/* SIDEBAR */}
@@ -228,7 +245,6 @@ const TrackOrders = () => {
         </div>
 
         <div className="track-content">
-          {/* ✅ Filter Tabs */}
           <div className="track-filters">
             {FILTERS.map((f) => (
               <button
@@ -262,27 +278,44 @@ const TrackOrders = () => {
             </div>
           ) : (
             <div className="order-list">
-              {filteredOrders.map((order) => {
-                const currentStep = getStep(order.status);
+              {/* Render grouped orders */}
+              {filteredOrders.map((group) => {
+                const currentStep = getStep(group.status);
 
                 return (
-                  <div key={order.id} className="order-card">
-                    {/* Left: Order Info */}
+                  <div key={group.group_id} className="order-card">
                     <div className="order-info">
                       <div className="order-id">
-                        #ORD-{String(order.id).padStart(3, "0")}
+                        #GRP-{String(group.group_id).padStart(3, "0")}
                       </div>
                       <div className="order-date">
-                        {formatDate(order.order_date)}
+                        {formatDate(group.order_date)}
                       </div>
-                      <div className="order-product">{order.product_name}</div>
-                      <div className="order-details">
-                        Size: {order.product_size || "N/A"} • Qty:{" "}
-                        {order.quantity}
+
+                      {/* List all items inside this group */}
+                      <div
+                        style={{
+                          marginTop: 10,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                        }}
+                      >
+                        {group.items.map((item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="order-product"
+                            style={{ fontSize: 14 }}
+                          >
+                            {item.qty}x {item.name}{" "}
+                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                              ({item.size})
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Center: Timeline */}
                     <div className="order-timeline">
                       <div
                         className={`timeline-step ${currentStep >= 1 ? "active" : ""} ${currentStep === 1 ? "current" : ""}`}
@@ -330,13 +363,12 @@ const TrackOrders = () => {
                       </div>
                     </div>
 
-                    {/* Right: Action & Price */}
                     <div className="order-action">
                       <div className="order-total">
-                        ₱{Number(order.total_price).toLocaleString()}
+                        ₱{group.total_price.toLocaleString()}
                       </div>
 
-                      {order.status === "Pending" ? (
+                      {group.status === "Pending" ? (
                         <div
                           style={{
                             display: "flex",
@@ -347,14 +379,18 @@ const TrackOrders = () => {
                         >
                           <button
                             className="qr-btn"
-                            onClick={() => setSelectedQR(order.id)}
+                            onClick={() => setSelectedQR(group.group_id)}
                           >
                             <QrCode size={16} /> View QR
                           </button>
-                          {/* ✅ DELETE BUTTON */}
                           <button
                             className="delete-btn"
-                            onClick={() => handleDeleteClick(order.id)}
+                            onClick={() =>
+                              setConfirmDelete({
+                                isOpen: true,
+                                groupId: group.group_id,
+                              })
+                            }
                           >
                             <Trash2 size={14} /> Cancel Order
                           </button>
@@ -410,11 +446,11 @@ const TrackOrders = () => {
                   color: "#00874e",
                 }}
               >
-                Order #ORD-{String(selectedQR).padStart(3, "0")}
+                Group #GRP-{String(selectedQR).padStart(3, "0")}
               </p>
               <img
-                src={`http://localhost:8000/generate-qr?order_id=${selectedQR}`}
-                alt={`QR for Order ${selectedQR}`}
+                src={`http://localhost:5000/generate-qr?order_id=${selectedQR}`}
+                alt={`QR for Group ${selectedQR}`}
                 style={{ width: "200px", height: "200px" }}
               />
             </div>

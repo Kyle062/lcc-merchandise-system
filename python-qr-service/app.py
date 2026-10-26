@@ -13,14 +13,13 @@ def generate_qr():
     if not order_id:
         return jsonify({"error": "Order ID is required"}), 400
 
-    # Generate the QR code
     qr = qrcode.QRCode(
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        error_correction=1,
         box_size=10,
         border=4,
     )
-    # The data encoded in the QR is just the Order ID
+    
     qr.add_data(f"LCC-ORDER-{order_id}")
     qr.make(fit=True)
 
