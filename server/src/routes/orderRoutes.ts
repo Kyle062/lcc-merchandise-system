@@ -1,4 +1,4 @@
-import express from 'express';
+import express from "express";
 import {
   getAllOrders,
   getOrderById,
@@ -6,17 +6,39 @@ import {
   placeOrder,
   updateOrderStatus,
   deleteOrder,
-} from '../controllers/orderController';
-import { protect, authorize } from '../middleware/authMiddleware';
-import { deleteMyPendingOrder } from '../controllers/orderController';
+  deleteMyPendingOrder,
+  scanOrderQR, 
+} from "../controllers/orderController";
+import { protect, authorize } from "../middleware/authMiddleware";
+
 const router = express.Router();
 
-router.get('/', protect, authorize(['admin', 'staff']), getAllOrders);
-router.get('/my-orders', protect, getMyOrders);
-router.get('/:id', protect, getOrderById);
-router.post('/', protect, authorize(['student']), placeOrder);
-router.put('/:id/status', protect, authorize(['admin', 'staff']), updateOrderStatus);
-router.delete('/:id', protect, authorize(['admin']), deleteOrder);
-router.delete('/my-orders/:id', protect, authorize(['student']), deleteMyPendingOrder);
+// Admin & Staff routes
+router.get("/", protect, authorize(["admin", "staff"]), getAllOrders);
+router.get("/my-orders", protect, authorize(["student"]), getMyOrders);
+router.get("/:id", protect, authorize(["admin", "staff"]), getOrderById);
+
+// Student routes
+router.post("/", protect, authorize(["student"]), placeOrder);
+
+// ✅ THIS IS THE CRITICAL MISSING ROUTE
+router.post("/scan-qr", protect, authorize(["admin", "staff"]), scanOrderQR);
+
+// Update status
+router.put(
+  "/:id/status",
+  protect,
+  authorize(["admin", "staff"]),
+  updateOrderStatus,
+);
+
+// Delete routes
+router.delete(
+  "/my-orders/:id",
+  protect,
+  authorize(["student"]),
+  deleteMyPendingOrder,
+);
+router.delete("/:id", protect, authorize(["admin"]), deleteOrder);
 
 export default router;

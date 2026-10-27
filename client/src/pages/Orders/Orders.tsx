@@ -1,12 +1,26 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Package, ShoppingCart, Users, Settings, LogOut,
-  Search, Bell, Eye, Printer, X, ChevronUp, ChevronDown, ChevronsUpDown,
-  RefreshCw, Filter
-} from 'lucide-react';
-import './Orders.css';
-import logo from '../../assets/images/LCClogo1.png';
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Users,
+  Settings,
+  LogOut,
+  Search,
+  Bell,
+  Eye,
+  Printer,
+  X,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  RefreshCw,
+  Filter,
+  QrCode,
+} from "lucide-react";
+import "./Orders.css";
+import logo from "../../assets/images/LCClogo1.png";
 
 interface Order {
   id: number;
@@ -24,30 +38,43 @@ interface Order {
   email: string;
 }
 
-type SortKey = 'id' | 'full_name' | 'product_name' | 'total_price' | 'status' | 'order_date';
-type SortOrder = 'asc' | 'desc';
+type SortKey =
+  | "id"
+  | "full_name"
+  | "product_name"
+  | "total_price"
+  | "status"
+  | "order_date";
+type SortOrder = "asc" | "desc";
 type SortRule = { key: SortKey; order: SortOrder };
 
-const STATUS_TABS = ['All', 'Pending', 'Processing', 'Ready for Pickup', 'Completed', 'Cancelled'];
+const STATUS_TABS = [
+  "All",
+  "Pending",
+  "Processing",
+  "Ready for Pickup",
+  "Completed",
+  "Cancelled",
+];
 
 const Orders = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [sortRules, setSortRules] = useState<SortRule[]>([
-    { key: 'order_date', order: 'desc' },
+    { key: "order_date", order: "desc" },
   ]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem("token");
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/orders', {
+      const res = await fetch("http://localhost:5000/api/orders", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -57,20 +84,19 @@ const Orders = () => {
       }
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error("Error fetching orders:", error);
       setLoading(false);
     }
   };
 
   useEffect(() => {
     if (!token) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
     fetchOrders();
   }, [token, navigate]);
 
-  // ✅ Auto-refresh every 30 seconds
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
@@ -79,7 +105,6 @@ const Orders = () => {
     return () => clearInterval(interval);
   }, [autoRefresh, token]);
 
-  // Sorting
   const handleSort = (key: SortKey, isShiftKey: boolean) => {
     setSortRules((prevRules) => {
       const existingIndex = prevRules.findIndex((rule) => rule.key === key);
@@ -89,26 +114,27 @@ const Orders = () => {
           const updated = [...prevRules];
           updated[existingIndex] = {
             key,
-            order: updated[existingIndex].order === 'asc' ? 'desc' : 'asc',
+            order: updated[existingIndex].order === "asc" ? "desc" : "asc",
           };
           return updated;
         } else {
-          return [...prevRules, { key, order: 'asc' }];
+          return [...prevRules, { key, order: "asc" }];
         }
       } else {
         if (existingIndex === 0 && prevRules.length === 1) {
-          return [{ key, order: prevRules[0].order === 'asc' ? 'desc' : 'asc' }];
+          return [
+            { key, order: prevRules[0].order === "asc" ? "desc" : "asc" },
+          ];
         }
-        return [{ key, order: 'asc' }];
+        return [{ key, order: "asc" }];
       }
     });
   };
 
   const clearSort = () => {
-    setSortRules([{ key: 'order_date', order: 'desc' }]);
+    setSortRules([{ key: "order_date", order: "desc" }]);
   };
 
-  // Filter + Sort
   const sortedAndFilteredOrders = useMemo(() => {
     const term = searchTerm.toLowerCase();
 
@@ -120,7 +146,7 @@ const Orders = () => {
         o.product_name?.toLowerCase().includes(term) ||
         o.product_course?.toLowerCase().includes(term);
 
-      const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
+      const matchesStatus = statusFilter === "All" || o.status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -130,13 +156,13 @@ const Orders = () => {
         let aVal: any = a[rule.key];
         let bVal: any = b[rule.key];
 
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
+        if (typeof aVal === "string" && typeof bVal === "string") {
           aVal = aVal.toLowerCase();
           bVal = bVal.toLowerCase();
         }
 
-        if (aVal < bVal) return rule.order === 'asc' ? -1 : 1;
-        if (aVal > bVal) return rule.order === 'asc' ? 1 : -1;
+        if (aVal < bVal) return rule.order === "asc" ? -1 : 1;
+        if (aVal > bVal) return rule.order === "asc" ? 1 : -1;
       }
       return 0;
     });
@@ -144,13 +170,12 @@ const Orders = () => {
     return sorted;
   }, [orders, searchTerm, statusFilter, sortRules]);
 
-  // Status counts
   const statusCounts = useMemo(() => {
     const counts: any = {
       All: orders.length,
       Pending: 0,
       Processing: 0,
-      'Ready for Pickup': 0,
+      "Ready for Pickup": 0,
       Completed: 0,
       Cancelled: 0,
     };
@@ -161,57 +186,73 @@ const Orders = () => {
   }, [orders]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('username');
-    navigate('/login');
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
+    navigate("/login");
   };
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `http://localhost:5000/api/orders/${orderId}/status`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
         },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || 'Failed to update status');
+        alert(data.message || "Failed to update status");
         return;
       }
 
       await fetchOrders();
     } catch (error) {
-      alert('Cannot connect to server.');
+      alert("Cannot connect to server.");
     }
   };
 
   const getStatusClass = (status: string) => {
     switch (status) {
-      case 'Completed': return 'status-completed';
-      case 'Pending': return 'status-pending';
-      case 'Processing': return 'status-processing';
-      case 'Ready for Pickup': return 'status-ready';
-      case 'Cancelled': return 'status-cancelled';
-      default: return '';
+      case "Completed":
+        return "status-completed";
+      case "Pending":
+        return "status-pending";
+      case "Processing":
+        return "status-processing";
+      case "Ready for Pickup":
+        return "status-ready";
+      case "Cancelled":
+        return "status-cancelled";
+      default:
+        return "";
     }
   };
 
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
-    return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   const formatDateTime = (dateString: string) => {
     const d = new Date(dateString);
-    return d.toLocaleString('en-PH', {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
+    return d.toLocaleString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -221,19 +262,20 @@ const Orders = () => {
     const rule = sortRules[ruleIndex];
     return (
       <div className="sort-icon-wrapper">
-        {rule.order === 'asc' ? (
+        {rule.order === "asc" ? (
           <ChevronUp size={14} color="#00874e" />
         ) : (
           <ChevronDown size={14} color="#00874e" />
         )}
-        {sortRules.length > 1 && <span className="sort-priority">{ruleIndex + 1}</span>}
+        {sortRules.length > 1 && (
+          <span className="sort-priority">{ruleIndex + 1}</span>
+        )}
       </div>
     );
   };
 
   return (
     <div className="orders-container">
-      {/* SIDEBAR */}
       <div className="orders-sidebar">
         <div className="orders-sidebar-header">
           <img src={logo} alt="LCC Logo" className="orders-sidebar-logo" />
@@ -243,19 +285,31 @@ const Orders = () => {
           </div>
         </div>
         <nav className="orders-sidebar-nav">
-          <div className="orders-nav-item" onClick={() => navigate('/admin-dashboard')}>
+          <div
+            className="orders-nav-item"
+            onClick={() => navigate("/admin-dashboard")}
+          >
             <LayoutDashboard size={20} /> <span>Dashboard</span>
           </div>
-          <div className="orders-nav-item" onClick={() => navigate('/inventory')}>
+          <div
+            className="orders-nav-item"
+            onClick={() => navigate("/inventory")}
+          >
             <Package size={20} /> <span>Inventory</span>
           </div>
           <div className="orders-nav-item active">
             <ShoppingCart size={20} /> <span>Orders</span>
           </div>
-          <div className="orders-nav-item" onClick={() => navigate('/users')}>
+          <div className="orders-nav-item" onClick={() => navigate("/scanner")}>
+            <QrCode size={20} /> <span>QR Scanner</span>
+          </div>
+          <div className="orders-nav-item" onClick={() => navigate("/users")}>
             <Users size={20} /> <span>Users</span>
           </div>
-          <div className="orders-nav-item" onClick={() => navigate('/settings')}>
+          <div
+            className="orders-nav-item"
+            onClick={() => navigate("/settings")}
+          >
             <Settings size={20} /> <span>Settings</span>
           </div>
         </nav>
@@ -264,13 +318,12 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* MAIN */}
       <div className="orders-main-content">
         <div className="orders-header">
           <div>
             <h1 className="orders-header-title">Order Management</h1>
             <p className="orders-last-updated">
-              Last updated: {lastUpdated.toLocaleTimeString('en-PH')}
+              Last updated: {lastUpdated.toLocaleTimeString("en-PH")}
             </p>
           </div>
           <div className="orders-header-right">
@@ -285,9 +338,9 @@ const Orders = () => {
               />
             </div>
             <button
-              className={`auto-refresh-toggle ${autoRefresh ? 'on' : 'off'}`}
+              className={`auto-refresh-toggle ${autoRefresh ? "on" : "off"}`}
               onClick={() => setAutoRefresh(!autoRefresh)}
-              title={autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+              title={autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
             >
               <RefreshCw size={16} />
             </button>
@@ -296,12 +349,11 @@ const Orders = () => {
         </div>
 
         <div className="orders-content">
-          {/* STATUS TABS */}
           <div className="status-tabs">
             {STATUS_TABS.map((s) => (
               <button
                 key={s}
-                className={`status-tab ${statusFilter === s ? 'active' : ''} ${getStatusClass(s)}`}
+                className={`status-tab ${statusFilter === s ? "active" : ""} ${getStatusClass(s)}`}
                 onClick={() => setStatusFilter(s)}
               >
                 {s}
@@ -310,21 +362,22 @@ const Orders = () => {
             ))}
           </div>
 
-          {/* SORT INFO */}
           <div className="orders-sort-info">
             <span>
-              <Filter size={14} style={{ display: 'inline', marginRight: 6 }} />
+              <Filter size={14} style={{ display: "inline", marginRight: 6 }} />
               Showing <strong>{sortedAndFilteredOrders.length}</strong> order(s)
               {sortRules.length > 1 && (
                 <>
-                  {' — Multi-sort: '}
+                  {" — Multi-sort: "}
                   {sortRules.map((r, i) => (
                     <span key={r.key}>
-                      {i > 0 && ' → '}
+                      {i > 0 && " → "}
                       <strong>{r.key}</strong> ({r.order})
                     </span>
                   ))}
-                  <button className="clear-sort-btn" onClick={clearSort}>Clear</button>
+                  <button className="clear-sort-btn" onClick={clearSort}>
+                    Clear
+                  </button>
                 </>
               )}
             </span>
@@ -343,24 +396,54 @@ const Orders = () => {
               <table className="orders-table">
                 <thead>
                   <tr>
-                    <th className="sortable" onClick={(e) => handleSort('id', e.shiftKey)}>
-                      <div className="th-content">Order ID <SortIcon column="id" /></div>
+                    <th
+                      className="sortable"
+                      onClick={(e) => handleSort("id", e.shiftKey)}
+                    >
+                      <div className="th-content">
+                        Order ID <SortIcon column="id" />
+                      </div>
                     </th>
-                    <th className="sortable" onClick={(e) => handleSort('full_name', e.shiftKey)}>
-                      <div className="th-content">Student <SortIcon column="full_name" /></div>
+                    <th
+                      className="sortable"
+                      onClick={(e) => handleSort("full_name", e.shiftKey)}
+                    >
+                      <div className="th-content">
+                        Student <SortIcon column="full_name" />
+                      </div>
                     </th>
-                    <th className="sortable" onClick={(e) => handleSort('product_name', e.shiftKey)}>
-                      <div className="th-content">Product <SortIcon column="product_name" /></div>
+                    <th
+                      className="sortable"
+                      onClick={(e) => handleSort("product_name", e.shiftKey)}
+                    >
+                      <div className="th-content">
+                        Product <SortIcon column="product_name" />
+                      </div>
                     </th>
                     <th>Qty</th>
-                    <th className="sortable" onClick={(e) => handleSort('total_price', e.shiftKey)}>
-                      <div className="th-content">Total <SortIcon column="total_price" /></div>
+                    <th
+                      className="sortable"
+                      onClick={(e) => handleSort("total_price", e.shiftKey)}
+                    >
+                      <div className="th-content">
+                        Total <SortIcon column="total_price" />
+                      </div>
                     </th>
-                    <th className="sortable" onClick={(e) => handleSort('status', e.shiftKey)}>
-                      <div className="th-content">Status <SortIcon column="status" /></div>
+                    <th
+                      className="sortable"
+                      onClick={(e) => handleSort("status", e.shiftKey)}
+                    >
+                      <div className="th-content">
+                        Status <SortIcon column="status" />
+                      </div>
                     </th>
-                    <th className="sortable" onClick={(e) => handleSort('order_date', e.shiftKey)}>
-                      <div className="th-content">Date <SortIcon column="order_date" /></div>
+                    <th
+                      className="sortable"
+                      onClick={(e) => handleSort("order_date", e.shiftKey)}
+                    >
+                      <div className="th-content">
+                        Date <SortIcon column="order_date" />
+                      </div>
                     </th>
                     <th>Actions</th>
                   </tr>
@@ -368,25 +451,35 @@ const Orders = () => {
                 <tbody>
                   {sortedAndFilteredOrders.map((order) => (
                     <tr key={order.id}>
-                      <td>#ORD-{String(order.id).padStart(3, '0')}</td>
+                      <td>#ORD-{String(order.id).padStart(3, "0")}</td>
                       <td>
                         <div className="student-cell">
-                          <span className="student-name">{order.full_name || order.username}</span>
-                          <span className="student-course">{order.product_course}</span>
+                          <span className="student-name">
+                            {order.full_name || order.username}
+                          </span>
+                          <span className="student-course">
+                            {order.product_course}
+                          </span>
                         </div>
                       </td>
                       <td>{order.product_name}</td>
                       <td>{order.quantity}</td>
-                      <td style={{ fontWeight: 600 }}>₱{Number(order.total_price).toLocaleString()}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        ₱{Number(order.total_price).toLocaleString()}
+                      </td>
                       <td>
                         <select
                           className={`status-select ${getStatusClass(order.status)}`}
                           value={order.status}
-                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                          onChange={(e) =>
+                            handleStatusChange(order.id, e.target.value)
+                          }
                         >
                           <option value="Pending">Pending</option>
                           <option value="Processing">Processing</option>
-                          <option value="Ready for Pickup">Ready for Pickup</option>
+                          <option value="Ready for Pickup">
+                            Ready for Pickup
+                          </option>
                           <option value="Completed">Completed</option>
                           <option value="Cancelled">Cancelled</option>
                         </select>
@@ -396,7 +489,6 @@ const Orders = () => {
                         <button
                           className="action-btn view"
                           onClick={() => setSelectedOrder(order)}
-                          title="View Receipt"
                         >
                           <Eye size={16} />
                         </button>
@@ -410,11 +502,13 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* RECEIPT MODAL */}
       {selectedOrder && (
         <div className="modal-overlay" onClick={() => setSelectedOrder(null)}>
           <div className="receipt-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedOrder(null)}>
+            <button
+              className="modal-close"
+              onClick={() => setSelectedOrder(null)}
+            >
               <X size={20} />
             </button>
 
@@ -433,7 +527,9 @@ const Orders = () => {
               <div className="receipt-info">
                 <div className="receipt-info-row">
                   <span>Order ID:</span>
-                  <strong>#ORD-{String(selectedOrder.id).padStart(3, '0')}</strong>
+                  <strong>
+                    #ORD-{String(selectedOrder.id).padStart(3, "0")}
+                  </strong>
                 </div>
                 <div className="receipt-info-row">
                   <span>Date:</span>
@@ -441,7 +537,9 @@ const Orders = () => {
                 </div>
                 <div className="receipt-info-row">
                   <span>Student:</span>
-                  <strong>{selectedOrder.full_name || selectedOrder.username}</strong>
+                  <strong>
+                    {selectedOrder.full_name || selectedOrder.username}
+                  </strong>
                 </div>
                 <div className="receipt-info-row">
                   <span>Course:</span>
@@ -465,28 +563,38 @@ const Orders = () => {
                     <td>{selectedOrder.product_size}</td>
                     <td>{selectedOrder.quantity}</td>
                     <td>
-                      ₱{(selectedOrder.total_price / selectedOrder.quantity).toLocaleString()}
+                      ₱
+                      {(
+                        selectedOrder.total_price / selectedOrder.quantity
+                      ).toLocaleString()}
                     </td>
-                    <td>₱{Number(selectedOrder.total_price).toLocaleString()}</td>
+                    <td>
+                      ₱{Number(selectedOrder.total_price).toLocaleString()}
+                    </td>
                   </tr>
                 </tbody>
               </table>
 
               <div className="receipt-total">
                 <span>TOTAL</span>
-                <span>₱{Number(selectedOrder.total_price).toLocaleString()}</span>
+                <span>
+                  ₱{Number(selectedOrder.total_price).toLocaleString()}
+                </span>
               </div>
 
               <div className="receipt-status-row">
                 <span>Status:</span>
-                <span className={`status-badge ${getStatusClass(selectedOrder.status)}`}>
+                <span
+                  className={`status-badge ${getStatusClass(selectedOrder.status)}`}
+                >
                   {selectedOrder.status}
                 </span>
               </div>
 
               <div className="receipt-footer">
                 <p className="receipt-note">
-                  ⚠️ <strong>NOT AN OFFICIAL RECEIPT.</strong> Payment must be made at the LCC Cashier.
+                  ⚠️ <strong>NOT AN OFFICIAL RECEIPT.</strong> Payment must be
+                  made at the LCC Cashier.
                 </p>
                 <p>Thank you for your order!</p>
               </div>
@@ -496,7 +604,10 @@ const Orders = () => {
               <button className="btn-print" onClick={() => window.print()}>
                 <Printer size={16} /> Print Receipt
               </button>
-              <button className="btn-close" onClick={() => setSelectedOrder(null)}>
+              <button
+                className="btn-close"
+                onClick={() => setSelectedOrder(null)}
+              >
                 Close
               </button>
             </div>

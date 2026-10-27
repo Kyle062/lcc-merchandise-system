@@ -17,6 +17,7 @@ import {
   UserX,
   ChevronDown,
   ChevronUp,
+  QrCode,
 } from "lucide-react";
 import "./Users.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -71,7 +72,6 @@ const Users = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [showRejected, setShowRejected] = useState(false);
 
-  // ✅ Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
     const id = Date.now();
@@ -81,7 +81,6 @@ const Users = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // ✅ Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -182,7 +181,6 @@ const Users = () => {
     navigate("/login");
   };
 
-  // ✅ APPROVE — professional
   const handleApprove = (user: User) => {
     setConfirmDialog({
       isOpen: true,
@@ -194,7 +192,10 @@ const Users = () => {
         try {
           const res = await fetch(
             `http://localhost:5000/api/users/${user.id}/approve`,
-            { method: "PUT", headers: { Authorization: `Bearer ${token}` } },
+            {
+              method: "PUT",
+              headers: { Authorization: `Bearer ${token}` },
+            },
           );
           if (res.ok) {
             showToast(
@@ -219,7 +220,6 @@ const Users = () => {
     setRejectReason("");
   };
 
-  // ✅ REJECT — professional
   const handleRejectConfirm = async () => {
     if (!showRejectModal) return;
     try {
@@ -250,7 +250,6 @@ const Users = () => {
     }
   };
 
-  // ✅ DELETE — professional
   const handleDelete = (user: User) => {
     setConfirmDialog({
       isOpen: true,
@@ -397,14 +396,12 @@ const Users = () => {
 
   return (
     <div className="users-container">
-      {/* TOASTS */}
       <div className="toast-container">
         {toasts.map((t) => (
           <Toast key={t.id} toast={t} onClose={removeToast} />
         ))}
       </div>
 
-      {/* CONFIRM DIALOG */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
@@ -417,7 +414,6 @@ const Users = () => {
         }
       />
 
-      {/* SIDEBAR */}
       <div className="users-sidebar">
         <div className="users-sidebar-header">
           <img src={logo} alt="LCC Logo" className="users-sidebar-logo" />
@@ -442,6 +438,9 @@ const Users = () => {
           <div className="users-nav-item" onClick={() => navigate("/orders")}>
             <ShoppingCart size={20} /> <span>Orders</span>
           </div>
+          <div className="users-nav-item" onClick={() => navigate("/scanner")}>
+            <QrCode size={20} /> <span>QR Scanner</span>
+          </div>
           <div className="users-nav-item active">
             <UsersIcon size={20} /> <span>Users</span>
           </div>
@@ -454,7 +453,6 @@ const Users = () => {
         </div>
       </div>
 
-      {/* MAIN */}
       <div className="users-main-content">
         <div className="users-header">
           <div>
@@ -486,7 +484,6 @@ const Users = () => {
         </div>
 
         <div className="users-content">
-          {/* PENDING APPROVALS */}
           {pendingUsers.length > 0 && (
             <div className="pending-section">
               <div className="pending-banner">
@@ -551,7 +548,6 @@ const Users = () => {
             </div>
           )}
 
-          {/* ACTIVE USERS */}
           <div className="section-title-row">
             <h2>Active Users ({filteredActiveUsers.length})</h2>
             <div className="role-filter">
@@ -664,7 +660,6 @@ const Users = () => {
             </div>
           )}
 
-          {/* REJECTED USERS */}
           {rejectedUsers.length > 0 && (
             <div className="rejected-section">
               <button
@@ -739,7 +734,6 @@ const Users = () => {
         </div>
       </div>
 
-      {/* ADD USER MODAL */}
       {showAddModal && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -857,7 +851,6 @@ const Users = () => {
         </div>
       )}
 
-      {/* REJECT MODAL */}
       {showRejectModal && (
         <div className="modal-overlay" onClick={() => setShowRejectModal(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

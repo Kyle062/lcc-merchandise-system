@@ -25,11 +25,11 @@ const Shop = () => {
   const [selectedCourse, setSelectedCourse] = useState<string>("All");
   const [loading, setLoading] = useState(true);
 
-  // ✅ CART STATE
+  // CART STATE
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // ✅ State to hold the Group ID after checkout for the QR modal
+  // State to hold the Group ID after checkout for the QR modal
   const [qrOrders, setQrOrders] = useState<number[]>([]);
 
   // Toasts & Confirm
@@ -52,6 +52,7 @@ const Shop = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
+  // ✅ Fixed URL here
   useEffect(() => {
     if (!token) {
       navigate("/login");
@@ -59,7 +60,7 @@ const Shop = () => {
     }
     const fetchData = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/products");
+        const res = await fetch("http://192.168.254.111:5000/api/products");
         const data = await res.json();
         const available = data.filter((p: any) => p.stock_quantity > 0);
         setProducts(available);
@@ -82,7 +83,7 @@ const Shop = () => {
     }
   }, [selectedCourse, products]);
 
-  // ✅ CART FUNCTIONS
+  // CART FUNCTIONS
   const addToCart = (product: any) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
@@ -154,7 +155,8 @@ const Shop = () => {
             })),
           };
 
-          const res = await fetch("http://localhost:5000/api/orders", {
+          // ✅ Fixed URL here
+          const res = await fetch("http://192.168.254.111:5000/api/orders", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -175,14 +177,13 @@ const Shop = () => {
             setCart([]);
             setIsCartOpen(false);
 
-            // ✅ Set the single Group ID for the QR
             if (data.groupId) {
               setQrOrders([data.groupId]);
             }
 
-            // Refresh products
+            // ✅ Fixed URL here
             const updatedRes = await fetch(
-              "http://localhost:5000/api/products",
+              "http://192.168.254.111:5000/api/products",
             );
             const updatedData = await updatedRes.json();
             setProducts(updatedData.filter((p: any) => p.stock_quantity > 0));
@@ -359,7 +360,7 @@ const Shop = () => {
         </div>
       </div>
 
-      {/* ✅ CART MODAL */}
+      {/* CART MODAL */}
       {isCartOpen && (
         <div className="modal-overlay" onClick={() => setIsCartOpen(false)}>
           <div className="cart-modal" onClick={(e) => e.stopPropagation()}>
@@ -449,7 +450,7 @@ const Shop = () => {
         </div>
       )}
 
-      {/* ✅ QR CODE MODAL */}
+      {/* QR CODE MODAL */}
       {qrOrders.length > 0 && (
         <div className="modal-overlay" onClick={() => setQrOrders([])}>
           <div
@@ -497,8 +498,9 @@ const Shop = () => {
                   >
                     Group #GRP-{String(id).padStart(3, "0")}
                   </p>
+                  {/* ✅ Fixed URL here for Python server */}
                   <img
-                    src={`http://localhost:8000/generate-qr?order_id=${id}`}
+                    src={`http://192.168.254.111:8000/generate-qr?order_id=${id}`}
                     alt={`QR for Group ${id}`}
                     style={{ width: "150px", height: "150px" }}
                   />

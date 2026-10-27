@@ -18,6 +18,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  QrCode,
 } from "lucide-react";
 import "./Inventory.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -38,17 +39,17 @@ type SortOrder = "asc" | "desc";
 type SortRule = { key: SortKey; order: SortOrder };
 
 const COURSES = [
-  'All',
-  'BSBA-FM',
-  'BSBA-MM',
-  'BSBA-HRM',
-  'BSC',
-  'BEED',
-  'BSED-ENG',
-  'BSED-SS',
-  'BSED-VE',
-  'BSIT',
-  'BSTM',
+  "All",
+  "BSBA-FM",
+  "BSBA-MM",
+  "BSBA-HRM",
+  "BSC",
+  "BEED",
+  "BSED-ENG",
+  "BSED-SS",
+  "BSED-VE",
+  "BSIT",
+  "BSTM",
 ];
 
 const Inventory = () => {
@@ -61,7 +62,6 @@ const Inventory = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // ✅ Multi-column sort rules (array of sort rules)
   const [sortRules, setSortRules] = useState<SortRule[]>([
     { key: "id", order: "asc" },
   ]);
@@ -97,16 +97,12 @@ const Inventory = () => {
     fetchProducts();
   }, [token, navigate]);
 
-  // ✅ Handle sorting with SHIFT for multi-column
   const handleSort = (key: SortKey, isShiftKey: boolean) => {
     setSortRules((prevRules) => {
-      // Check if this key is already in the sort rules
       const existingIndex = prevRules.findIndex((rule) => rule.key === key);
 
       if (isShiftKey) {
-        // SHIFT + Click → add/update as secondary sort
         if (existingIndex !== -1) {
-          // Toggle existing rule
           const updated = [...prevRules];
           updated[existingIndex] = {
             key,
@@ -114,13 +110,10 @@ const Inventory = () => {
           };
           return updated;
         } else {
-          // Add new rule
           return [...prevRules, { key, order: "asc" }];
         }
       } else {
-        // Normal click → replace all with just this column
         if (existingIndex === 0 && prevRules.length === 1) {
-          // Same column, toggle order
           return [
             { key, order: prevRules[0].order === "asc" ? "desc" : "asc" },
           ];
@@ -130,16 +123,13 @@ const Inventory = () => {
     });
   };
 
-  // ✅ Clear sort
   const clearSort = () => {
     setSortRules([{ key: "id", order: "asc" }]);
   };
 
-  // ✅ Multi-column sort + filter (memoized)
   const sortedAndFilteredProducts = useMemo(() => {
     const term = searchTerm.toLowerCase();
 
-    // 1. Filter by search + course
     const filtered = products.filter((p) => {
       const matchesSearch =
         p.name.toLowerCase().includes(term) ||
@@ -152,13 +142,11 @@ const Inventory = () => {
       return matchesSearch && matchesCourse;
     });
 
-    // 2. Multi-column sort
     const sorted = [...filtered].sort((a, b) => {
       for (const rule of sortRules) {
         let aVal: any = a[rule.key];
         let bVal: any = b[rule.key];
 
-        // Case-insensitive string comparison
         if (typeof aVal === "string" && typeof bVal === "string") {
           aVal = aVal.toLowerCase();
           bVal = bVal.toLowerCase();
@@ -166,7 +154,6 @@ const Inventory = () => {
 
         if (aVal < bVal) return rule.order === "asc" ? -1 : 1;
         if (aVal > bVal) return rule.order === "asc" ? 1 : -1;
-        // equal → continue to next sort rule
       }
       return 0;
     });
@@ -278,16 +265,12 @@ const Inventory = () => {
     return { label: `In Stock (${qty})`, class: "stock-good" };
   };
 
-  // ✅ Sort icon showing sort priority number
   const SortIcon = ({ column }: { column: SortKey }) => {
     const ruleIndex = sortRules.findIndex((r) => r.key === column);
-
     if (ruleIndex === -1) {
       return <ChevronsUpDown size={14} color="#9ca3af" />;
     }
-
     const rule = sortRules[ruleIndex];
-
     return (
       <div className="sort-icon-wrapper">
         {rule.order === "asc" ? (
@@ -304,7 +287,6 @@ const Inventory = () => {
 
   return (
     <div className="inventory-container">
-      {/* SIDEBAR */}
       <div className="inventory-sidebar">
         <div className="inventory-sidebar-header">
           <img src={logo} alt="LCC Logo" className="inventory-sidebar-logo" />
@@ -331,6 +313,12 @@ const Inventory = () => {
           </div>
           <div
             className="inventory-nav-item"
+            onClick={() => navigate("/scanner")}
+          >
+            <QrCode size={20} /> <span>QR Scanner</span>
+          </div>
+          <div
+            className="inventory-nav-item"
             onClick={() => navigate("/users")}
           >
             <Users size={20} /> <span>Users</span>
@@ -347,7 +335,6 @@ const Inventory = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="inventory-main-content">
         <div className="inventory-header">
           <h1 className="inventory-header-title">Inventory Management</h1>
@@ -400,7 +387,6 @@ const Inventory = () => {
             </button>
           </div>
 
-          {/* ✅ Course Filter Tabs */}
           <div className="course-filter-tabs">
             <span className="filter-label">Filter by Course:</span>
             {COURSES.map((c) => (
@@ -506,7 +492,6 @@ const Inventory = () => {
                             <button
                               className="action-btn edit"
                               onClick={() => openEditModal(product)}
-                              title="Edit"
                             >
                               <Edit2 size={16} />
                             </button>
@@ -515,7 +500,6 @@ const Inventory = () => {
                               onClick={() =>
                                 handleDelete(product.id, product.name)
                               }
-                              title="Delete"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -531,7 +515,6 @@ const Inventory = () => {
         </div>
       </div>
 
-      {/* MODAL */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -561,7 +544,6 @@ const Inventory = () => {
                   required
                 />
               </div>
-
               <div className="modal-group">
                 <label>Course *</label>
                 <select
@@ -578,7 +560,6 @@ const Inventory = () => {
                   ))}
                 </select>
               </div>
-
               <div className="modal-group">
                 <label>Description</label>
                 <input
@@ -589,7 +570,6 @@ const Inventory = () => {
                   }
                 />
               </div>
-
               <div className="modal-row">
                 <div className="modal-group">
                   <label>Price (₱) *</label>
@@ -614,7 +594,6 @@ const Inventory = () => {
                   />
                 </div>
               </div>
-
               <div className="modal-group">
                 <label>Stock Quantity *</label>
                 <input
@@ -626,7 +605,6 @@ const Inventory = () => {
                   required
                 />
               </div>
-
               <div className="modal-actions">
                 <button
                   type="button"
