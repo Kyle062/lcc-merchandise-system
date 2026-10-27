@@ -9,6 +9,7 @@ import Orders from "./pages/Orders/Orders";
 import Scanner from "./pages/Orders/Scanner";
 import Users from "./pages/Users/Users";
 import Settings from "./pages/Settings/Settings";
+import Analytics from './pages/Analytics/Analytics';
 
 // Student Pages
 import StudentDashboard from "./pages/Dashboard/StudentDashboard";
@@ -31,7 +32,9 @@ function App() {
       <Route path="/orders" element={<Orders />} />
       <Route path="/scanner" element={<Scanner />} />
       <Route path="/users" element={<Users />} />
+      <Route path="/analytics" element={<Analytics />} />
       <Route path="/settings" element={<Settings />} />
+      
 
       {/* Student Routes */}
       <Route path="/student-dashboard" element={<StudentDashboard />} />

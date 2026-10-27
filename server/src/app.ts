@@ -8,7 +8,7 @@ import dashboardRoutes from './routes/dashboardRoutes';
 import userRoutes from './routes/userRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import studentRoutes from './routes/studentRoutes';
-
+import analyticsRoutes from './routes/analyticsRoutes';
 const app = express();
 
 app.use(cors());
@@ -25,7 +25,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/student', studentRoutes); 
-
+app.use('/api/analytics', analyticsRoutes);
 console.log('✅ app.ts loaded — all routes registered');
 
 export default app;
