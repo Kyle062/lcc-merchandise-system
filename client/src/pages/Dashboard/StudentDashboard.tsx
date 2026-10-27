@@ -13,8 +13,6 @@ import logo from "../../assets/images/LCClogo1.png";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
-
-  // --- STATE ---
   const [stats, setStats] = useState({
     totalOrders: 0,
     activeOrders: 0,
@@ -23,11 +21,8 @@ const StudentDashboard = () => {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Get student's name from localStorage (saved during login)
   const studentName = localStorage.getItem("username") || "Student";
 
-  // --- FETCH DATA ---
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -36,12 +31,13 @@ const StudentDashboard = () => {
     }
 
     const headers = { Authorization: `Bearer ${token}` };
-
     const fetchData = async () => {
       try {
         const [statsRes, ordersRes] = await Promise.all([
-          fetch("http://localhost:5000/api/student/stats", { headers }),
-          fetch("http://localhost:5000/api/student/recent-orders", { headers }),
+          fetch("http://192.168.254.111:5000/api/student/stats", { headers }),
+          fetch("http://192.168.254.111:5000/api/student/recent-orders", {
+            headers,
+          }),
         ]);
 
         const statsData = await statsRes.json();
@@ -61,14 +57,11 @@ const StudentDashboard = () => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("username");
+    localStorage.clear();
     navigate("/login");
   };
 
@@ -106,14 +99,13 @@ const StudentDashboard = () => {
           height: "100vh",
         }}
       >
-        <h2>Loading your dashboard...</h2>
+        <h2>Loading...</h2>
       </div>
     );
   }
 
   return (
     <div className="student-dashboard-container">
-      {/* SIDEBAR */}
       <div className="student-sidebar">
         <div className="student-sidebar-header">
           <img src={logo} alt="LCC Logo" className="student-sidebar-logo" />
@@ -131,8 +123,6 @@ const StudentDashboard = () => {
           >
             <LayoutDashboard size={20} /> <span>Dashboard</span>
           </NavLink>
-
-          {/* ✅ SHOP IS NOW ABOVE TRACK ORDERS */}
           <NavLink
             to="/shop"
             className={({ isActive }) =>
@@ -141,7 +131,6 @@ const StudentDashboard = () => {
           >
             <ShoppingBag size={20} /> <span>Shop Merchandise</span>
           </NavLink>
-
           <NavLink
             to="/track-orders"
             className={({ isActive }) =>
@@ -156,7 +145,6 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="student-main-content">
         <div className="student-header">
           <h1 className="student-header-title">My Dashboard</h1>
@@ -167,18 +155,16 @@ const StudentDashboard = () => {
         </div>
 
         <div className="student-dashboard-content">
-          {/* Welcome Banner */}
           <div className="student-welcome-banner">
             <div>
-              <h2>Welcome back, {studentName}!</h2>
-              <p>Track your orders and shop for official LCC merchandise.</p>
+              <h2>Welcome, {studentName}!</h2>
+              <p>Track your orders and shop for LCC merchandise.</p>
             </div>
             <button className="shop-btn" onClick={() => navigate("/shop")}>
               Browse Store <ArrowRight size={16} />
             </button>
           </div>
 
-          {/* Stats Cards */}
           <div className="student-stats-grid">
             <div className="student-stat-card">
               <p className="student-stat-label">Total Orders</p>
@@ -204,7 +190,6 @@ const StudentDashboard = () => {
             </div>
           </div>
 
-          {/* Recent Orders Table */}
           <div className="student-table-card">
             <div className="student-table-header">
               <h3 className="student-table-title">My Recent Orders</h3>

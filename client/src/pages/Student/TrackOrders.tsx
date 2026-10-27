@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Package, LogOut, ShoppingBag, Bell, QrCode, Check, Truck, Inbox, Trash2,
+  LayoutDashboard,
+  Package,
+  LogOut,
+  ShoppingBag,
+  Bell,
+  QrCode,
+  Check,
+  Truck,
+  Inbox,
+  Trash2,
 } from "lucide-react";
 import "./TrackOrders.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -34,12 +43,14 @@ const TrackOrders = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
-  // ✅ Fixed URL here
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://192.168.254.111:5000/api/orders/my-orders", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        "http://192.168.254.111:5000/api/orders/my-orders",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const data = await res.json();
 
       if (Array.isArray(data)) {
@@ -87,24 +98,29 @@ const TrackOrders = () => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-PH", {
-      year: "numeric", month: "short", day: "numeric",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
   const getStep = (status: string) => {
     switch (status) {
-      case "Pending": return 1;
-      case "Processing": return 2;
-      case "Ready for Pickup": return 3;
-      case "Completed": return 4;
-      default: return 1;
+      case "Pending":
+        return 1;
+      case "Processing":
+        return 2;
+      case "Ready for Pickup":
+        return 3;
+      case "Completed":
+        return 4;
+      default:
+        return 1;
     }
   };
 
-  // ✅ Fixed URL here
   const confirmDeleteOrder = async () => {
     if (!confirmDelete.groupId) return;
-
     try {
       const res = await fetch(
         `http://192.168.254.111:5000/api/orders/my-orders/${confirmDelete.groupId}`,
@@ -114,9 +130,12 @@ const TrackOrders = () => {
         },
       );
       const data = await res.json();
-
       if (res.ok) {
-        showToast("success", "Order Cancelled", "Your pending order has been removed.");
+        showToast(
+          "success",
+          "Order Cancelled",
+          "Your pending order has been removed.",
+        );
         fetchOrders();
       } else {
         showToast("error", "Delete Failed", data.message);
@@ -127,12 +146,16 @@ const TrackOrders = () => {
     setConfirmDelete({ isOpen: false, groupId: null });
   };
 
-  const filteredOrders = groupedOrders.filter((o) => {
-    if (filter === "All") return true;
-    return o.status === filter;
-  });
-
-  const FILTERS = ["All", "Pending", "Processing", "Ready for Pickup", "Completed"];
+  const filteredOrders = groupedOrders.filter(
+    (o) => filter === "All" || o.status === filter,
+  );
+  const FILTERS = [
+    "All",
+    "Pending",
+    "Processing",
+    "Ready for Pickup",
+    "Completed",
+  ];
 
   return (
     <div className="track-container">
@@ -152,7 +175,6 @@ const TrackOrders = () => {
         onCancel={() => setConfirmDelete({ isOpen: false, groupId: null })}
       />
 
-      {/* SIDEBAR */}
       <div className="track-sidebar">
         <div className="track-sidebar-header">
           <img src={logo} alt="LCC Logo" className="track-sidebar-logo" />
@@ -162,13 +184,28 @@ const TrackOrders = () => {
           </div>
         </div>
         <nav className="track-sidebar-nav">
-          <NavLink to="/student-dashboard" className={({ isActive }) => isActive ? "track-nav-item active" : "track-nav-item"}>
+          <NavLink
+            to="/student-dashboard"
+            className={({ isActive }) =>
+              isActive ? "track-nav-item active" : "track-nav-item"
+            }
+          >
             <LayoutDashboard size={20} /> <span>Dashboard</span>
           </NavLink>
-          <NavLink to="/shop" className={({ isActive }) => isActive ? "track-nav-item active" : "track-nav-item"}>
+          <NavLink
+            to="/shop"
+            className={({ isActive }) =>
+              isActive ? "track-nav-item active" : "track-nav-item"
+            }
+          >
             <ShoppingBag size={20} /> <span>Shop Merchandise</span>
           </NavLink>
-          <NavLink to="/track-orders" className={({ isActive }) => isActive ? "track-nav-item active" : "track-nav-item"}>
+          <NavLink
+            to="/track-orders"
+            className={({ isActive }) =>
+              isActive ? "track-nav-item active" : "track-nav-item"
+            }
+          >
             <Package size={20} /> <span>Track Orders</span>
           </NavLink>
         </nav>
@@ -177,13 +214,12 @@ const TrackOrders = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="track-main-content">
         <div className="track-header">
-          <h1 className="track-header-title">Track My Orders</h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <h1 className="track-header-title">Track Orders</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
             <Bell size={20} color="#6b7280" />
-            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#00874e", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold" }}>
+            <div className="track-avatar">
               {studentName.charAt(0).toUpperCase()}
             </div>
           </div>
@@ -192,7 +228,11 @@ const TrackOrders = () => {
         <div className="track-content">
           <div className="track-filters">
             {FILTERS.map((f) => (
-              <button key={f} className={`track-filter-btn ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
+              <button
+                key={f}
+                className={`track-filter-btn ${filter === f ? "active" : ""}`}
+                onClick={() => setFilter(f)}
+              >
                 {f}
               </button>
             ))}
@@ -201,61 +241,110 @@ const TrackOrders = () => {
           {loading ? (
             <p>Loading your orders...</p>
           ) : filteredOrders.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 50, color: "#6b7280", background: "white", borderRadius: 12 }}>
-              <Inbox size={48} color="#9ca3af" style={{ margin: "0 auto 10px" }} />
-              No orders found for "{filter}".
+            <div
+              style={{
+                textAlign: "center",
+                padding: 50,
+                color: "#6b7280",
+                background: "white",
+                borderRadius: 12,
+              }}
+            >
+              <Inbox
+                size={48}
+                color="#9ca3af"
+                style={{ margin: "0 auto 10px" }}
+              />
+              No orders found.
             </div>
           ) : (
             <div className="order-list">
               {filteredOrders.map((group) => {
                 const currentStep = getStep(group.status);
-
                 return (
                   <div key={group.group_id} className="order-card">
                     <div className="order-info">
-                      <div className="order-id">#GRP-{String(group.group_id).padStart(3, "0")}</div>
-                      <div className="order-date">{formatDate(group.order_date)}</div>
-                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div className="order-id">
+                        #GRP-{String(group.group_id).padStart(3, "0")}
+                      </div>
+                      <div className="order-date">
+                        {formatDate(group.order_date)}
+                      </div>
+                      <div className="order-items-list">
                         {group.items.map((item: any, idx: number) => (
-                          <div key={idx} className="order-product" style={{ fontSize: 14 }}>
-                            {item.qty}x {item.name} <span style={{ color: "#6b7280", fontSize: 12 }}>({item.size})</span>
+                          <div key={idx} className="order-product">
+                            {item.qty}x {item.name} <span>({item.size})</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
                     <div className="order-timeline">
-                      <div className={`timeline-step ${currentStep >= 1 ? "active" : ""} ${currentStep === 1 ? "current" : ""}`}>
-                        <div className="timeline-dot"><Inbox size={12} /></div>
+                      <div
+                        className={`timeline-step ${currentStep >= 1 ? "active" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Inbox size={12} />
+                        </div>
                         <span className="timeline-label">Pending</span>
                       </div>
-                      <div className={`timeline-line ${currentStep >= 2 ? "active" : ""}`} />
-                      <div className={`timeline-step ${currentStep >= 2 ? "active" : ""} ${currentStep === 2 ? "current" : ""}`}>
-                        <div className="timeline-dot"><Package size={12} /></div>
+                      <div
+                        className={`timeline-line ${currentStep >= 2 ? "active" : ""}`}
+                      />
+                      <div
+                        className={`timeline-step ${currentStep >= 2 ? "active" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Package size={12} />
+                        </div>
                         <span className="timeline-label">Processing</span>
                       </div>
-                      <div className={`timeline-line ${currentStep >= 3 ? "active" : ""}`} />
-                      <div className={`timeline-step ${currentStep >= 3 ? "active" : ""} ${currentStep === 3 ? "current" : ""}`}>
-                        <div className="timeline-dot"><Truck size={12} /></div>
+                      <div
+                        className={`timeline-line ${currentStep >= 3 ? "active" : ""}`}
+                      />
+                      <div
+                        className={`timeline-step ${currentStep >= 3 ? "active" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Truck size={12} />
+                        </div>
                         <span className="timeline-label">Ready</span>
                       </div>
-                      <div className={`timeline-line ${currentStep >= 4 ? "active" : ""}`} />
-                      <div className={`timeline-step ${currentStep >= 4 ? "active" : ""} ${currentStep === 4 ? "current" : ""}`}>
-                        <div className="timeline-dot"><Check size={12} /></div>
-                        <span className="timeline-label">Completed</span>
+                      <div
+                        className={`timeline-line ${currentStep >= 4 ? "active" : ""}`}
+                      />
+                      <div
+                        className={`timeline-step ${currentStep >= 4 ? "active" : ""}`}
+                      >
+                        <div className="timeline-dot">
+                          <Check size={12} />
+                        </div>
+                        <span className="timeline-label">Done</span>
                       </div>
                     </div>
 
                     <div className="order-action">
-                      <div className="order-total">₱{group.total_price.toLocaleString()}</div>
-
+                      <div className="order-total">
+                        ₱{group.total_price.toLocaleString()}
+                      </div>
                       {group.status === "Pending" ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
-                          <button className="qr-btn" onClick={() => setSelectedQR(group.group_id)}>
+                        <div className="order-buttons">
+                          <button
+                            className="qr-btn"
+                            onClick={() => setSelectedQR(group.group_id)}
+                          >
                             <QrCode size={16} /> View QR
                           </button>
-                          <button className="delete-btn" onClick={() => setConfirmDelete({ isOpen: true, groupId: group.group_id })}>
-                            <Trash2 size={14} /> Cancel Order
+                          <button
+                            className="delete-btn"
+                            onClick={() =>
+                              setConfirmDelete({
+                                isOpen: true,
+                                groupId: group.group_id,
+                              })
+                            }
+                          >
+                            <Trash2 size={14} /> Cancel
                           </button>
                         </div>
                       ) : (
@@ -270,31 +359,56 @@ const TrackOrders = () => {
         </div>
       </div>
 
-      {/* QR CODE MODAL */}
       {selectedQR !== null && (
         <div className="modal-overlay" onClick={() => setSelectedQR(null)}>
-          <div className="cart-modal" style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-            <div className="cart-modal-header" style={{ justifyContent: "center" }}>
+          <div
+            className="cart-modal"
+            style={{ textAlign: "center" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="cart-modal-header"
+              style={{ justifyContent: "center" }}
+            >
               <h2 className="cart-modal-title">Your QR Code</h2>
             </div>
-            <p style={{ color: "#6b7280", fontSize: "13px", marginBottom: "20px" }}>
-              Present this to the merchandise staff.
+            <p
+              style={{
+                color: "#6b7280",
+                fontSize: "13px",
+                marginBottom: "20px",
+              }}
+            >
+              Present this to the staff.
             </p>
-
-            <div style={{ border: "1px solid #e5e7eb", padding: "10px", borderRadius: "8px", display: "inline-block" }}>
-              <p style={{ fontWeight: "bold", marginBottom: "10px", color: "#00874e" }}>
+            <div
+              style={{
+                border: "1px solid #e5e7eb",
+                padding: "10px",
+                borderRadius: "8px",
+                display: "inline-block",
+              }}
+            >
+              <p
+                style={{
+                  fontWeight: "bold",
+                  marginBottom: "10px",
+                  color: "#00874e",
+                }}
+              >
                 Group #GRP-{String(selectedQR).padStart(3, "0")}
               </p>
-
-              {/* ✅ Fixed URL here for Python server */}
               <img
                 src={`http://192.168.254.111:8000/generate-qr?order_id=${selectedQR}`}
                 alt={`QR for Group ${selectedQR}`}
-                style={{ width: "200px", height: "200px" }}
+                style={{ width: "180px", height: "180px" }}
               />
             </div>
-
-            <button className="checkout-submit-btn" style={{ marginTop: "20px" }} onClick={() => setSelectedQR(null)}>
+            <button
+              className="checkout-submit-btn"
+              style={{ marginTop: "20px" }}
+              onClick={() => setSelectedQR(null)}
+            >
               Close
             </button>
           </div>

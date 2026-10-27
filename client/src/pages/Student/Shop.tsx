@@ -25,14 +25,10 @@ const Shop = () => {
   const [selectedCourse, setSelectedCourse] = useState<string>("All");
   const [loading, setLoading] = useState(true);
 
-  // CART STATE
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
-  // State to hold the Group ID after checkout for the QR modal
   const [qrOrders, setQrOrders] = useState<number[]>([]);
 
-  // Toasts & Confirm
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
     setToasts((prev) => [...prev, { id: Date.now(), type, title, message }]);
@@ -52,7 +48,6 @@ const Shop = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
-  // ✅ Fixed URL here
   useEffect(() => {
     if (!token) {
       navigate("/login");
@@ -74,7 +69,6 @@ const Shop = () => {
     fetchData();
   }, [token, navigate]);
 
-  // Filter by course
   useEffect(() => {
     if (selectedCourse === "All") {
       setFilteredProducts(products);
@@ -83,7 +77,6 @@ const Shop = () => {
     }
   }, [selectedCourse, products]);
 
-  // CART FUNCTIONS
   const addToCart = (product: any) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
@@ -155,7 +148,6 @@ const Shop = () => {
             })),
           };
 
-          // ✅ Fixed URL here
           const res = await fetch("http://192.168.254.111:5000/api/orders", {
             method: "POST",
             headers: {
@@ -176,12 +168,8 @@ const Shop = () => {
             );
             setCart([]);
             setIsCartOpen(false);
+            if (data.groupId) setQrOrders([data.groupId]);
 
-            if (data.groupId) {
-              setQrOrders([data.groupId]);
-            }
-
-            // ✅ Fixed URL here
             const updatedRes = await fetch(
               "http://192.168.254.111:5000/api/products",
             );
@@ -239,7 +227,6 @@ const Shop = () => {
         }
       />
 
-      {/* SIDEBAR */}
       <div className="shop-sidebar">
         <div className="shop-sidebar-header">
           <img src={logo} alt="LCC Logo" className="shop-sidebar-logo" />
@@ -279,13 +266,12 @@ const Shop = () => {
         </div>
       </div>
 
-      {/* MAIN */}
       <div className="shop-main-content">
         <div className="shop-header">
           <h1 className="shop-header-title">Shop Merchandise</h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
             <button className="cart-btn" onClick={() => setIsCartOpen(true)}>
-              <ShoppingCart size={18} /> Cart
+              <ShoppingCart size={18} /> <span className="cart-text">Cart</span>
               {cart.length > 0 && (
                 <span className="cart-badge">
                   {cart.reduce((s, i) => s + i.cartQuantity, 0)}
@@ -293,19 +279,7 @@ const Shop = () => {
               )}
             </button>
             <Bell size={20} color="#6b7280" />
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: "50%",
-                background: "#00874e",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: "bold",
-              }}
-            >
+            <div className="shop-avatar">
               {studentName.charAt(0).toUpperCase()}
             </div>
           </div>
@@ -319,7 +293,7 @@ const Shop = () => {
                 className={`filter-tab ${selectedCourse === course ? "active" : ""}`}
                 onClick={() => setSelectedCourse(course)}
               >
-                {course === "All" ? "All Products" : course}
+                {course === "All" ? "All" : course}
               </button>
             ))}
           </div>
@@ -360,7 +334,6 @@ const Shop = () => {
         </div>
       </div>
 
-      {/* CART MODAL */}
       {isCartOpen && (
         <div className="modal-overlay" onClick={() => setIsCartOpen(false)}>
           <div className="cart-modal" onClick={(e) => e.stopPropagation()}>
@@ -450,7 +423,6 @@ const Shop = () => {
         </div>
       )}
 
-      {/* QR CODE MODAL */}
       {qrOrders.length > 0 && (
         <div className="modal-overlay" onClick={() => setQrOrders([])}>
           <div
@@ -468,8 +440,7 @@ const Shop = () => {
                 marginBottom: "20px",
               }}
             >
-              Please present this QR code to the merchandise staff to claim your
-              items.
+              Please present this QR code to the merchandise staff.
             </p>
 
             <div
@@ -498,7 +469,6 @@ const Shop = () => {
                   >
                     Group #GRP-{String(id).padStart(3, "0")}
                   </p>
-                  {/* ✅ Fixed URL here for Python server */}
                   <img
                     src={`http://192.168.254.111:8000/generate-qr?order_id=${id}`}
                     alt={`QR for Group ${id}`}
