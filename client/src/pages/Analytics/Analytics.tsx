@@ -12,6 +12,8 @@ import {
   TrendingUp,
   AlertTriangle,
   Bell,
+  Clock,
+  DollarSign,
 } from "lucide-react";
 import {
   BarChart,
@@ -24,7 +26,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import "../Orders/Orders.css";
+import "./Analytics.css";
 import logo from "../../assets/images/LCClogo1.png";
 
 const Analytics = () => {
@@ -62,82 +64,131 @@ const Analytics = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: 50, textAlign: "center" }}>
+      <div style={{ padding: 50, textAlign: "center", fontWeight: "bold" }}>
         Loading Analytics...
       </div>
     );
   }
 
   return (
-    <div className="orders-container">
+    <div className="analytics-container">
       {/* SIDEBAR */}
-      <div className="orders-sidebar">
-        <div className="orders-sidebar-header">
-          <img src={logo} alt="LCC Logo" className="orders-sidebar-logo" />
+      <div className="analytics-sidebar">
+        <div className="analytics-sidebar-header">
+          <img src={logo} alt="LCC Logo" className="analytics-sidebar-logo" />
           <div>
-            <div className="orders-sidebar-title">LCC Admin</div>
-            <div className="orders-sidebar-subtitle">Merchandise System</div>
+            <div className="analytics-sidebar-title">LCC Admin</div>
+            <div className="analytics-sidebar-subtitle">Merchandise System</div>
           </div>
         </div>
-        <nav className="orders-sidebar-nav">
+        <nav className="analytics-sidebar-nav">
           <div
-            className="orders-nav-item"
+            className="analytics-nav-item"
             onClick={() => navigate("/admin-dashboard")}
           >
             <LayoutDashboard size={20} /> <span>Dashboard</span>
           </div>
           <div
-            className="orders-nav-item"
+            className="analytics-nav-item"
             onClick={() => navigate("/inventory")}
           >
             <Package size={20} /> <span>Inventory</span>
           </div>
-          <div className="orders-nav-item" onClick={() => navigate("/orders")}>
+          <div
+            className="analytics-nav-item"
+            onClick={() => navigate("/orders")}
+          >
             <ShoppingCart size={20} /> <span>Orders</span>
           </div>
-          <div className="orders-nav-item" onClick={() => navigate("/scanner")}>
+          <div
+            className="analytics-nav-item"
+            onClick={() => navigate("/scanner")}
+          >
             <QrCode size={20} /> <span>QR Scanner</span>
           </div>
-          <div className="orders-nav-item active">
+          <div className="analytics-nav-item active">
             <BarChart3 size={20} /> <span>Analytics</span>
           </div>
-          <div className="orders-nav-item" onClick={() => navigate("/users")}>
+          <div
+            className="analytics-nav-item"
+            onClick={() => navigate("/users")}
+          >
             <Users size={20} /> <span>Users</span>
           </div>
           <div
-            className="orders-nav-item"
+            className="analytics-nav-item"
             onClick={() => navigate("/settings")}
           >
             <Settings size={20} /> <span>Settings</span>
           </div>
         </nav>
-        <div className="orders-sidebar-footer" onClick={handleLogout}>
+        <div className="analytics-sidebar-footer" onClick={handleLogout}>
           <LogOut size={20} /> <span>Logout</span>
         </div>
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="orders-main-content">
-        <div className="orders-header">
-          <h1 className="orders-header-title">Analytics & Reports</h1>
+      <div className="analytics-main-content">
+        <div className="analytics-header">
+          <h1 className="analytics-header-title">Analytics & Reports</h1>
           <Bell size={20} color="#6b7280" />
         </div>
 
-        <div
-          className="orders-content"
-          style={{ display: "flex", flexDirection: "column", gap: "20px" }}
-        >
-          {/* TOP ROW CHARTS */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "20px",
-            }}
-          >
-            {/* Stock per Faculty */}
-            <div className="admin-chart-card">
-              <h3 className="admin-chart-title">Stock Inventory per Faculty</h3>
+        <div className="analytics-content">
+          {/* KPI CARDS ROW */}
+          <div className="analytics-kpi-grid">
+            <div className="analytics-kpi-card">
+              <div
+                className="kpi-icon-wrap"
+                style={{ backgroundColor: "#ecfdf5", color: "#00874e" }}
+              >
+                <Clock size={24} />
+              </div>
+              <div>
+                <p className="kpi-label">Avg. Fulfillment Time</p>
+                <h3 className="kpi-value">
+                  {data?.avgFulfillmentHours || 0} Hours
+                </h3>
+              </div>
+            </div>
+            <div className="analytics-kpi-card">
+              <div
+                className="kpi-icon-wrap"
+                style={{ backgroundColor: "#eff6ff", color: "#3b82f6" }}
+              >
+                <Package size={24} />
+              </div>
+              <div>
+                <p className="kpi-label">Total Items in Stock</p>
+                <h3 className="kpi-value">
+                  {data?.stockByFaculty
+                    ?.reduce((acc: number, curr: any) => acc + curr.value, 0)
+                    .toLocaleString()}
+                </h3>
+              </div>
+            </div>
+            <div className="analytics-kpi-card">
+              <div
+                className="kpi-icon-wrap"
+                style={{ backgroundColor: "#fef2f2", color: "#dc2626" }}
+              >
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <p className="kpi-label">Low Stock Items</p>
+                <h3 className="kpi-value">
+                  {data?.lowStock?.length || 0} Alerts
+                </h3>
+              </div>
+            </div>
+          </div>
+
+          {/* CHARTS ROW 1 */}
+          <div className="analytics-charts-grid">
+            <div className="analytics-card">
+              <h3 className="analytics-card-title">
+                Stock Inventory per Faculty
+              </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={data?.stockByFaculty || []}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -145,10 +196,17 @@ const Analytics = () => {
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 11 }}
                   />
                   <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: "transparent" }} />
+                  <Tooltip
+                    cursor={{ fill: "#f3f4f6" }}
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "none",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    }}
+                  />
                   <Bar
                     dataKey="value"
                     fill="#00874e"
@@ -159,9 +217,8 @@ const Analytics = () => {
               </ResponsiveContainer>
             </div>
 
-            {/* Order Volume */}
-            <div className="admin-chart-card">
-              <h3 className="admin-chart-title">
+            <div className="analytics-card">
+              <h3 className="analytics-card-title">
                 Daily Order Volume (Last 14 Days)
               </h3>
               <ResponsiveContainer width="100%" height={300}>
@@ -171,47 +228,40 @@ const Analytics = () => {
                     dataKey="day"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 11 }}
                   />
                   <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "none",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="orders"
                     stroke="#00874e"
                     strokeWidth={3}
-                    dot={{ r: 4 }}
-                    name="Orders Placed"
+                    dot={{ r: 4, fill: "#00874e" }}
+                    name="Orders"
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* BOTTOM ROW TABLES */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.5fr 1fr",
-              gap: "20px",
-            }}
-          >
-            {/* Top Sellers */}
-            <div className="admin-table-card">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 20,
-                }}
-              >
+          {/* CHARTS ROW 2 */}
+          <div className="analytics-tables-grid">
+            {/* Top Sellers Table */}
+            <div className="analytics-card">
+              <div className="analytics-card-header">
                 <TrendingUp size={20} color="#00874e" />
-                <h3 className="admin-chart-title" style={{ margin: 0 }}>
+                <h3 className="analytics-card-title">
                   Peek of the Month: Top Sellers
                 </h3>
               </div>
-              <table className="admin-table">
+              <table className="analytics-table">
                 <thead>
                   <tr>
                     <th>Rank</th>
@@ -240,14 +290,7 @@ const Analytics = () => {
                   ))}
                   {data?.topSellers?.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={4}
-                        style={{
-                          textAlign: "center",
-                          padding: 20,
-                          color: "#6b7280",
-                        }}
-                      >
+                      <td colSpan={4} className="analytics-empty">
                         No completed orders yet.
                       </td>
                     </tr>
@@ -256,25 +299,18 @@ const Analytics = () => {
               </table>
             </div>
 
-            {/* Low Stock Alerts */}
-            <div className="admin-table-card">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 20,
-                }}
-              >
+            {/* Low Stock Alerts Table */}
+            <div className="analytics-card">
+              <div className="analytics-card-header">
                 <AlertTriangle size={20} color="#dc2626" />
                 <h3
-                  className="admin-chart-title"
-                  style={{ margin: 0, color: "#dc2626" }}
+                  className="analytics-card-title"
+                  style={{ color: "#dc2626" }}
                 >
                   Low Stock Alerts
                 </h3>
               </div>
-              <table className="admin-table">
+              <table className="analytics-table">
                 <thead>
                   <tr>
                     <th>Product</th>
@@ -287,11 +323,29 @@ const Analytics = () => {
                     <tr key={index}>
                       <td style={{ fontWeight: 600 }}>{item.name}</td>
                       <td>
-                        <span className="course-badge">{item.course}</span>
+                        <span
+                          style={{
+                            backgroundColor: "#f3f4f6",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: 12,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.course}
+                        </span>
                       </td>
                       <td>
                         <span
-                          className={`stock-badge ${item.stock === 0 ? "stock-out" : "stock-low"}`}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 20,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            backgroundColor:
+                              item.stock === 0 ? "#fee2e2" : "#fef3c7",
+                            color: item.stock === 0 ? "#991b1b" : "#92400e",
+                          }}
                         >
                           {item.stock} left
                         </span>
@@ -300,14 +354,7 @@ const Analytics = () => {
                   ))}
                   {data?.lowStock?.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={3}
-                        style={{
-                          textAlign: "center",
-                          padding: 20,
-                          color: "#6b7280",
-                        }}
-                      >
+                      <td colSpan={3} className="analytics-empty">
                         All products are well-stocked.
                       </td>
                     </tr>
@@ -315,6 +362,53 @@ const Analytics = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* ✅ NEW: REVENUE PER FACULTY CHART */}
+          <div className="analytics-card">
+            <div className="analytics-card-header">
+              <DollarSign size={20} color="#00874e" />
+              <h3 className="analytics-card-title">
+                Total Revenue per Faculty (Completed Orders)
+              </h3>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={data?.revenueByFaculty || []}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tickFormatter={(value) => `₱${value.toLocaleString()}`}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  width={100}
+                  tick={{ fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  formatter={(value: any) =>
+                    `₱${Number(value).toLocaleString()}`
+                  }
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: "none",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  }}
+                />
+                <Bar
+                  dataKey="revenue"
+                  fill="#3b82f6"
+                  radius={[0, 4, 4, 0]}
+                  name="Revenue"
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

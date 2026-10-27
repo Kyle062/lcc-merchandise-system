@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -22,7 +23,7 @@ import {
   LogOut,
   Search,
   Bell,
-  QrCode, // ✅ Added QrCode icon
+  QrCode,
 } from "lucide-react";
 import "./AdminDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -217,6 +218,14 @@ const AdminDashboard = () => {
           >
             <Users size={20} /> <span>Users</span>
           </NavLink>
+
+          <div
+            className="admin-nav-item"
+            onClick={() => navigate("/analytics")}
+          >
+            <BarChart3 size={20} /> <span>Analytics</span>
+          </div>
+
           <NavLink
             to="/settings"
             className={({ isActive }) =>

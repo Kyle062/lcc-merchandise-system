@@ -35,6 +35,21 @@ export const getAnalytics = async (req: Request, res: Response) => {
       ORDER BY DATE(order_date) ASC
     `);
 
+    const [fulfillment]: any = await db.query(`
+      SELECT AVG(TIMESTAMPDIFF(HOUR, order_date, NOW())) AS avg_hours 
+      FROM orders WHERE status = 'Completed' OR status = 'Ready for Pickup'
+    `);
+
+    // ✅ NEW: Revenue per Faculty based on completed orders
+    const [revenueByFaculty]: any = await db.query(`
+      SELECT p.course AS name, SUM(o.total_price) AS revenue
+      FROM orders o
+      JOIN products p ON o.product_id = p.id
+      WHERE o.status = 'Completed'
+      GROUP BY p.course
+      ORDER BY revenue DESC
+    `);
+
     res.json({
       stockByFaculty: stockByFaculty.map((r: any) => ({
         name: r.name,
@@ -53,6 +68,13 @@ export const getAnalytics = async (req: Request, res: Response) => {
       dailyOrders: dailyOrders.map((r: any) => ({
         day: r.day,
         orders: Number(r.orders),
+      })),
+      avgFulfillmentHours: fulfillment[0].avg_hours
+        ? Math.round(fulfillment[0].avg_hours)
+        : 0,
+      revenueByFaculty: revenueByFaculty.map((r: any) => ({
+        name: r.name,
+        revenue: Number(r.revenue),
       })),
     });
   } catch (error: any) {
