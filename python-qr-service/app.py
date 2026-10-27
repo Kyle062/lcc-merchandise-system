@@ -31,6 +31,6 @@ def generate_qr():
     return send_file(buf, mimetype="image/png")
 
 
-if __name__ == "__main__":
-    print("Python QR Server is running on port 8000")
-    app.run(port=8000, debug=True)
+if __name__ == '__main__':
+    # ✅ host='0.0.0.0' is required for your phone to reach it
+    app.run(host='0.0.0.0', port=8000, debug=True)
