@@ -16,22 +16,24 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-   const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://192.168.254.111:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: email, password: password }),
-      });
+      const response = await fetch(
+        "http://192.168.254.111:5000/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: email, password: password }),
+        },
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle Pending / Rejected with special styling
         if (response.status === 403) {
           setErrorMessage(data.message || "Your account is not yet active.");
           setIsLoading(false);
@@ -53,14 +55,19 @@ const Login = () => {
       else setErrorMessage("Unknown role. Contact administrator.");
     } catch (error) {
       console.error("Login error:", error);
-      setErrorMessage("Cannot connect to server. Make sure backend is running.");
+      setErrorMessage(
+        "Cannot connect to server. Make sure backend is running.",
+      );
       setIsLoading(false);
     }
   };
 
   return (
     <div className="signup-container">
-      <div className="bg-image" style={{ backgroundImage: `url('${bgImage}')` }} />
+      <div
+        className="bg-image"
+        style={{ backgroundImage: `url('${bgImage}')` }}
+      />
       <div className="bg-overlay" />
 
       <div className="content-wrapper">
@@ -69,13 +76,23 @@ const Login = () => {
             <img src={logo} alt="LCC Logo" className="logo-img" />
             <div className="logo-text">
               <h1 className="lcc-name">LEGACY COLLEGE OF COMPOSTELA</h1>
-              <p className="lcc-name-sub">Merchandise Order Management System</p>
+              <p className="lcc-name-sub">
+                Merchandise Order Management System
+              </p>
             </div>
           </div>
 
           <div className="hero-copy">
-            <p className="hero-tag">For students, staff, and the merchandise office</p>
-            <h2>The campus store,<br />without the<br />tally sheet.</h2>
+            <p className="hero-tag">
+              For students, staff, and the merchandise office
+            </p>
+            <h2>
+              The campus store,
+              <br />
+              without the
+              <br />
+              tally sheet.
+            </h2>
             <p className="hero-desc">
               Live stock counts, order status your students can actually check,
               and receipts that reconcile themselves.
@@ -85,7 +102,11 @@ const Login = () => {
 
         <div className="form-card1">
           <div className="form-header">
-            <h3>Welcome Back to<br />LCC Merchandising</h3>
+            <h3>
+              Welcome Back to
+              <br />
+              LCC Merchandising
+            </h3>
             <p>Log in to access your merchandising account</p>
           </div>
 
@@ -103,7 +124,10 @@ const Login = () => {
                 type="text"
                 className={`form-input ${errorMessage ? "input-error" : ""}`}
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setErrorMessage(""); }}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setErrorMessage("");
+                }}
                 required
               />
             </div>
@@ -115,21 +139,34 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   className={`form-input ${errorMessage ? "input-error" : ""}`}
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrorMessage(""); }}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setErrorMessage("");
+                  }}
                   required
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="password-toggle"
+                >
                   {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                 </button>
               </div>
             </div>
 
             <div className="forgot-password-wrapper">
-              <a href="/forgot-password" className="forgot-password-link">Forgot Password?</a>
+              <a href="/forgot-password" className="forgot-password-link">
+                Forgot Password?
+              </a>
             </div>
 
-            <button type="submit" className="submit-btn" disabled={isLoading}
-              style={{ opacity: isLoading ? 0.7 : 1 }}>
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={isLoading}
+              style={{ opacity: isLoading ? 0.7 : 1 }}
+            >
               {isLoading ? "LOGGING IN..." : "LOG IN"}
             </button>
           </form>

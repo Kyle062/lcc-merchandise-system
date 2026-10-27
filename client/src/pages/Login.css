@@ -368,54 +368,62 @@ body {
   pointer-events: none;
 }
 
-/* --- RESPONSIVE SCALING --- */
-@media (max-width: 1200px) {
-  .hero-left-img {
-    height: 65vh;
-  }
-  .group-right-img {
-    height: 40vh;
-  }
-  .hero-copy h2 {
-    font-size: 2.8rem;
-  }
-}
-
-@media (max-width: 960px) {
+/* --- MOBILE PHONE ONLY (Login) --- */
+@media (max-width: 768px) {
   .signup-container {
-    height: auto;
+    height: 100vh;
     min-height: 100vh;
     overflow-y: auto;
   }
+
   .content-wrapper {
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     padding: 2rem 1.5rem;
     height: auto;
   }
+
   .left-section {
     max-width: 100%;
-    margin-bottom: 2rem;
     text-align: center;
+    margin-bottom: 1.5rem;
+    padding-top: 0;
   }
+
   .logo-container {
     justify-content: center;
     right: 0;
+    margin-bottom: 1rem;
   }
+
+  .lcc-name {
+    font-size: 16px !important;
+    white-space: normal;
+  }
+
+  .logo-img {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
   .hero-copy {
+    top: 0;
     left: 0;
-    text-align: center;
-  }
-  .hero-desc {
     margin: 0 auto;
+    display: none; /* Hides the big text to focus on the form */
   }
-  .form-card {
-    margin-bottom: 10rem;
+
+  .form-card1 {
+    top: 0;
     transform: none;
+    margin-top: 0;
+    padding: 1.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   }
+
   .hero-left-img,
   .group-right-img {
-    opacity: 0.25;
-    height: 50vh;
+    display: none; /* Hides the characters on mobile to save space */
   }
 }
