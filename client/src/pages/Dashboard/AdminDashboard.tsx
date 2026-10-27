@@ -26,7 +26,7 @@ import {
 import "./AdminDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
 
-// ✅ Vibrant, distinct color palette for 11 courses
+// Vibrant, distinct color palette for 11 courses
 const COLORS = [
   "#00874e", // LCC green (All)
   "#3b82f6", // blue (BSIT)
