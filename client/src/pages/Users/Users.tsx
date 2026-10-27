@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import {
   LayoutDashboard,
   Package,
@@ -443,6 +444,12 @@ const Users = () => {
           </div>
           <div className="users-nav-item active">
             <UsersIcon size={20} /> <span>Users</span>
+          </div>
+          <div
+            className="admin-nav-item"
+            onClick={() => navigate("/analytics")}
+          >
+            <BarChart3 size={20} /> <span>Analytics</span>
           </div>
           <div className="users-nav-item" onClick={() => navigate("/settings")}>
             <Settings size={20} /> <span>Settings</span>

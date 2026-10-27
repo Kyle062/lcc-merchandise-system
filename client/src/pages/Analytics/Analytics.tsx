@@ -106,14 +106,15 @@ const Analytics = () => {
           >
             <QrCode size={20} /> <span>QR Scanner</span>
           </div>
-          <div className="analytics-nav-item active">
-            <BarChart3 size={20} /> <span>Analytics</span>
-          </div>
+
           <div
             className="analytics-nav-item"
             onClick={() => navigate("/users")}
           >
             <Users size={20} /> <span>Users</span>
+          </div>
+          <div className="analytics-nav-item active">
+            <BarChart3 size={20} /> <span>Analytics</span>
           </div>
           <div
             className="analytics-nav-item"
