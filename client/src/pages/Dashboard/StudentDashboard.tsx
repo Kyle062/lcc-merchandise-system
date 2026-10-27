@@ -151,6 +151,10 @@ const StudentDashboard = () => {
           <div className="student-header-right">
             <Bell size={20} color="#6b7280" />
             <div className="student-avatar">{studentName.charAt(0)}</div>
+            {/* ✅ LOGOUT BUTTON FOR MOBILE */}
+            <button className="mobile-logout-btn" onClick={handleLogout}>
+              <LogOut size={20} color="#dc2626" />
+            </button>
           </div>
         </div>
 
