@@ -222,6 +222,9 @@ const TrackOrders = () => {
             <div className="track-avatar">
               {studentName.charAt(0).toUpperCase()}
             </div>
+            <button className="mobile-logout-btn" onClick={handleLogout}>
+              <LogOut size={20} color="#dc2626" />
+            </button>
           </div>
         </div>
 

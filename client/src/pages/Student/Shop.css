@@ -341,8 +341,23 @@
   cursor: pointer;
 }
 
+/* Hide mobile logout by default */
+.mobile-logout-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+}
+
 /* --- MOBILE PHONE ONLY --- */
 @media (max-width: 768px) {
+  .mobile-logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .shop-container {
     flex-direction: column;
   }
