@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -9,7 +9,10 @@ import {
   LogOut,
   QrCode,
   CheckCircle,
+  XCircle,
+  RefreshCw,
 } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
@@ -17,9 +20,10 @@ import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 
 const Scanner = () => {
   const navigate = useNavigate();
-  const [orderId, setOrderId] = useState("");
   const [loading, setLoading] = useState(false);
-  const [successData, setSuccessData] = useState<any>(null);
+  const [successData, setSuccessData] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -30,12 +34,30 @@ const Scanner = () => {
 
   const token = localStorage.getItem("token");
 
-  const handleScan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderId) return;
+  // We use a ref to hold the scanner instance so we can stop it later
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isProcessingRef = useRef(false); // Prevents multiple scans at once
+
+  const processScan = async (decodedText: string) => {
+    // 1. Extract the Group ID from the QR text (e.g., "LCC-ORDER-15" -> "15")
+    const groupIdMatch = decodedText.match(/LCC-ORDER-(\d+)/);
+
+    if (!groupIdMatch) {
+      // If the QR code doesn't match our format, ignore it
+      return;
+    }
+
+    const groupId = groupIdMatch[1];
+
+    // Prevent multiple scans while processing
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     setLoading(true);
+    setScanError(null);
     setSuccessData(null);
 
+    // 2. Send to backend
     try {
       const res = await fetch("http://localhost:5000/api/orders/scan-qr", {
         method: "POST",
@@ -43,22 +65,77 @@ const Scanner = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ order_id: orderId }),
+        body: JSON.stringify({ group_id: groupId }),
       });
       const data = await res.json();
 
       if (!res.ok) {
+        setScanError(data.message || "Failed to process order.");
         showToast("error", "Scan Failed", data.message);
       } else {
+        setSuccessData(groupId);
         showToast("success", "Order Scanned!", data.message);
-        setSuccessData(orderId);
-        setOrderId("");
       }
-    } catch {
+    } catch (error) {
+      setScanError("Connection Error. Could not reach server.");
       showToast("error", "Connection Error", "Could not reach server.");
+    } finally {
+      setLoading(false);
+
+      // Cooldown for 2 seconds before allowing the next scan
+      setTimeout(() => {
+        isProcessingRef.current = false;
+        setSuccessData(null);
+        setScanError(null);
+      }, 2000);
     }
-    setLoading(false);
   };
+
+  useEffect(() => {
+    // Initialize the scanner
+    const startScanner = async () => {
+      try {
+        const html5Qrcode = new Html5Qrcode("reader");
+        scannerRef.current = html5Qrcode;
+        setIsScanning(true);
+
+        await html5Qrcode.start(
+          { facingMode: "environment" }, // Prefer back camera
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            // Success callback
+            processScan(decodedText);
+          },
+          (errorMessage) => {
+            // Ignore continuous scanning errors (happens when no QR is in frame)
+          },
+        );
+      } catch (err) {
+        console.error("Failed to start scanner:", err);
+        showToast(
+          "error",
+          "Camera Error",
+          "Could not access the webcam. Is DroidCam running?",
+        );
+        setIsScanning(false);
+      }
+    };
+
+    // Start scanner only when component mounts
+    if (!isScanning) {
+      startScanner();
+    }
+
+    // Cleanup when leaving the page
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(console.error);
+      }
+    };
+  }, []);
 
   return (
     <div className="orders-container">
@@ -93,11 +170,9 @@ const Scanner = () => {
           <div className="orders-nav-item" onClick={() => navigate("/orders")}>
             <ShoppingCart size={20} /> <span>Orders</span>
           </div>
-
           <div className="orders-nav-item active">
             <QrCode size={20} /> <span>QR Scanner</span>
           </div>
-
           <div className="orders-nav-item" onClick={() => navigate("/users")}>
             <Users size={20} /> <span>Users</span>
           </div>
@@ -125,7 +200,7 @@ const Scanner = () => {
           <div>
             <h1 className="orders-header-title">QR Scanner</h1>
             <p className="orders-last-updated">
-              Scan student QR codes to process orders.
+              Position the QR code in front of the camera to scan.
             </p>
           </div>
         </div>
@@ -136,109 +211,147 @@ const Scanner = () => {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            padding: "50px",
+            padding: "40px",
           }}
         >
           <div
             style={{
               background: "white",
-              padding: "40px",
+              padding: "30px",
               borderRadius: "16px",
               boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
               textAlign: "center",
-              maxWidth: "500px",
+              maxWidth: "600px",
               width: "100%",
             }}
           >
-            <QrCode
-              size={64}
-              color="#00874e"
-              style={{ margin: "0 auto 20px" }}
-            />
             <h2
               style={{
-                fontSize: "24px",
+                fontSize: "22px",
                 fontWeight: "bold",
-                marginBottom: "10px",
+                marginBottom: "20px",
+                color: "#1f2937",
               }}
             >
-              Enter Order ID
+              Scan Student QR Code
             </h2>
-            <p style={{ color: "#6b7280", marginBottom: "30px" }}>
-              Simulate a QR scan by entering the Order ID found on the student's
-              QR code.
-            </p>
 
-            <form
-              onSubmit={handleScan}
-              style={{ display: "flex", flexDirection: "column", gap: "15px" }}
+            {/* The Video Feed Container */}
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                minHeight: "300px",
+                background: "#f3f4f6",
+                borderRadius: "12px",
+                overflow: "hidden",
+                border: "2px solid #e5e7eb",
+              }}
             >
-              <input
-                type="number"
-                placeholder="e.g. 42"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                style={{
-                  padding: "15px",
-                  fontSize: "18px",
-                  textAlign: "center",
-                  borderRadius: "8px",
-                  border: "2px solid #e5e7eb",
-                  outline: "none",
-                }}
-                required
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  padding: "15px",
-                  background: "#00874e",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontSize: "16px",
-                  fontWeight: "bold",
-                  cursor: "pointer",
-                  opacity: loading ? 0.7 : 1,
-                }}
-              >
-                {loading ? "Scanning..." : "Scan QR Code"}
-              </button>
-            </form>
+              <div id="reader" style={{ width: "100%" }}></div>
 
-            {successData && (
-              <div
-                style={{
-                  marginTop: "30px",
-                  padding: "20px",
-                  background: "#ecfdf5",
-                  borderRadius: "12px",
-                  border: "1px solid #a7f3d0",
-                }}
-              >
-                <CheckCircle
-                  size={32}
-                  color="#059669"
-                  style={{ margin: "0 auto 10px" }}
-                />
-                <h3
+              {/* Success Overlay */}
+              {successData && (
+                <div
                   style={{
-                    fontSize: "18px",
-                    color: "#065f46",
-                    fontWeight: "bold",
+                    position: "absolute",
+                    inset: 0,
+                    background: "rgba(16, 185, 129, 0.9)",
+                    color: "white",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    zIndex: 10,
                   }}
                 >
-                  Order #{successData} Scanned!
-                </h3>
-                <p style={{ fontSize: "13px", color: "#047857" }}>
-                  Status changed to Processing. Inventory deducted.
-                </p>
-              </div>
-            )}
+                  <CheckCircle size={64} style={{ marginBottom: "16px" }} />
+                  <h3 style={{ fontSize: "24px", fontWeight: "bold" }}>
+                    Order Scanned!
+                  </h3>
+                  <p style={{ fontSize: "16px" }}>
+                    Group #GRP-{successData} is now Processing.
+                  </p>
+                </div>
+              )}
+
+              {/* Error Overlay */}
+              {scanError && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "rgba(239, 68, 68, 0.9)",
+                    color: "white",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    zIndex: 10,
+                  }}
+                >
+                  <XCircle size={64} style={{ marginBottom: "16px" }} />
+                  <h3 style={{ fontSize: "24px", fontWeight: "bold" }}>
+                    Scan Failed
+                  </h3>
+                  <p style={{ fontSize: "16px" }}>{scanError}</p>
+                </div>
+              )}
+
+              {/* Loading Overlay */}
+              {loading && !successData && !scanError && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "rgba(0,0,0,0.6)",
+                    color: "white",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    zIndex: 10,
+                  }}
+                >
+                  <RefreshCw
+                    size={48}
+                    style={{
+                      marginBottom: "16px",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  />
+                  <h3 style={{ fontSize: "18px" }}>Processing Order...</h3>
+                </div>
+              )}
+            </div>
+
+            <p
+              style={{ color: "#6b7280", fontSize: "13px", marginTop: "16px" }}
+            >
+              Point the student's QR code at the camera. The system will
+              automatically process it.
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Simple inline CSS for the spinner animation */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        /* Make the video element responsive */
+        #reader video {
+          width: 100% !important;
+          border-radius: 10px;
+          object-fit: cover;
+        }
+        /* Hide default html5-qrcode UI elements we don't need */
+        #reader__dashboard {
+          display: none !important;
+        }
+      `}</style>
     </div>
   );
 };

@@ -22,23 +22,23 @@ import {
   LogOut,
   Search,
   Bell,
+  QrCode, // ✅ Added QrCode icon
 } from "lucide-react";
 import "./AdminDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
 
-// ✅ Vibrant, distinct color palette for 11 courses
 const COLORS = [
-  "#00874e", // LCC green (All)
-  "#3b82f6", // blue (BSIT)
-  "#f59e0b", // amber (BSBA-FM)
-  "#ef4444", // red (BSBA-MM)
-  "#8b5cf6", // violet (BSBA-HRM)
-  "#06b6d4", // cyan (BSC)
-  "#ec4899", // pink (BEED)
-  "#10b981", // emerald (BSED-ENG)
-  "#f97316", // orange (BSED-SS)
-  "#6366f1", // indigo (BSED-VE)
-  "#84cc16", // lime (BSTM)
+  "#00874e",
+  "#3b82f6",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#10b981",
+  "#f97316",
+  "#6366f1",
+  "#84cc16",
 ];
 
 const AdminDashboard = () => {
@@ -107,7 +107,7 @@ const AdminDashboard = () => {
 
         setLoading(false);
       } catch (error) {
-        console.error(" Error fetching dashboard data:", error);
+        console.error("Error fetching dashboard data:", error);
         setLoading(false);
       }
     };
@@ -198,6 +198,17 @@ const AdminDashboard = () => {
           >
             <ShoppingCart size={20} /> <span>Orders</span>
           </NavLink>
+
+          {/* ✅ ADDED QR SCANNER LINK HERE */}
+          <NavLink
+            to="/scanner"
+            className={({ isActive }) =>
+              isActive ? "admin-nav-item active" : "admin-nav-item"
+            }
+          >
+            <QrCode size={20} /> <span>QR Scanner</span>
+          </NavLink>
+
           <NavLink
             to="/users"
             className={({ isActive }) =>
@@ -267,7 +278,6 @@ const AdminDashboard = () => {
 
           {/* Charts Row */}
           <div className="admin-charts-grid">
-            {/* Monthly Sales */}
             <div className="admin-chart-card">
               <h3 className="admin-chart-title">Monthly Sales & Orders</h3>
               <ResponsiveContainer width="100%" height={380}>
@@ -293,7 +303,6 @@ const AdminDashboard = () => {
               </ResponsiveContainer>
             </div>
 
-            {/* Stock Distribution by Course */}
             <div className="admin-chart-card">
               <h3 className="admin-chart-title">
                 Stock Distribution by Course
