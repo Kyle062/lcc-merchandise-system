@@ -448,8 +448,10 @@ const TrackOrders = () => {
               >
                 Group #GRP-{String(selectedQR).padStart(3, "0")}
               </p>
+
+              {/* ✅ FIXED: Changed port to 8000 (Python) */}
               <img
-                src={`http://localhost:5000/generate-qr?order_id=${selectedQR}`}
+                src={`http://localhost:8000/generate-qr?order_id=${selectedQR}`}
                 alt={`QR for Group ${selectedQR}`}
                 style={{ width: "200px", height: "200px" }}
               />

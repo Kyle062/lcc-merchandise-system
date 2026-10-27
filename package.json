@@ -1,10 +1,14 @@
 {
-  "devDependencies": {
-    "autoprefixer": "^10.5.4",
-    "postcss": "^8.5.27",
-    "tailwindcss": "^4.3.3"
+  "name": "lcc-merchandise-system",
+  "version": "1.0.0",
+  "description": "LCC Merchandise System",
+  "scripts": {
+    "start:client": "cd client && npm run dev",
+    "start:server": "cd server && npm run dev",
+    "start:python": "cd python-qr-service && .\\venv\\Scripts\\activate && python app.py",
+    "dev": "concurrently \"npm:start:client\" \"npm:start:server\" \"npm:start:python\""
   },
-  "dependencies": {
-    "lucide-react": "^1.40.0"
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }
