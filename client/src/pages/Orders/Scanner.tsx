@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
+import "./Scanner.css"; // ✅ Import specific scanner CSS
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
@@ -35,7 +36,10 @@ const Scanner = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
 
+  // ✅ STRICT CAMERA CLEANUP
   useEffect(() => {
+    let isMounted = true;
+
     const startScanner = async () => {
       try {
         const html5Qrcode = new Html5Qrcode("reader");
@@ -44,28 +48,35 @@ const Scanner = () => {
         await html5Qrcode.start(
           { facingMode: "environment" },
           {
-            fps: 30, // ✅ High FPS for instant scanning
-            qrbox: { width: 280, height: 280 }, // ✅ Perfect square for the QR
-            aspectRatio: 1.0, // ✅ Force the camera feed to be a square
+            fps: 30,
+            qrbox: { width: 280, height: 280 },
+            aspectRatio: 1.0,
           },
           (decodedText) => processScan(decodedText),
           () => {},
         );
       } catch (err) {
         console.error("Failed to start scanner:", err);
-        showToast(
-          "error",
-          "Camera Error",
-          "Could not access the laptop webcam.",
-        );
+        if (isMounted) {
+          showToast("error", "Camera Error", "Could not access the webcam.");
+        }
       }
     };
 
     startScanner();
 
+    // ✅ CLEANUP FUNCTION: This runs when you navigate away
     return () => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(console.error);
+      isMounted = false;
+      if (scannerRef.current) {
+        if (scannerRef.current.isScanning) {
+          scannerRef.current
+            .stop()
+            .then(() => {
+              scannerRef.current?.clear();
+            })
+            .catch(console.error);
+        }
       }
     };
   }, []);
@@ -83,14 +94,17 @@ const Scanner = () => {
     setSuccessData(null);
 
     try {
-      const res = await fetch("http://192.168.254.111:5000/api/orders/scan-qr", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        "http://192.168.254.111:5000/api/orders/scan-qr",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ group_id: groupId }),
         },
-        body: JSON.stringify({ group_id: groupId }),
-      });
+      );
 
       const data = await res.json();
 
@@ -105,21 +119,21 @@ const Scanner = () => {
       }
     } catch (error: any) {
       setScanError(`Network Error: ${error.message}`);
-      showToast("error", "Connection Error", "Could not reach Node.js server.");
+      showToast("error", "Connection Error", "Could not reach server.");
     } finally {
       setLoading(false);
-
       setTimeout(() => {
         isProcessingRef.current = false;
         setSuccessData(null);
         setScanError(null);
-      }, 4000); // Shows the success/error overlay for 4 seconds
+      }, 4000);
     }
   };
 
   const refreshCamera = () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       scannerRef.current.stop().then(() => {
+        scannerRef.current?.clear();
         setTimeout(() => {
           scannerRef.current?.start(
             { facingMode: "environment" },
@@ -195,246 +209,61 @@ const Scanner = () => {
           <div>
             <h1 className="orders-header-title">QR Scanner</h1>
             <p className="orders-last-updated">
-              Hold the student's QR code up to your laptop camera.
+              Hold the student's QR code up to your camera.
             </p>
           </div>
         </div>
 
-        <div
-          className="orders-content"
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            padding: "40px",
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: "30px",
-              borderRadius: "16px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-              textAlign: "center",
-              maxWidth: "600px",
-              width: "100%",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: "22px",
-                  fontWeight: "bold",
-                  color: "#1f2937",
-                }}
-              >
-                Scan Student QR Code
-              </h2>
+        <div className="scanner-content-wrapper">
+          <div className="scanner-card">
+            <div className="scanner-card-header">
+              <h2 className="scanner-title">Scan Student QR Code</h2>
               <button
                 onClick={refreshCamera}
+                className="refresh-btn"
                 title="Refresh Camera"
-                style={{
-                  padding: "8px",
-                  background: "#f3f4f6",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                }}
               >
                 <RefreshCw size={18} color="#4b5563" />
               </button>
             </div>
 
-            {/* ✅ SQUARE CAMERA CONTAINER */}
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                aspectRatio: "1 / 1", // Forces a perfect square
-                background: "#000",
-                borderRadius: "16px",
-                overflow: "hidden",
-                border: "4px solid #e5e7eb",
-              }}
-            >
-              <div id="reader" style={{ width: "100%", height: "100%" }}></div>
+            {/* SQUARE CAMERA CONTAINER */}
+            <div className="camera-container">
+              <div id="reader"></div>
 
-              {/* ✅ PROFESSIONAL SCANNER OVERLAY */}
+              {/* SCANNER OVERLAY */}
               {!successData && !scanError && (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    pointerEvents: "none",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    zIndex: 5,
-                  }}
-                >
-                  {/* Dimmed background outside the box */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      boxShadow: "0 0 0 4000px rgba(0, 0, 0, 0.5)", // Darkens everything outside
-                      width: "280px",
-                      height: "280px",
-                      left: "50%",
-                      top: "50%",
-                      transform: "translate(-50%, -50%)",
-                    }}
-                  />
-
-                  {/* Green Square Corners */}
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "280px",
-                      height: "280px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "40px",
-                        height: "40px",
-                        borderTop: "4px solid #10b981",
-                        borderLeft: "4px solid #10b981",
-                        borderRadius: "8px 0 0 0",
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        right: 0,
-                        width: "40px",
-                        height: "40px",
-                        borderTop: "4px solid #10b981",
-                        borderRight: "4px solid #10b981",
-                        borderRadius: "0 8px 0 0",
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        width: "40px",
-                        height: "40px",
-                        borderBottom: "4px solid #10b981",
-                        borderLeft: "4px solid #10b981",
-                        borderRadius: "0 0 0 8px",
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        right: 0,
-                        width: "40px",
-                        height: "40px",
-                        borderBottom: "4px solid #10b981",
-                        borderRight: "4px solid #10b981",
-                        borderRadius: "0 0 8px 0",
-                      }}
-                    />
-
-                    {/* Moving Laser Line */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        width: "100%",
-                        height: "2px",
-                        background: "#10b981",
-                        boxShadow: "0 0 10px #10b981",
-                        animation: "scanline 2s infinite linear",
-                      }}
-                    />
+                <div className="scanner-overlay">
+                  <div className="dimmed-background" />
+                  <div className="scan-box">
+                    <div className="corner top-left" />
+                    <div className="corner top-right" />
+                    <div className="corner bottom-left" />
+                    <div className="corner bottom-right" />
+                    <div className="laser-line" />
                   </div>
                 </div>
               )}
 
-              {/* Overlays for Success / Error / Loading */}
+              {/* OVERLAYS */}
               {successData && (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(16, 185, 129, 0.95)",
-                    color: "white",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    zIndex: 10,
-                  }}
-                >
+                <div className="overlay-success">
                   <CheckCircle size={80} style={{ marginBottom: "20px" }} />
-                  <h3 style={{ fontSize: "28px", fontWeight: "bold" }}>
-                    Order Scanned!
-                  </h3>
-                  <p style={{ fontSize: "18px" }}>
-                    Group #GRP-{successData} is now Processing.
-                  </p>
+                  <h3>Order Scanned!</h3>
+                  <p>Group #GRP-{successData} is now Processing.</p>
                 </div>
               )}
 
               {scanError && (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(239, 68, 68, 0.95)",
-                    color: "white",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    zIndex: 10,
-                    padding: "20px",
-                  }}
-                >
+                <div className="overlay-error">
                   <XCircle size={80} style={{ marginBottom: "20px" }} />
-                  <h3 style={{ fontSize: "28px", fontWeight: "bold" }}>
-                    Scan Failed
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: "16px",
-                      textAlign: "center",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {scanError}
-                  </p>
+                  <h3>Scan Failed</h3>
+                  <p>{scanError}</p>
                 </div>
               )}
 
               {loading && !successData && !scanError && (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(0,0,0,0.7)",
-                    color: "white",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    zIndex: 10,
-                  }}
-                >
+                <div className="overlay-loading">
                   <RefreshCw
                     size={60}
                     style={{
@@ -442,44 +271,17 @@ const Scanner = () => {
                       animation: "spin 1s linear infinite",
                     }}
                   />
-                  <h3 style={{ fontSize: "22px" }}>Processing...</h3>
+                  <h3>Processing...</h3>
                 </div>
               )}
             </div>
 
-            <p
-              style={{ color: "#6b7280", fontSize: "14px", marginTop: "20px" }}
-            >
+            <p className="scanner-help-text">
               Align the QR code inside the green corners.
             </p>
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes scanline {
-          0% { top: 5%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 95%; opacity: 0; }
-        }
-        
-        /* ✅ Force the video to fill the square container without stretching */
-        #reader video {
-          width: 100% !important;
-          height: 100% !important;
-          object-fit: cover !important;
-        }
-        
-        /* Hide default html5-qrcode UI */
-        #reader__dashboard {
-          display: none !important;
-        }
-      `}</style>
     </div>
   );
 };
