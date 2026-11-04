@@ -34,8 +34,8 @@ const StudentDashboard = () => {
     const fetchData = async () => {
       try {
         const [statsRes, ordersRes] = await Promise.all([
-          fetch("http://192.168.254.111:5000/api/student/stats", { headers }),
-          fetch("http://192.168.254.111:5000/api/student/recent-orders", {
+          fetch("http://192.168.100.26:5000/api/student/stats", { headers }),
+          fetch("http://192.168.100.26:5000/api/student/recent-orders", {
             headers,
           }),
         ]);

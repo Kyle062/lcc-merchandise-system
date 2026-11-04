@@ -55,7 +55,7 @@ const Shop = () => {
     }
     const fetchData = async () => {
       try {
-        const res = await fetch("http://192.168.254.111:5000/api/products");
+        const res = await fetch("http://192.168.100.26:5000/api/products");
         const data = await res.json();
         const available = data.filter((p: any) => p.stock_quantity > 0);
         setProducts(available);
@@ -148,7 +148,7 @@ const Shop = () => {
             })),
           };
 
-          const res = await fetch("http://192.168.254.111:5000/api/orders", {
+          const res = await fetch("http://192.168.100.26:5000/api/orders", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -171,7 +171,7 @@ const Shop = () => {
             if (data.groupId) setQrOrders([data.groupId]);
 
             const updatedRes = await fetch(
-              "http://192.168.254.111:5000/api/products",
+              "http://192.168.100.26:5000/api/products",
             );
             const updatedData = await updatedRes.json();
             setProducts(updatedData.filter((p: any) => p.stock_quantity > 0));
@@ -473,7 +473,7 @@ const Shop = () => {
                     Group #GRP-{String(id).padStart(3, "0")}
                   </p>
                   <img
-                    src={`http://192.168.254.111:8000/generate-qr?order_id=${id}`}
+                    src={`http://192.168.100.26:8000/generate-qr?order_id=${id}`}
                     alt={`QR for Group ${id}`}
                     style={{ width: "150px", height: "150px" }}
                   />

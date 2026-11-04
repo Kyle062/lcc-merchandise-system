@@ -46,7 +46,7 @@ const TrackOrders = () => {
   const fetchOrders = async () => {
     try {
       const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/my-orders",
+        "http://192.168.100.26:5000/api/orders/my-orders",
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -123,7 +123,7 @@ const TrackOrders = () => {
     if (!confirmDelete.groupId) return;
     try {
       const res = await fetch(
-        `http://192.168.254.111:5000/api/orders/my-orders/${confirmDelete.groupId}`,
+        `http://192.168.100.26:5000/api/orders/my-orders/${confirmDelete.groupId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -402,7 +402,7 @@ const TrackOrders = () => {
                 Group #GRP-{String(selectedQR).padStart(3, "0")}
               </p>
               <img
-                src={`http://192.168.254.111:8000/generate-qr?order_id=${selectedQR}`}
+                src={`http://192.168.100.26:8000/generate-qr?order_id=${selectedQR}`}
                 alt={`QR for Group ${selectedQR}`}
                 style={{ width: "180px", height: "180px" }}
               />

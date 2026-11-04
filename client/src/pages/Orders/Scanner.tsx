@@ -96,7 +96,7 @@ const Scanner = () => {
 
     try {
       const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/scan-qr",
+        "http://192.168.100.26:5000/api/orders/scan-qr",
         {
           method: "POST",
           headers: {
