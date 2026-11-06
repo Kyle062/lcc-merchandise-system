@@ -27,7 +27,8 @@ const Shop = () => {
 
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [qrOrders, setQrOrders] = useState<number[]>([]);
+
+  const [receiptData, setReceiptData] = useState<any>(null);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -55,7 +56,7 @@ const Shop = () => {
     }
     const fetchData = async () => {
       try {
-        const res = await fetch("http://192.168.100.26:5000/api/products");
+        const res = await fetch("http://192.168.254.111:5000/api/products");
         const data = await res.json();
         const available = data.filter((p: any) => p.stock_quantity > 0);
         setProducts(available);
@@ -137,9 +138,10 @@ const Shop = () => {
       isOpen: true,
       title: "Confirm Checkout",
       message: `Place order for ${cart.length} item(s) totaling ₱${cartTotal.toLocaleString()}?`,
-      confirmLabel: "Place Order",
+      confirmLabel: "Yes, Place Order",
       variant: "info",
       onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
         try {
           const payload = {
             items: cart.map((item) => ({
@@ -148,7 +150,7 @@ const Shop = () => {
             })),
           };
 
-          const res = await fetch("http://192.168.100.26:5000/api/orders", {
+          const res = await fetch("http://192.168.254.111:5000/api/orders", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -166,12 +168,25 @@ const Shop = () => {
               "Order Placed!",
               `Successfully ordered ${cart.length} item(s).`,
             );
+
+            const orderSummary = cart.map((item) => ({
+              name: item.name,
+              size: item.size,
+              qty: item.cartQuantity,
+              price: item.price * item.cartQuantity,
+            }));
+
+            setReceiptData({
+              groupId: data.groupId,
+              total: cartTotal,
+              items: orderSummary,
+            });
+
             setCart([]);
             setIsCartOpen(false);
-            if (data.groupId) setQrOrders([data.groupId]);
 
             const updatedRes = await fetch(
-              "http://192.168.100.26:5000/api/products",
+              "http://192.168.254.111:5000/api/products",
             );
             const updatedData = await updatedRes.json();
             setProducts(updatedData.filter((p: any) => p.stock_quantity > 0));
@@ -183,7 +198,6 @@ const Shop = () => {
             "Could not connect to server.",
           );
         }
-        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
       },
     });
   };
@@ -426,65 +440,138 @@ const Shop = () => {
         </div>
       )}
 
-      {qrOrders.length > 0 && (
-        <div className="modal-overlay" onClick={() => setQrOrders([])}>
+      {receiptData && (
+        <div className="modal-overlay" onClick={() => setReceiptData(null)}>
           <div
             className="cart-modal"
-            style={{ maxWidth: "400px", textAlign: "center" }}
+            style={{ maxWidth: "450px", textAlign: "center" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="cart-modal-title" style={{ marginBottom: "10px" }}>
-              Scan to Process Order
+            <h2
+              className="cart-modal-title"
+              style={{ color: "#00874e", marginBottom: "10px" }}
+            >
+              Thank you for purchasing!
             </h2>
             <p
               style={{
                 color: "#6b7280",
-                fontSize: "13px",
+                fontSize: "14px",
                 marginBottom: "20px",
               }}
             >
-              Please present this QR code to the merchandise staff.
+              Your order status is{" "}
+              <strong style={{ color: "#dc2626" }}>
+                Pending (Not yet paid)
+              </strong>
+              .
             </p>
 
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "15px",
-                alignItems: "center",
+                textAlign: "left",
+                background: "#f9fafb",
+                padding: "15px",
+                borderRadius: "8px",
+                marginBottom: "20px",
               }}
             >
-              {qrOrders.map((id) => (
+              <h3
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  marginBottom: "10px",
+                  borderBottom: "1px solid #e5e7eb",
+                  paddingBottom: "10px",
+                }}
+              >
+                Order Summary
+              </h3>
+              {receiptData.items.map((item: any, idx: number) => (
                 <div
-                  key={id}
+                  key={idx}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    padding: "10px",
-                    borderRadius: "8px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "13px",
+                    marginBottom: "5px",
                   }}
                 >
-                  <p
-                    style={{
-                      fontWeight: "bold",
-                      marginBottom: "10px",
-                      color: "#00874e",
-                    }}
-                  >
-                    Group #GRP-{String(id).padStart(3, "0")}
-                  </p>
-                  <img
-                    src={`http://192.168.100.26:8000/generate-qr?order_id=${id}`}
-                    alt={`QR for Group ${id}`}
-                    style={{ width: "150px", height: "150px" }}
-                  />
+                  <span>
+                    {item.qty}x {item.name} ({item.size})
+                  </span>
+                  <span>₱{item.price.toLocaleString()}</span>
                 </div>
               ))}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "15px",
+                  fontWeight: "800",
+                  marginTop: "10px",
+                  paddingTop: "10px",
+                  borderTop: "1px solid #e5e7eb",
+                }}
+              >
+                <span>Total:</span>
+                <span>₱{receiptData.total.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div style={{ textAlign: "left", marginBottom: "20px" }}>
+              <h3
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  marginBottom: "5px",
+                }}
+              >
+                Payment Guides
+              </h3>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "#4b5563",
+                  lineHeight: "1.5",
+                }}
+              >
+                Please proceed to the <strong>LCC Cashier Office</strong> to pay
+                for your order. Present the QR code below to the staff to
+                process your order and payment.
+              </p>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid #e5e7eb",
+                padding: "10px",
+                borderRadius: "8px",
+                display: "inline-block",
+                background: "white",
+                marginBottom: "20px",
+              }}
+            >
+              <p
+                style={{
+                  fontWeight: "bold",
+                  marginBottom: "10px",
+                  color: "#00874e",
+                  fontSize: "14px",
+                }}
+              >
+                Group #GRP-{String(receiptData.groupId).padStart(3, "0")}
+              </p>
+              <img
+                src={`http://192.168.254.111:8000/generate-qr?order_id=${receiptData.groupId}`}
+                alt={`QR for Group ${receiptData.groupId}`}
+                style={{ width: "180px", height: "180px" }}
+              />
             </div>
 
             <button
               className="checkout-submit-btn"
-              style={{ marginTop: "20px" }}
-              onClick={() => setQrOrders([])}
+              onClick={() => setReceiptData(null)}
             >
               Done
             </button>
