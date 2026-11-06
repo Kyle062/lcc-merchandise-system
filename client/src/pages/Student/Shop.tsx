@@ -21,14 +21,17 @@ import ConfirmDialog from "../../components/Toast/ConfirmDialog";
 const Shop = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<any[]>([]);
+  const [groupedProducts, setGroupedProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>("All");
   const [loading, setLoading] = useState(true);
 
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
   const [receiptData, setReceiptData] = useState<any>(null);
+
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isSizeModalOpen, setIsSizeModalOpen] = useState(false);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -49,6 +52,25 @@ const Shop = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
+  const getProductImage = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes("apron"))
+      return "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=400";
+    if (lowerName.includes("chef"))
+      return "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=400";
+    if (lowerName.includes("polo") || lowerName.includes("shirt"))
+      return "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=400";
+    if (lowerName.includes("hoodie"))
+      return "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&q=80&w=400";
+    if (lowerName.includes("cap"))
+      return "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&q=80&w=400";
+    if (lowerName.includes("uniform") || lowerName.includes("pe"))
+      return "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&q=80&w=400";
+    if (lowerName.includes("lanyard") || lowerName.includes("id"))
+      return "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&q=80&w=400";
+    return "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=400";
+  };
+
   useEffect(() => {
     if (!token) {
       navigate("/login");
@@ -59,8 +81,30 @@ const Shop = () => {
         const res = await fetch("http://192.168.254.111:5000/api/products");
         const data = await res.json();
         const available = data.filter((p: any) => p.stock_quantity > 0);
+
+        const grouped = available.reduce((acc: any, item: any) => {
+          if (!acc[item.name]) {
+            acc[item.name] = {
+              id: item.id,
+              name: item.name,
+              course: item.course,
+              description: item.description,
+              price: item.price,
+              sizes: [],
+            };
+          }
+          acc[item.name].sizes.push({
+            id: item.id,
+            size: item.size,
+            stock_quantity: item.stock_quantity,
+          });
+          return acc;
+        }, {});
+
+        const groupedArray = Object.values(grouped);
         setProducts(available);
-        setFilteredProducts(available);
+        setGroupedProducts(groupedArray);
+        setFilteredProducts(groupedArray);
         setLoading(false);
       } catch (error) {
         console.error(error);
@@ -72,33 +116,64 @@ const Shop = () => {
 
   useEffect(() => {
     if (selectedCourse === "All") {
-      setFilteredProducts(products);
+      setFilteredProducts(groupedProducts);
     } else {
-      setFilteredProducts(products.filter((p) => p.course === selectedCourse));
+      setFilteredProducts(
+        groupedProducts.filter((p) => p.course === selectedCourse),
+      );
     }
-  }, [selectedCourse, products]);
+  }, [selectedCourse, groupedProducts]);
 
-  const addToCart = (product: any) => {
+  const handleOpenSizeModal = (product: any) => {
+    setSelectedProduct(product);
+    setIsSizeModalOpen(true);
+  };
+
+  const handleAddToCart = (sizeItem: any) => {
+    if (!selectedProduct) return;
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      const existing = prev.find((item) => item.id === sizeItem.id);
       if (existing) {
-        if (existing.cartQuantity >= product.stock_quantity) {
+        if (existing.cartQuantity >= sizeItem.stock_quantity) {
           showToast(
             "warning",
             "Stock Limit Reached",
-            `Only ${product.stock_quantity} available.`,
+            `Only ${sizeItem.stock_quantity} available.`,
           );
           return prev;
         }
         return prev.map((item) =>
-          item.id === product.id
+          item.id === sizeItem.id
             ? { ...item, cartQuantity: item.cartQuantity + 1 }
             : item,
         );
       }
-      return [...prev, { ...product, cartQuantity: 1 }];
+
+      const hasSizeInName =
+        sizeItem.size && selectedProduct.name.includes(`(${sizeItem.size})`);
+      const displayName =
+        hasSizeInName || !sizeItem.size
+          ? selectedProduct.name
+          : `${selectedProduct.name} (${sizeItem.size})`;
+
+      return [
+        ...prev,
+        {
+          id: sizeItem.id,
+          name: selectedProduct.name,
+          displayName: displayName,
+          price: selectedProduct.price,
+          size: sizeItem.size,
+          stock_quantity: sizeItem.stock_quantity,
+          cartQuantity: 1,
+        },
+      ];
     });
-    showToast("success", "Added to Cart", `${product.name} added.`);
+
+    showToast("success", "Added to Cart", `${selectedProduct.name} added.`);
+    setIsSizeModalOpen(false);
+    setSelectedProduct(null);
   };
 
   const updateCartQty = (id: number, delta: number) => {
@@ -170,7 +245,7 @@ const Shop = () => {
             );
 
             const orderSummary = cart.map((item) => ({
-              name: item.name,
+              name: item.displayName || item.name,
               size: item.size,
               qty: item.cartQuantity,
               price: item.price * item.cartQuantity,
@@ -189,7 +264,31 @@ const Shop = () => {
               "http://192.168.254.111:5000/api/products",
             );
             const updatedData = await updatedRes.json();
-            setProducts(updatedData.filter((p: any) => p.stock_quantity > 0));
+            const available = updatedData.filter(
+              (p: any) => p.stock_quantity > 0,
+            );
+
+            const grouped = available.reduce((acc: any, item: any) => {
+              if (!acc[item.name]) {
+                acc[item.name] = {
+                  id: item.id,
+                  name: item.name,
+                  course: item.course,
+                  description: item.description,
+                  price: item.price,
+                  sizes: [],
+                };
+              }
+              acc[item.name].sizes.push({
+                id: item.id,
+                size: item.size,
+                stock_quantity: item.stock_quantity,
+              });
+              return acc;
+            }, {});
+
+            setProducts(available);
+            setGroupedProducts(Object.values(grouped));
           }
         } catch {
           showToast(
@@ -316,34 +415,39 @@ const Shop = () => {
           </div>
 
           {loading ? (
-            <p>Loading products...</p>
+            <div className="loading-state">Loading products...</div>
           ) : filteredProducts.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 50, color: "#6b7280" }}>
+            <div className="empty-state">
               No products available for {selectedCourse}.
             </div>
           ) : (
             <div className="product-grid">
-              {filteredProducts.map((product) => (
-                <div key={product.id} className="product-card">
-                  <div className="product-course">{product.course}</div>
-                  <div className="product-name">{product.name}</div>
-                  <div className="product-size">
-                    Size: {product.size || "N/A"}
+              {filteredProducts.map((product: any) => (
+                <div key={product.name} className="product-card">
+                  <div className="product-image-container">
+                    <img
+                      src={getProductImage(product.name)}
+                      alt={product.name}
+                      className="product-image"
+                    />
                   </div>
-                  <div
-                    className={`product-stock ${product.stock_quantity < 10 ? "low" : ""}`}
-                  >
-                    {product.stock_quantity} in stock
+                  <div className="product-info">
+                    <div className="product-course">{product.course}</div>
+                    <div className="product-name">{product.name}</div>
+                    <div className="product-sizes-count">
+                      {product.sizes.length}{" "}
+                      {product.sizes.length === 1 ? "Size" : "Sizes"} Available
+                    </div>
+                    <div className="product-price">
+                      ₱{Number(product.price).toLocaleString()}
+                    </div>
+                    <button
+                      className="order-btn"
+                      onClick={() => handleOpenSizeModal(product)}
+                    >
+                      <Plus size={16} /> Add to Cart
+                    </button>
                   </div>
-                  <div className="product-price">
-                    ₱{Number(product.price).toLocaleString()}
-                  </div>
-                  <button
-                    className="order-btn"
-                    onClick={() => addToCart(product)}
-                  >
-                    <Plus size={16} /> Add to Cart
-                  </button>
                 </div>
               ))}
             </div>
@@ -351,17 +455,59 @@ const Shop = () => {
         </div>
       </div>
 
+      {isSizeModalOpen && selectedProduct && (
+        <div
+          className="modal-overlay"
+          onClick={() => setIsSizeModalOpen(false)}
+        >
+          <div
+            className="cart-modal size-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cart-modal-header">
+              <h2 className="cart-modal-title">{selectedProduct.name}</h2>
+              <button
+                className="close-btn"
+                onClick={() => setIsSizeModalOpen(false)}
+              >
+                <X size={24} color="#6b7280" />
+              </button>
+            </div>
+
+            <p className="size-modal-desc">
+              {selectedProduct.description || "No description available."}
+            </p>
+
+            <h3 className="size-modal-label">Select Size</h3>
+
+            <div className="size-options-grid">
+              {selectedProduct.sizes.map((sizeItem: any) => (
+                <button
+                  key={sizeItem.id}
+                  onClick={() => handleAddToCart(sizeItem)}
+                  disabled={sizeItem.stock_quantity <= 0}
+                  className={`size-option-btn ${sizeItem.stock_quantity <= 0 ? "disabled" : ""}`}
+                >
+                  <span className="size-name">
+                    {sizeItem.size || "Standard"}
+                  </span>
+                  <span className="size-stock">
+                    {sizeItem.stock_quantity} left
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isCartOpen && (
         <div className="modal-overlay" onClick={() => setIsCartOpen(false)}>
           <div className="cart-modal" onClick={(e) => e.stopPropagation()}>
             <div className="cart-modal-header">
               <h2 className="cart-modal-title">Your Cart</h2>
               <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
+                className="close-btn"
                 onClick={() => setIsCartOpen(false)}
               >
                 <X size={24} color="#6b7280" />
@@ -370,20 +516,15 @@ const Shop = () => {
 
             <div className="cart-items-list">
               {cart.length === 0 ? (
-                <p
-                  style={{
-                    textAlign: "center",
-                    padding: "40px 0",
-                    color: "#6b7280",
-                  }}
-                >
-                  Your cart is empty.
-                </p>
+                <div className="empty-cart-state">
+                  <ShoppingCart size={48} color="#d1d5db" />
+                  <p>Your cart is empty.</p>
+                </div>
               ) : (
                 cart.map((item) => (
                   <div key={item.id} className="cart-item-row">
                     <div className="cart-item-info">
-                      <span className="cart-item-name">{item.name}</span>
+                      <span className="cart-item-name">{item.displayName}</span>
                       <span className="cart-item-price">
                         ₱{Number(item.price).toLocaleString()}
                       </span>
@@ -395,15 +536,7 @@ const Shop = () => {
                       >
                         <Minus size={14} />
                       </button>
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          width: 20,
-                          textAlign: "center",
-                        }}
-                      >
-                        {item.cartQuantity}
-                      </span>
+                      <span className="cart-qty">{item.cartQuantity}</span>
                       <button
                         className="qty-btn"
                         onClick={() => updateCartQty(item.id, 1)}
@@ -443,134 +576,79 @@ const Shop = () => {
       {receiptData && (
         <div className="modal-overlay" onClick={() => setReceiptData(null)}>
           <div
-            className="cart-modal"
-            style={{ maxWidth: "450px", textAlign: "center" }}
+            className="cart-modal receipt-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2
-              className="cart-modal-title"
-              style={{ color: "#00874e", marginBottom: "10px" }}
-            >
-              Thank you for purchasing!
-            </h2>
-            <p
-              style={{
-                color: "#6b7280",
-                fontSize: "14px",
-                marginBottom: "20px",
-              }}
-            >
-              Your order status is{" "}
-              <strong style={{ color: "#dc2626" }}>
-                Pending (Not yet paid)
-              </strong>
-              .
-            </p>
-
-            <div
-              style={{
-                textAlign: "left",
-                background: "#f9fafb",
-                padding: "15px",
-                borderRadius: "8px",
-                marginBottom: "20px",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "700",
-                  marginBottom: "10px",
-                  borderBottom: "1px solid #e5e7eb",
-                  paddingBottom: "10px",
-                }}
-              >
-                Order Summary
-              </h3>
-              {receiptData.items.map((item: any, idx: number) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "13px",
-                    marginBottom: "5px",
-                  }}
+            <div className="receipt-top-header">
+              <div className="receipt-icon-badge">
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <span>
-                    {item.qty}x {item.name} ({item.size})
-                  </span>
-                  <span>₱{item.price.toLocaleString()}</span>
-                </div>
-              ))}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "15px",
-                  fontWeight: "800",
-                  marginTop: "10px",
-                  paddingTop: "10px",
-                  borderTop: "1px solid #e5e7eb",
-                }}
-              >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <h2 className="receipt-title">Thank you for purchasing!</h2>
+              <p className="receipt-subtitle">
+                Your order has been successfully placed.
+              </p>
+            </div>
+
+            <div className="receipt-status-bar">
+              <span>Status:</span>
+              <span className="receipt-status-pending">
+                Pending (Not yet paid)
+              </span>
+            </div>
+
+            <div className="receipt-summary-box">
+              <h3 className="receipt-section-title">Order Summary</h3>
+              <div className="receipt-items">
+                {receiptData.items.map((item: any, idx: number) => (
+                  <div key={idx} className="receipt-item-row">
+                    <span className="receipt-item-name">
+                      {item.qty}x {item.name}
+                    </span>
+                    <span className="receipt-item-price">
+                      ₱{item.price.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="receipt-total-row">
                 <span>Total:</span>
                 <span>₱{receiptData.total.toLocaleString()}</span>
               </div>
             </div>
 
-            <div style={{ textAlign: "left", marginBottom: "20px" }}>
-              <h3
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "700",
-                  marginBottom: "5px",
-                }}
-              >
-                Payment Guides
-              </h3>
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: "#4b5563",
-                  lineHeight: "1.5",
-                }}
-              >
+            <div className="receipt-guide-box">
+              <h3 className="receipt-section-title">Payment Guide</h3>
+              <p className="receipt-guide-text">
                 Please proceed to the <strong>LCC Cashier Office</strong> to pay
                 for your order. Present the QR code below to the staff to
-                process your order and payment.
+                process your payment.
               </p>
             </div>
 
-            <div
-              style={{
-                border: "1px solid #e5e7eb",
-                padding: "10px",
-                borderRadius: "8px",
-                display: "inline-block",
-                background: "white",
-                marginBottom: "20px",
-              }}
-            >
-              <p
-                style={{
-                  fontWeight: "bold",
-                  marginBottom: "10px",
-                  color: "#00874e",
-                  fontSize: "14px",
-                }}
-              >
+            <div className="receipt-qr-box">
+              <div className="receipt-group-label">
                 Group #GRP-{String(receiptData.groupId).padStart(3, "0")}
-              </p>
+              </div>
               <img
                 src={`http://192.168.254.111:8000/generate-qr?order_id=${receiptData.groupId}`}
                 alt={`QR for Group ${receiptData.groupId}`}
-                style={{ width: "180px", height: "180px" }}
+                className="receipt-qr-img"
               />
             </div>
 
             <button
-              className="checkout-submit-btn"
+              className="receipt-done-btn"
               onClick={() => setReceiptData(null)}
             >
               Done
