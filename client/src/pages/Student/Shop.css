@@ -483,103 +483,147 @@
   background: #006336;
 }
 
-/* Receipt Modal */
+/* --- PROFESSIONAL RECEIPT MODAL --- */
 .receipt-modal {
   text-align: center;
+  padding: 30px 24px;
 }
-.receipt-header {
+.receipt-top-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-bottom: 20px;
 }
-.receipt-icon {
-  width: 60px;
-  height: 60px;
+.receipt-icon-badge {
+  width: 64px;
+  height: 64px;
   background: #ecfdf5;
   color: #00874e;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30px;
-  font-weight: bold;
-  margin: 0 auto 15px;
+  margin-bottom: 15px;
 }
 .receipt-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
-  color: #1f2937;
+  color: #00874e;
   margin-bottom: 5px;
 }
-.receipt-status {
+.receipt-subtitle {
   font-size: 14px;
   color: #6b7280;
 }
-.receipt-status strong {
-  color: #dc2626;
-}
-.receipt-summary {
-  text-align: left;
-  background: #f9fafb;
-  padding: 15px;
-  border-radius: 12px;
+.receipt-status-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  padding: 10px;
+  border-radius: 8px;
   margin-bottom: 20px;
-}
-.receipt-summary h3 {
   font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 10px;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 10px;
-  color: #374151;
+  color: #991b1b;
+  font-weight: 600;
 }
-.receipt-item {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-bottom: 6px;
-  color: #4b5563;
-}
-.receipt-total {
-  display: flex;
-  justify-content: space-between;
-  font-size: 16px;
+.receipt-status-pending {
+  background: #fee2e2;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-transform: uppercase;
   font-weight: 800;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #e5e7eb;
+}
+.receipt-summary-box {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.receipt-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #d1d5db;
+}
+.receipt-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+.receipt-item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
   color: #1f2937;
 }
-.receipt-payment-guide {
+.receipt-item-name {
+  font-weight: 500;
+}
+.receipt-item-price {
+  font-weight: 600;
+}
+.receipt-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px dashed #d1d5db;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1f2937;
+}
+.receipt-guide-box {
   text-align: left;
   margin-bottom: 20px;
 }
-.receipt-payment-guide h3 {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 5px;
-  color: #374151;
-}
-.receipt-payment-guide p {
-  font-size: 12px;
+.receipt-guide-text {
+  font-size: 13px;
   color: #6b7280;
   line-height: 1.5;
 }
-.receipt-qr-container {
-  border: 1px solid #e5e7eb;
-  padding: 15px;
-  border-radius: 12px;
-  display: inline-block;
+.receipt-qr-box {
   background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 15px;
   margin-bottom: 20px;
+  display: inline-block;
 }
-.receipt-group-id {
-  font-weight: 700;
-  margin-bottom: 10px;
-  color: #00874e;
+.receipt-group-label {
   font-size: 14px;
+  font-weight: 800;
+  color: #00874e;
+  margin-bottom: 10px;
 }
-.receipt-qr-image {
+.receipt-qr-img {
   width: 160px;
   height: 160px;
+  object-fit: contain;
+}
+.receipt-done-btn {
+  width: 100%;
+  padding: 14px;
+  background: #00874e;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.receipt-done-btn:hover {
+  background: #006336;
 }
 
 /* Loading / Empty State */
