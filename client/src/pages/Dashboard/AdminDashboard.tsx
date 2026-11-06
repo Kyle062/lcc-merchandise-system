@@ -68,16 +68,19 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         const [statsRes, ordersRes, salesRes, invRes] = await Promise.all([
-          fetch("http://localhost:5000/api/dashboard/stats", { headers }),
-          fetch("http://localhost:5000/api/dashboard/recent-orders", {
+          fetch("http://192.168.254.111:5000/api/dashboard/stats", { headers }),
+          fetch("http://192.168.254.111:5000/api/dashboard/recent-orders", {
             headers,
           }),
-          fetch("http://localhost:5000/api/dashboard/monthly-sales", {
+          fetch("http://192.168.254.111:5000/api/dashboard/monthly-sales", {
             headers,
           }),
-          fetch("http://localhost:5000/api/dashboard/inventory-distribution", {
-            headers,
-          }),
+          fetch(
+            "http://192.168.254.111:5000/api/dashboard/inventory-distribution",
+            {
+              headers,
+            },
+          ),
         ]);
 
         const statsData = await statsRes.json();
@@ -96,8 +99,13 @@ const AdminDashboard = () => {
         setSalesData(Array.isArray(salesDataRes) ? salesDataRes : []);
 
         if (Array.isArray(invData)) {
+          // ✅ FIX: Filter out the "All" category
+          const filteredInvData = invData.filter(
+            (item: any) => String(item.name).toLowerCase() !== "all",
+          );
+
           setInventoryData(
-            invData.map((item: any) => ({
+            filteredInvData.map((item: any) => ({
               name: String(item.name || "Unknown"),
               value: Number(item.value) || 0,
             })),
@@ -200,7 +208,6 @@ const AdminDashboard = () => {
             <ShoppingCart size={20} /> <span>Orders</span>
           </NavLink>
 
-          {/* ✅ ADDED QR SCANNER LINK HERE */}
           <NavLink
             to="/scanner"
             className={({ isActive }) =>

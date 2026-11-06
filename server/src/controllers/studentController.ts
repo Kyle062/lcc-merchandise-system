@@ -6,23 +6,23 @@ export const getStudentStats = async (req: Request, res: Response) => {
   try {
     const studentId = (req as any).user.id;
 
-    // 1. Total Orders placed by this student (Counting unique groups)
+    // 1. Total Orders (Counting unique groups from the orders table)
     const [totalOrdersResult]: any = await db.query(
-      "SELECT COUNT(DISTINCT group_id) as total FROM orders WHERE user_id = ?",
+      "SELECT COUNT(DISTINCT o.group_id) as total FROM orders o WHERE o.user_id = ?",
       [studentId],
     );
 
     // 2. Active Orders (Pending, Processing, Ready for Pickup)
     const [activeOrdersResult]: any = await db.query(
-      `SELECT COUNT(DISTINCT group_id) as total FROM order_groups 
-       WHERE user_id = ? AND status IN ('Pending', 'Processing', 'Ready for Pickup')`,
+      `SELECT COUNT(DISTINCT g.id) as total FROM order_groups g 
+       WHERE g.user_id = ? AND g.status IN ('Pending', 'Processing', 'Ready for Pickup')`,
       [studentId],
     );
 
     // 3. Completed Orders
     const [completedOrdersResult]: any = await db.query(
-      `SELECT COUNT(DISTINCT group_id) as total FROM order_groups 
-       WHERE user_id = ? AND status = 'Completed'`,
+      `SELECT COUNT(DISTINCT g.id) as total FROM order_groups g 
+       WHERE g.user_id = ? AND g.status = 'Completed'`,
       [studentId],
     );
 
