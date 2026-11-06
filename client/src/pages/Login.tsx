@@ -48,8 +48,10 @@ const Login = () => {
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
 
+      // ✅ FIXED: Redirect staff to the Merchandising Staff Dashboard
       if (data.role === "admin") navigate("/admin-dashboard");
-      else if (data.role === "staff") navigate("/orders");
+      else if (data.role === "staff")
+        navigate("/merchandising-staff-dashboard");
       else if (data.role === "student") navigate("/student-dashboard");
       else if (data.role === "finance") navigate("/finance-dashboard");
       else setErrorMessage("Unknown role. Contact administrator.");

@@ -13,6 +13,7 @@ import {
   Trash2,
   Search,
   ArrowUpDown,
+  XCircle,
 } from "lucide-react";
 import "./TrackOrders.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -182,6 +183,7 @@ const TrackOrders = () => {
     "Processing",
     "Ready for Pickup",
     "Completed",
+    "Cancelled",
   ];
 
   return (
@@ -261,7 +263,7 @@ const TrackOrders = () => {
               {FILTERS.map((f) => (
                 <button
                   key={f}
-                  className={`track-filter-btn ${filter === f ? "active" : ""}`}
+                  className={`track-filter-btn ${filter === f ? "active" : ""} ${f === "Cancelled" ? "filter-cancelled" : ""}`}
                   onClick={() => setFilter(f)}
                 >
                   {f}
@@ -302,9 +304,13 @@ const TrackOrders = () => {
           ) : (
             <div className="order-list">
               {processedOrders.map((group) => {
+                const isCancelled = group.status === "Cancelled";
                 const currentStep = getStep(group.status);
                 return (
-                  <div key={group.group_id} className="order-card">
+                  <div
+                    key={group.group_id}
+                    className={`order-card ${isCancelled ? "cancelled-card" : ""}`}
+                  >
                     <div className="order-info">
                       <div className="order-id">
                         #GRP-{String(group.group_id).padStart(3, "0")}
@@ -321,49 +327,56 @@ const TrackOrders = () => {
                       </div>
                     </div>
 
-                    <div className="order-timeline">
-                      <div
-                        className={`timeline-step ${currentStep >= 1 ? "active" : ""}`}
-                      >
-                        <div className="timeline-dot">
-                          <Inbox size={12} />
-                        </div>
-                        <span className="timeline-label">Pending</span>
+                    {isCancelled ? (
+                      <div className="cancelled-banner">
+                        <XCircle size={20} />
+                        <span>This order has been cancelled</span>
                       </div>
-                      <div
-                        className={`timeline-line ${currentStep >= 2 ? "active" : ""}`}
-                      />
-                      <div
-                        className={`timeline-step ${currentStep >= 2 ? "active" : ""}`}
-                      >
-                        <div className="timeline-dot">
-                          <Package size={12} />
+                    ) : (
+                      <div className="order-timeline">
+                        <div
+                          className={`timeline-step ${currentStep >= 1 ? "active" : ""}`}
+                        >
+                          <div className="timeline-dot">
+                            <Inbox size={12} />
+                          </div>
+                          <span className="timeline-label">Pending</span>
                         </div>
-                        <span className="timeline-label">Processing</span>
-                      </div>
-                      <div
-                        className={`timeline-line ${currentStep >= 3 ? "active" : ""}`}
-                      />
-                      <div
-                        className={`timeline-step ${currentStep >= 3 ? "active" : ""}`}
-                      >
-                        <div className="timeline-dot">
-                          <Truck size={12} />
+                        <div
+                          className={`timeline-line ${currentStep >= 2 ? "active" : ""}`}
+                        />
+                        <div
+                          className={`timeline-step ${currentStep >= 2 ? "active" : ""}`}
+                        >
+                          <div className="timeline-dot">
+                            <Package size={12} />
+                          </div>
+                          <span className="timeline-label">Processing</span>
                         </div>
-                        <span className="timeline-label">Ready</span>
-                      </div>
-                      <div
-                        className={`timeline-line ${currentStep >= 4 ? "active" : ""}`}
-                      />
-                      <div
-                        className={`timeline-step ${currentStep >= 4 ? "active" : ""}`}
-                      >
-                        <div className="timeline-dot">
-                          <Check size={12} />
+                        <div
+                          className={`timeline-line ${currentStep >= 3 ? "active" : ""}`}
+                        />
+                        <div
+                          className={`timeline-step ${currentStep >= 3 ? "active" : ""}`}
+                        >
+                          <div className="timeline-dot">
+                            <Truck size={12} />
+                          </div>
+                          <span className="timeline-label">Ready</span>
                         </div>
-                        <span className="timeline-label">Done</span>
+                        <div
+                          className={`timeline-line ${currentStep >= 4 ? "active" : ""}`}
+                        />
+                        <div
+                          className={`timeline-step ${currentStep >= 4 ? "active" : ""}`}
+                        >
+                          <div className="timeline-dot">
+                            <Check size={12} />
+                          </div>
+                          <span className="timeline-label">Done</span>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="order-action">
                       <div className="order-total">
@@ -389,6 +402,8 @@ const TrackOrders = () => {
                             <Trash2 size={14} /> Cancel
                           </button>
                         </div>
+                      ) : isCancelled ? (
+                        <span className="cancelled-text">Cancelled</span>
                       ) : (
                         <span className="processed-text">Scanned</span>
                       )}

@@ -9,19 +9,23 @@ import Orders from "./pages/Orders/Orders";
 import Scanner from "./pages/Orders/Scanner";
 import Users from "./pages/Users/Users";
 import Settings from "./pages/Settings/Settings";
-import Analytics from './pages/Analytics/Analytics';
+import Analytics from "./pages/Analytics/Analytics";
 
 // Student Pages
 import StudentDashboard from "./pages/Dashboard/StudentDashboard";
 import Shop from "./pages/Student/Shop";
-import TrackOrders from "./pages/Student/TrackOrders"; 
+import TrackOrders from "./pages/Student/TrackOrders";
+
+// Merchandising Staff Pages
+// ✅ FIXED: Changed the path to point to the Dashboard folder
+import MerchandisingStaffDashboard from "./pages/Dashboard/MerchandisingStaffDashboard";
 
 function App() {
   return (
     <Routes>
       {/* Default Route */}
       <Route path="/" element={<Navigate to="/login" replace />} />
-      
+
       {/* Public Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
@@ -34,12 +38,17 @@ function App() {
       <Route path="/users" element={<Users />} />
       <Route path="/analytics" element={<Analytics />} />
       <Route path="/settings" element={<Settings />} />
-      
 
       {/* Student Routes */}
       <Route path="/student-dashboard" element={<StudentDashboard />} />
       <Route path="/shop" element={<Shop />} />
-      <Route path="/track-orders" element={<TrackOrders />} /> 
+      <Route path="/track-orders" element={<TrackOrders />} />
+
+      {/* Merchandising Staff Routes */}
+      <Route
+        path="/merchandising-staff-dashboard"
+        element={<MerchandisingStaffDashboard />}
+      />
     </Routes>
   );
 }

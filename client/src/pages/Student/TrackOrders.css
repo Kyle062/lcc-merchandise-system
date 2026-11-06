@@ -146,6 +146,12 @@
   border-color: #00874e;
 }
 
+/* Cancelled Filter Tab */
+.track-filter-btn.filter-cancelled.active {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
 .track-search-sort {
   display: flex;
   gap: 15px;
@@ -341,6 +347,35 @@
   font-size: 12px;
   color: #9ca3af;
   font-style: italic;
+}
+
+/* --- CANCELLED ORDER STYLES --- */
+.cancelled-card {
+  border-color: #fecaca;
+  background-color: #fffafa;
+}
+
+.cancelled-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #fef2f2;
+  color: #dc2626;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  border: 1px dashed #fca5a5;
+}
+
+.cancelled-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 4px 10px;
+  border-radius: 20px;
 }
 
 /* Modals */
