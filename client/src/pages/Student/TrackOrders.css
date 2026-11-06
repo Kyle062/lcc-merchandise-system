@@ -7,7 +7,6 @@
   overflow: hidden;
 }
 
-/* Sidebar */
 .track-sidebar {
   width: 260px;
   background-color: #ffffff;
@@ -73,7 +72,6 @@
   font-weight: 600;
 }
 
-/* Main Content */
 .track-main-content {
   flex: 1;
   display: flex;
@@ -113,11 +111,17 @@
   overflow-y: auto;
 }
 
-/* Filters */
+/* Controls Area */
+.track-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
 .track-filters {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
   overflow-x: auto;
   padding-bottom: 5px;
   -webkit-overflow-scrolling: touch;
@@ -142,7 +146,57 @@
   border-color: #00874e;
 }
 
-/* Order Cards */
+.track-search-sort {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.track-search {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
+  gap: 8px;
+}
+.track-search input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+  color: #1f2937;
+}
+.track-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.track-sort select {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Orders */
+.empty-orders {
+  text-align: center;
+  padding: 50px;
+  color: #6b7280;
+  background: white;
+  border-radius: 12px;
+}
 .order-list {
   display: flex;
   flex-direction: column;
@@ -333,7 +387,6 @@
   cursor: pointer;
 }
 
-/* Hide mobile logout by default */
 .mobile-logout-btn {
   display: none;
   background: none;
@@ -342,14 +395,12 @@
   padding: 5px;
 }
 
-/* --- MOBILE PHONE ONLY --- */
 @media (max-width: 768px) {
   .mobile-logout-btn {
     display: flex;
     align-items: center;
     justify-content: center;
   }
-
   .track-container {
     flex-direction: column;
   }

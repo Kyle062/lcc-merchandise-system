@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart3 } from "lucide-react";
 import {
+  BarChart3,
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -9,12 +9,9 @@ import {
   Settings,
   LogOut,
   Search,
-  Bell,
   Eye,
   Printer,
   X,
-  ChevronUp,
-  ChevronDown,
   ChevronsUpDown,
   RefreshCw,
   Filter,
@@ -22,32 +19,28 @@ import {
 } from "lucide-react";
 import "./Orders.css";
 import logo from "../../assets/images/LCClogo1.png";
+import Toast from "../../components/Toast/Toast";
+import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 
-interface Order {
-  id: number;
-  quantity: number;
-  total_price: number;
+interface OrderGroup {
+  group_id: number;
+  user_id: number;
+  full_name: string;
+  username: string;
+  course: string;
   status: string;
   order_date: string;
-  product_id: number;
-  product_name: string;
-  product_course: string;
-  product_size: string;
-  user_id: number;
-  username: string;
-  full_name: string;
-  email: string;
+  total_price: number;
+  items: any[];
 }
 
 type SortKey =
-  | "id"
+  | "group_id"
   | "full_name"
-  | "product_name"
   | "total_price"
   | "status"
   | "order_date";
-type SortOrder = "asc" | "desc";
-type SortRule = { key: SortKey; order: SortOrder };
+type SortRule = { key: SortKey; order: "asc" | "desc" };
 
 const STATUS_TABS = [
   "All",
@@ -60,115 +53,107 @@ const STATUS_TABS = [
 
 const Orders = () => {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderGroup[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderGroup | null>(null);
   const [sortRules, setSortRules] = useState<SortRule[]>([
     { key: "order_date", order: "desc" },
   ]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const showToast = (type: ToastType, title: string, message?: string) => {
+    setToasts((prev) => [...prev, { id: Date.now(), type, title, message }]);
+  };
+  const removeToast = (id: number) =>
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+
   const token = localStorage.getItem("token");
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/orders", {
+      const res = await fetch("http://192.168.254.111:5000/api/orders", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+
       if (Array.isArray(data)) {
-        setOrders(data);
+        const grouped = data.reduce((acc: any, item: any) => {
+          const gid = item.group_id;
+          if (!acc[gid]) {
+            acc[gid] = {
+              group_id: gid,
+              user_id: item.user_id,
+              full_name: item.full_name,
+              username: item.username,
+              course: item.user_course || item.product_course,
+              status: item.status,
+              order_date: item.order_date,
+              total_price: 0,
+              items: [],
+            };
+          }
+          acc[gid].total_price += Number(item.total_price);
+          acc[gid].items.push(item);
+          return acc;
+        }, {});
+        setOrders(Object.values(grouped));
         setLastUpdated(new Date());
       }
       setLoading(false);
     } catch (error) {
-      console.error("Error fetching orders:", error);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!token) {
-      navigate("/login");
-      return;
-    }
+    if (!token) return navigate("/login");
     fetchOrders();
   }, [token, navigate]);
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(() => {
-      fetchOrders();
-    }, 30000);
+    const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, [autoRefresh, token]);
 
-  const handleSort = (key: SortKey, isShiftKey: boolean) => {
-    setSortRules((prevRules) => {
-      const existingIndex = prevRules.findIndex((rule) => rule.key === key);
-
-      if (isShiftKey) {
-        if (existingIndex !== -1) {
-          const updated = [...prevRules];
-          updated[existingIndex] = {
-            key,
-            order: updated[existingIndex].order === "asc" ? "desc" : "asc",
-          };
-          return updated;
-        } else {
-          return [...prevRules, { key, order: "asc" }];
-        }
-      } else {
-        if (existingIndex === 0 && prevRules.length === 1) {
-          return [
-            { key, order: prevRules[0].order === "asc" ? "desc" : "asc" },
-          ];
-        }
-        return [{ key, order: "asc" }];
-      }
+  const handleSort = (key: SortKey) => {
+    setSortRules((prev) => {
+      const existing = prev.findIndex((r) => r.key === key);
+      if (existing === 0 && prev.length === 1)
+        return [{ key, order: prev[0].order === "asc" ? "desc" : "asc" }];
+      return [{ key, order: "asc" }];
     });
   };
 
-  const clearSort = () => {
-    setSortRules([{ key: "order_date", order: "desc" }]);
-  };
-
-  const sortedAndFilteredOrders = useMemo(() => {
+  const sortedAndFiltered = useMemo(() => {
     const term = searchTerm.toLowerCase();
-
     const filtered = orders.filter((o) => {
       const matchesSearch =
-        String(o.id).includes(term) ||
+        String(o.group_id).includes(term) ||
         o.full_name?.toLowerCase().includes(term) ||
-        o.username?.toLowerCase().includes(term) ||
-        o.product_name?.toLowerCase().includes(term) ||
-        o.product_course?.toLowerCase().includes(term);
-
-      const matchesStatus = statusFilter === "All" || o.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
+        o.items.some((i: any) => i.product_name.toLowerCase().includes(term));
+      return (
+        matchesSearch && (statusFilter === "All" || o.status === statusFilter)
+      );
     });
 
-    const sorted = [...filtered].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       for (const rule of sortRules) {
         let aVal: any = a[rule.key];
         let bVal: any = b[rule.key];
-
-        if (typeof aVal === "string" && typeof bVal === "string") {
+        if (typeof aVal === "string") {
           aVal = aVal.toLowerCase();
           bVal = bVal.toLowerCase();
         }
-
         if (aVal < bVal) return rule.order === "asc" ? -1 : 1;
         if (aVal > bVal) return rule.order === "asc" ? 1 : -1;
       }
       return 0;
     });
-
-    return sorted;
   }, [orders, searchTerm, statusFilter, sortRules]);
 
   const statusCounts = useMemo(() => {
@@ -186,17 +171,10 @@ const Orders = () => {
     return counts;
   }, [orders]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("username");
-    navigate("/login");
-  };
-
-  const handleStatusChange = async (orderId: number, newStatus: string) => {
+  const handleStatusChange = async (groupId: number, newStatus: string) => {
     try {
       const res = await fetch(
-        `http://localhost:5000/api/orders/${orderId}/status`,
+        `http://192.168.254.111:5000/api/orders/${groupId}/status`,
         {
           method: "PUT",
           headers: {
@@ -206,77 +184,47 @@ const Orders = () => {
           body: JSON.stringify({ status: newStatus }),
         },
       );
-
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
 
-      if (!res.ok) {
-        alert(data.message || "Failed to update status");
-        return;
-      }
-
-      await fetchOrders();
-    } catch (error) {
-      alert("Cannot connect to server.");
+      showToast(
+        "success",
+        "Status Updated",
+        `Order #GRP-${groupId} is now ${newStatus}`,
+      );
+      fetchOrders();
+    } catch (error: any) {
+      showToast("error", "Update Failed", error.message);
     }
   };
 
   const getStatusClass = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "status-completed";
-      case "Pending":
-        return "status-pending";
-      case "Processing":
-        return "status-processing";
-      case "Ready for Pickup":
-        return "status-ready";
-      case "Cancelled":
-        return "status-cancelled";
-      default:
-        return "";
-    }
+    return `status-${status.toLowerCase().replace(/\s+/g, "-")}`;
   };
 
-  const formatDate = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.toLocaleDateString("en-PH", {
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("en-PH", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.toLocaleString("en-PH", {
+  const formatDateTime = (d: string) =>
+    new Date(d).toLocaleString("en-PH", {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const SortIcon = ({ column }: { column: SortKey }) => {
-    const ruleIndex = sortRules.findIndex((r) => r.key === column);
-    if (ruleIndex === -1) return <ChevronsUpDown size={14} color="#9ca3af" />;
-    const rule = sortRules[ruleIndex];
-    return (
-      <div className="sort-icon-wrapper">
-        {rule.order === "asc" ? (
-          <ChevronUp size={14} color="#00874e" />
-        ) : (
-          <ChevronDown size={14} color="#00874e" />
-        )}
-        {sortRules.length > 1 && (
-          <span className="sort-priority">{ruleIndex + 1}</span>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="orders-container">
+      <div className="toast-container">
+        {toasts.map((t) => (
+          <Toast key={t.id} toast={t} onClose={removeToast} />
+        ))}
+      </div>
+
       <div className="orders-sidebar">
         <div className="orders-sidebar-header">
           <img src={logo} alt="LCC Logo" className="orders-sidebar-logo" />
@@ -308,7 +256,7 @@ const Orders = () => {
             <Users size={20} /> <span>Users</span>
           </div>
           <div
-            className="admin-nav-item"
+            className="orders-nav-item"
             onClick={() => navigate("/analytics")}
           >
             <BarChart3 size={20} /> <span>Analytics</span>
@@ -320,7 +268,13 @@ const Orders = () => {
             <Settings size={20} /> <span>Settings</span>
           </div>
         </nav>
-        <div className="orders-sidebar-footer" onClick={handleLogout}>
+        <div
+          className="orders-sidebar-footer"
+          onClick={() => {
+            localStorage.clear();
+            navigate("/login");
+          }}
+        >
           <LogOut size={20} /> <span>Logout</span>
         </div>
       </div>
@@ -347,7 +301,6 @@ const Orders = () => {
             <button
               className={`auto-refresh-toggle ${autoRefresh ? "on" : "off"}`}
               onClick={() => setAutoRefresh(!autoRefresh)}
-              title={autoRefresh ? "Auto-refresh ON" : "Auto-refresh OFF"}
             >
               <RefreshCw size={16} />
             </button>
@@ -372,114 +325,77 @@ const Orders = () => {
           <div className="orders-sort-info">
             <span>
               <Filter size={14} style={{ display: "inline", marginRight: 6 }} />
-              Showing <strong>{sortedAndFilteredOrders.length}</strong> order(s)
-              {sortRules.length > 1 && (
-                <>
-                  {" — Multi-sort: "}
-                  {sortRules.map((r, i) => (
-                    <span key={r.key}>
-                      {i > 0 && " → "}
-                      <strong>{r.key}</strong> ({r.order})
-                    </span>
-                  ))}
-                  <button className="clear-sort-btn" onClick={clearSort}>
-                    Clear
-                  </button>
-                </>
-              )}
+              Showing <strong>{sortedAndFiltered.length}</strong> order group(s)
             </span>
           </div>
 
           {loading ? (
             <div className="orders-loading">Loading orders...</div>
-          ) : sortedAndFilteredOrders.length === 0 ? (
+          ) : sortedAndFiltered.length === 0 ? (
             <div className="orders-empty">
               <ShoppingCart size={48} color="#9ca3af" />
               <h3>No orders found</h3>
-              <p>Try a different filter or search term.</p>
             </div>
           ) : (
             <div className="orders-table-card">
               <table className="orders-table">
                 <thead>
                   <tr>
-                    <th
-                      className="sortable"
-                      onClick={(e) => handleSort("id", e.shiftKey)}
-                    >
+                    <th onClick={() => handleSort("group_id")}>
                       <div className="th-content">
-                        Order ID <SortIcon column="id" />
+                        Group ID <ChevronsUpDown size={14} />
                       </div>
                     </th>
-                    <th
-                      className="sortable"
-                      onClick={(e) => handleSort("full_name", e.shiftKey)}
-                    >
+                    <th onClick={() => handleSort("full_name")}>
                       <div className="th-content">
-                        Student <SortIcon column="full_name" />
+                        Student <ChevronsUpDown size={14} />
                       </div>
                     </th>
-                    <th
-                      className="sortable"
-                      onClick={(e) => handleSort("product_name", e.shiftKey)}
-                    >
+                    <th>Items</th>
+                    <th onClick={() => handleSort("total_price")}>
                       <div className="th-content">
-                        Product <SortIcon column="product_name" />
+                        Total <ChevronsUpDown size={14} />
                       </div>
                     </th>
-                    <th>Qty</th>
-                    <th
-                      className="sortable"
-                      onClick={(e) => handleSort("total_price", e.shiftKey)}
-                    >
+                    <th onClick={() => handleSort("status")}>
                       <div className="th-content">
-                        Total <SortIcon column="total_price" />
+                        Status <ChevronsUpDown size={14} />
                       </div>
                     </th>
-                    <th
-                      className="sortable"
-                      onClick={(e) => handleSort("status", e.shiftKey)}
-                    >
+                    <th onClick={() => handleSort("order_date")}>
                       <div className="th-content">
-                        Status <SortIcon column="status" />
-                      </div>
-                    </th>
-                    <th
-                      className="sortable"
-                      onClick={(e) => handleSort("order_date", e.shiftKey)}
-                    >
-                      <div className="th-content">
-                        Date <SortIcon column="order_date" />
+                        Date <ChevronsUpDown size={14} />
                       </div>
                     </th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedAndFilteredOrders.map((order) => (
-                    <tr key={order.id}>
-                      <td>#ORD-{String(order.id).padStart(3, "0")}</td>
+                  {sortedAndFiltered.map((order) => (
+                    <tr key={order.group_id}>
+                      <td>#GRP-{String(order.group_id).padStart(3, "0")}</td>
                       <td>
                         <div className="student-cell">
                           <span className="student-name">
                             {order.full_name || order.username}
                           </span>
-                          <span className="student-course">
-                            {order.product_course}
-                          </span>
+                          <span className="student-course">{order.course}</span>
                         </div>
                       </td>
-                      <td>{order.product_name}</td>
-                      <td>{order.quantity}</td>
+                      <td>
+                        {order.items
+                          .map((i: any) => `${i.quantity}x ${i.product_name}`)
+                          .join(", ")}
+                      </td>
                       <td style={{ fontWeight: 600 }}>
-                        ₱{Number(order.total_price).toLocaleString()}
+                        ₱{order.total_price.toLocaleString()}
                       </td>
                       <td>
                         <select
                           className={`status-select ${getStatusClass(order.status)}`}
                           value={order.status}
                           onChange={(e) =>
-                            handleStatusChange(order.id, e.target.value)
+                            handleStatusChange(order.group_id, e.target.value)
                           }
                         >
                           <option value="Pending">Pending</option>
@@ -518,14 +434,12 @@ const Orders = () => {
             >
               <X size={20} />
             </button>
-
             <div className="receipt">
               <div className="receipt-header">
                 <img src={logo} alt="LCC Logo" className="receipt-logo" />
                 <div>
                   <h2>LEGACY COLLEGE OF COMPOSTELA</h2>
                   <p>Merchandise Order Management System</p>
-                  <p className="receipt-address">Compostela, Davao de Oro</p>
                 </div>
               </div>
 
@@ -533,9 +447,9 @@ const Orders = () => {
 
               <div className="receipt-info">
                 <div className="receipt-info-row">
-                  <span>Order ID:</span>
+                  <span>Group ID:</span>
                   <strong>
-                    #ORD-{String(selectedOrder.id).padStart(3, "0")}
+                    #GRP-{String(selectedOrder.group_id).padStart(3, "0")}
                   </strong>
                 </div>
                 <div className="receipt-info-row">
@@ -550,7 +464,7 @@ const Orders = () => {
                 </div>
                 <div className="receipt-info-row">
                   <span>Course:</span>
-                  <strong>{selectedOrder.product_course}</strong>
+                  <strong>{selectedOrder.course}</strong>
                 </div>
               </div>
 
@@ -560,25 +474,18 @@ const Orders = () => {
                     <th>Item</th>
                     <th>Size</th>
                     <th>Qty</th>
-                    <th>Unit Price</th>
                     <th>Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>{selectedOrder.product_name}</td>
-                    <td>{selectedOrder.product_size}</td>
-                    <td>{selectedOrder.quantity}</td>
-                    <td>
-                      ₱
-                      {(
-                        selectedOrder.total_price / selectedOrder.quantity
-                      ).toLocaleString()}
-                    </td>
-                    <td>
-                      ₱{Number(selectedOrder.total_price).toLocaleString()}
-                    </td>
-                  </tr>
+                  {selectedOrder.items.map((item: any) => (
+                    <tr key={item.id}>
+                      <td>{item.product_name}</td>
+                      <td>{item.product_size}</td>
+                      <td>{item.quantity}</td>
+                      <td>₱{Number(item.total_price).toLocaleString()}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
 

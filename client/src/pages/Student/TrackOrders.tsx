@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -11,6 +11,8 @@ import {
   Truck,
   Inbox,
   Trash2,
+  Search,
+  ArrowUpDown,
 } from "lucide-react";
 import "./TrackOrders.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -24,6 +26,9 @@ const TrackOrders = () => {
   const [loading, setLoading] = useState(true);
   const [selectedQR, setSelectedQR] = useState<number | null>(null);
   const [filter, setFilter] = useState("All");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   const [confirmDelete, setConfirmDelete] = useState<{
     isOpen: boolean;
@@ -101,6 +106,8 @@ const TrackOrders = () => {
       year: "numeric",
       month: "short",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -146,9 +153,29 @@ const TrackOrders = () => {
     setConfirmDelete({ isOpen: false, groupId: null });
   };
 
-  const filteredOrders = groupedOrders.filter(
-    (o) => filter === "All" || o.status === filter,
-  );
+  const processedOrders = useMemo(() => {
+    let result = groupedOrders.filter(
+      (o) => filter === "All" || o.status === filter,
+    );
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(
+        (o) =>
+          o.group_id.toString().includes(term) ||
+          o.items.some((i: any) => i.name.toLowerCase().includes(term)),
+      );
+    }
+
+    result.sort((a, b) => {
+      const dateA = new Date(a.order_date).getTime();
+      const dateB = new Date(b.order_date).getTime();
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
+    return result;
+  }, [groupedOrders, filter, searchTerm, sortOrder]);
+
   const FILTERS = [
     "All",
     "Pending",
@@ -229,40 +256,52 @@ const TrackOrders = () => {
         </div>
 
         <div className="track-content">
-          <div className="track-filters">
-            {FILTERS.map((f) => (
-              <button
-                key={f}
-                className={`track-filter-btn ${filter === f ? "active" : ""}`}
-                onClick={() => setFilter(f)}
-              >
-                {f}
-              </button>
-            ))}
+          <div className="track-controls">
+            <div className="track-filters">
+              {FILTERS.map((f) => (
+                <button
+                  key={f}
+                  className={`track-filter-btn ${filter === f ? "active" : ""}`}
+                  onClick={() => setFilter(f)}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <div className="track-search-sort">
+              <div className="track-search">
+                <Search size={16} color="#6b7280" />
+                <input
+                  type="text"
+                  placeholder="Search Order ID or Item..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="track-sort">
+                <ArrowUpDown size={16} color="#6b7280" />
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as any)}
+                >
+                  <option value="newest">Latest First</option>
+                  <option value="oldest">Oldest First</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {loading ? (
             <p>Loading your orders...</p>
-          ) : filteredOrders.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: 50,
-                color: "#6b7280",
-                background: "white",
-                borderRadius: 12,
-              }}
-            >
-              <Inbox
-                size={48}
-                color="#9ca3af"
-                style={{ margin: "0 auto 10px" }}
-              />
-              No orders found.
+          ) : processedOrders.length === 0 ? (
+            <div className="empty-orders">
+              <Inbox size={48} color="#9ca3af" />
+              <p>No orders found.</p>
             </div>
           ) : (
             <div className="order-list">
-              {filteredOrders.map((group) => {
+              {processedOrders.map((group) => {
                 const currentStep = getStep(group.status);
                 return (
                   <div key={group.group_id} className="order-card">

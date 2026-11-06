@@ -8,7 +8,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
       SELECT 
         o.id, o.quantity, o.total_price, o.status, o.order_date, o.group_id,
         p.id AS product_id, p.name AS product_name, p.course AS product_course, p.size AS product_size,
-        u.id AS user_id, u.username, u.full_name, u.email
+        u.id AS user_id, u.username, u.full_name, u.email, u.course AS user_course
       FROM orders o
       JOIN products p ON o.product_id = p.id
       JOIN users u ON o.user_id = u.id
@@ -81,7 +81,7 @@ export const getMyOrders = async (req: Request, res: Response) => {
   }
 };
 
-// PLACE MULTIPLE ORDERS (Now grouped under one Group ID)
+// PLACE MULTIPLE ORDERS
 export const placeOrder = async (req: Request, res: Response) => {
   const { items } = req.body;
   const user_id = (req as any).user.id;
@@ -90,12 +90,10 @@ export const placeOrder = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "Cart is empty" });
   }
 
-  const conn = await (await import("../config/db")).default.getConnection();
+  const conn = await db.getConnection();
 
   try {
     await conn.beginTransaction();
-
-    // 1. Create the Order Group FIRST
     const groupCode = `GRP-${Date.now()}`;
     const [groupResult]: any = await conn.query(
       "INSERT INTO order_groups (user_id, group_code, status) VALUES (?, ?, ?)",
@@ -103,10 +101,8 @@ export const placeOrder = async (req: Request, res: Response) => {
     );
     const groupId = groupResult.insertId;
 
-    // 2. Insert all items linked to this Group ID
     for (const item of items) {
       const { product_id, quantity } = item;
-
       const [productRows]: any = await conn.query(
         "SELECT * FROM products WHERE id = ?",
         [product_id],
@@ -118,7 +114,6 @@ export const placeOrder = async (req: Request, res: Response) => {
         throw new Error(`Insufficient stock for ${product.name}`);
 
       const total_price = product.price * quantity;
-
       await conn.query(
         "INSERT INTO orders (group_id, user_id, product_id, quantity, total_price, status) VALUES (?, ?, ?, ?, ?, ?)",
         [groupId, user_id, product_id, quantity, total_price, "Pending"],
@@ -136,105 +131,125 @@ export const placeOrder = async (req: Request, res: Response) => {
   }
 };
 
-// SCAN GROUP QR (Admin) - ✅ BULLETPROOF VERSION
-export const scanOrderQR = async (req: Request, res: Response) => {
+// 1. NEW: Scan Preview (Gets group details for the modal before confirming)
+export const getScanPreview = async (req: Request, res: Response) => {
   const { group_id } = req.body;
+  try {
+    const [groupRows]: any = await db.query(
+      "SELECT * FROM order_groups WHERE id = ?",
+      [group_id],
+    );
+    if (groupRows.length === 0)
+      return res.status(404).json({ message: "Order Group not found." });
+    if (groupRows[0].status !== "Pending")
+      return res
+        .status(400)
+        .json({ message: `This order is already "${groupRows[0].status}".` });
 
-  const conn = await (await import("../config/db")).default.getConnection();
+    const [items]: any = await db.query(
+      `
+      SELECT o.id, o.product_id, o.quantity, o.total_price, p.name, p.size, p.price
+      FROM orders o JOIN products p ON o.product_id = p.id
+      WHERE o.group_id = ?
+    `,
+      [group_id],
+    );
+
+    const [userRows]: any = await db.query(
+      "SELECT full_name, course FROM users WHERE id = ?",
+      [groupRows[0].user_id],
+    );
+
+    res.json({
+      group: groupRows[0],
+      user: userRows[0] || { full_name: "Unknown" },
+      items,
+    });
+  } catch (error: any) {
+    res
+      .status(500)
+      .json({ message: "Error fetching preview", details: error.message });
+  }
+};
+
+// 2. NEW: Confirm Scan (Admin clicks Confirm on the Modal)
+export const confirmScanOrder = async (req: Request, res: Response) => {
+  const { group_id, items } = req.body;
+  const conn = await db.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    // 1. Check if group exists
-    const [groupRows]: any = await conn.query(
-      "SELECT * FROM order_groups WHERE id = ?",
-      [group_id],
-    );
-    if (groupRows.length === 0) {
-      await conn.rollback();
-      return res
-        .status(404)
-        .json({ message: "Order Group not found in the database." });
-    }
-
-    const group = groupRows[0];
-    if (group.status !== "Pending") {
-      await conn.rollback();
-      return res
-        .status(400)
-        .json({ message: `This order is already "${group.status}".` });
-    }
-
-    // 2. Get all items in this group
-    const [orderRows]: any = await conn.query(
-      "SELECT * FROM orders WHERE group_id = ?",
-      [group_id],
-    );
-    if (orderRows.length === 0) {
-      await conn.rollback();
-      return res
-        .status(404)
-        .json({ message: "No items found inside this order group." });
-    }
-
-    // 3. Deduct stock for ALL items
-    for (const order of orderRows) {
+    // Deduct stock & update individual order items based on what Admin edited
+    for (const item of items) {
       const [productRows]: any = await conn.query(
         "SELECT stock_quantity, name FROM products WHERE id = ?",
-        [order.product_id],
+        [item.product_id],
       );
-
-      if (productRows.length === 0) {
-        await conn.rollback();
-        return res
-          .status(404)
-          .json({
-            message: `Product ID ${order.product_id} no longer exists.`,
-          });
-      }
-
-      if (productRows[0].stock_quantity < order.quantity) {
-        await conn.rollback();
-        return res
-          .status(400)
-          .json({
-            message: `Not enough stock for ${productRows[0].name}. Only ${productRows[0].stock_quantity} left.`,
-          });
-      }
+      if (productRows.length === 0) throw new Error(`Product not found.`);
+      if (productRows[0].stock_quantity < item.quantity)
+        throw new Error(`Not enough stock for ${productRows[0].name}.`);
 
       await conn.query(
         "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?",
-        [order.quantity, order.product_id],
+        [item.quantity, item.product_id],
+      );
+      await conn.query(
+        "UPDATE orders SET quantity = ?, total_price = ?, status = 'Processing' WHERE id = ?",
+        [item.quantity, item.total_price, item.id],
       );
     }
 
-    // 4. Update Group Status AND individual order statuses
     await conn.query(
       'UPDATE order_groups SET status = "Processing" WHERE id = ?',
       [group_id],
     );
-    await conn.query(
-      'UPDATE orders SET status = "Processing" WHERE group_id = ?',
-      [group_id],
-    );
 
     await conn.commit();
-    console.log(`✅ Order Group #${group_id} successfully processed.`);
-    res.json({
-      message: "Bulk order scanned successfully. All items are now Processing.",
-    });
+    res.json({ message: "Order processed and stock updated successfully." });
   } catch (error: any) {
     await conn.rollback();
-    console.error("❌ scanOrderQR error:", error.message);
     res
       .status(500)
-      .json({ message: "Server error during scan", details: error.message });
+      .json({ message: error.message || "Server error during confirmation" });
   } finally {
     conn.release();
   }
 };
 
-// DELETE PENDING GROUP (Student)
+// 3. FIXED: Update whole Group Status (Admin dropdown)
+export const updateOrderStatus = async (req: Request, res: Response) => {
+  const { status } = req.body;
+  const { id } = req.params; // This 'id' is now the group_id from the frontend
+  try {
+    await db.query("UPDATE order_groups SET status = ? WHERE id = ?", [
+      status,
+      id,
+    ]);
+    await db.query("UPDATE orders SET status = ? WHERE group_id = ?", [
+      status,
+      id,
+    ]);
+    res.json({ message: "Status updated" });
+  } catch (error: any) {
+    console.error("❌ updateOrderStatus error:", error.message);
+    res.status(500).json({ message: "Error updating status" });
+  }
+};
+
+// 4. FIXED: Delete whole Group (Admin)
+export const deleteOrder = async (req: Request, res: Response) => {
+  try {
+    // Assuming the frontend sends group_id. We delete the group, which cascades to orders.
+    await db.query("DELETE FROM order_groups WHERE id = ?", [req.params.id]);
+    res.json({ message: "Order group deleted" });
+  } catch (error: any) {
+    console.error("❌ deleteOrder error:", error.message);
+    res.status(500).json({ message: "Error deleting order" });
+  }
+};
+
+// 5. Student Delete (Only if Pending)
 export const deleteMyPendingOrder = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = (req as any).user.id;
@@ -258,28 +273,5 @@ export const deleteMyPendingOrder = async (req: Request, res: Response) => {
     res
       .status(500)
       .json({ message: "Error deleting order", details: error.message });
-  }
-};
-
-// UPDATE ORDER STATUS (Admin dropdown)
-export const updateOrderStatus = async (req: Request, res: Response) => {
-  const { status } = req.body;
-  const { id } = req.params;
-  try {
-    await db.query("UPDATE orders SET status = ? WHERE id = ?", [status, id]);
-    res.json({ message: "Status updated" });
-  } catch (error: any) {
-    console.error("❌ updateOrderStatus error:", error.message);
-    res.status(500).json({ message: "Error updating status" });
-  }
-};
-
-export const deleteOrder = async (req: Request, res: Response) => {
-  try {
-    await db.query("DELETE FROM orders WHERE id = ?", [req.params.id]);
-    res.json({ message: "Order deleted" });
-  } catch (error: any) {
-    console.error("❌ deleteOrder error:", error.message);
-    res.status(500).json({ message: "Error deleting order" });
   }
 };

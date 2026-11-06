@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart3 } from "lucide-react";
 import {
+  BarChart3,
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -9,13 +9,14 @@ import {
   Settings,
   LogOut,
   QrCode,
-  CheckCircle,
   XCircle,
   RefreshCw,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
-import "./Scanner.css"; // ✅ Import specific scanner CSS
+import "./Scanner.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
@@ -23,8 +24,10 @@ import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 const Scanner = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [successData, setSuccessData] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [editedItems, setEditedItems] = useState<any[]>([]);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -37,47 +40,32 @@ const Scanner = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
 
-  // ✅ STRICT CAMERA CLEANUP
   useEffect(() => {
     let isMounted = true;
-
     const startScanner = async () => {
       try {
         const html5Qrcode = new Html5Qrcode("reader");
         scannerRef.current = html5Qrcode;
-
         await html5Qrcode.start(
           { facingMode: "environment" },
-          {
-            fps: 30,
-            qrbox: { width: 280, height: 280 },
-            aspectRatio: 1.0,
-          },
+          { fps: 30, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
           (decodedText) => processScan(decodedText),
           () => {},
         );
       } catch (err) {
-        console.error("Failed to start scanner:", err);
-        if (isMounted) {
+        if (isMounted)
           showToast("error", "Camera Error", "Could not access the webcam.");
-        }
       }
     };
-
     startScanner();
 
-    // ✅ CLEANUP FUNCTION: This runs when you navigate away
     return () => {
       isMounted = false;
-      if (scannerRef.current) {
-        if (scannerRef.current.isScanning) {
-          scannerRef.current
-            .stop()
-            .then(() => {
-              scannerRef.current?.clear();
-            })
-            .catch(console.error);
-        }
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current
+          .stop()
+          .then(() => scannerRef.current?.clear())
+          .catch(console.error);
       }
     };
   }, []);
@@ -87,16 +75,15 @@ const Scanner = () => {
     if (!groupIdMatch) return;
 
     const groupId = groupIdMatch[1];
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current || previewData) return;
     isProcessingRef.current = true;
 
     setLoading(true);
     setScanError(null);
-    setSuccessData(null);
 
     try {
       const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/scan-qr",
+        "http://192.168.254.111:5000/api/orders/scan-preview",
         {
           method: "POST",
           headers: {
@@ -110,41 +97,88 @@ const Scanner = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        setScanError(
-          data.message || data.details || "Failed to process order.",
-        );
+        setScanError(data.message || "Failed to process order.");
         showToast("error", "Scan Failed", data.message);
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          setScanError(null);
+        }, 3000);
       } else {
-        setSuccessData(groupId);
-        showToast("success", "Order Scanned!", data.message);
+        setPreviewData(data.group);
+        setEditedItems(data.items);
+        showToast(
+          "success",
+          "QR Scanned",
+          `Loaded receipt for ${data.user?.full_name || "Student"}`,
+        );
       }
     } catch (error: any) {
-      setScanError(`Network Error: ${error.message}`);
+      setScanError("Network Error");
       showToast("error", "Connection Error", "Could not reach server.");
-    } finally {
-      setLoading(false);
       setTimeout(() => {
         isProcessingRef.current = false;
-        setSuccessData(null);
         setScanError(null);
-      }, 4000);
+      }, 3000);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const refreshCamera = () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      scannerRef.current.stop().then(() => {
-        scannerRef.current?.clear();
-        setTimeout(() => {
-          scannerRef.current?.start(
-            { facingMode: "environment" },
-            { fps: 30, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
-            (decodedText) => processScan(decodedText),
-            () => {},
-          );
-        }, 300);
-      });
+  const handleEditQty = (id: number, newQty: number) => {
+    if (newQty < 1) return;
+    setEditedItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const pricePerItem = item.price || item.total_price / item.quantity;
+          return {
+            ...item,
+            quantity: newQty,
+            total_price: pricePerItem * newQty,
+          };
+        }
+        return item;
+      }),
+    );
+  };
+
+  const handleRemoveItem = (id: number) => {
+    setEditedItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleConfirmPayment = async () => {
+    if (editedItems.length === 0)
+      return showToast("error", "Empty Receipt", "Add at least one item.");
+
+    try {
+      const res = await fetch(
+        "http://192.168.254.111:5000/api/orders/confirm-scan",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            group_id: previewData.id,
+            items: editedItems,
+          }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      showToast("success", "Payment Confirmed", "Order is now Processing.");
+      setPreviewData(null);
+      isProcessingRef.current = false;
+    } catch (error: any) {
+      showToast("error", "Confirmation Failed", error.message);
     }
+  };
+
+  const closeModal = () => {
+    setPreviewData(null);
+    isProcessingRef.current = false;
   };
 
   return (
@@ -155,7 +189,6 @@ const Scanner = () => {
         ))}
       </div>
 
-      {/* SIDEBAR */}
       <div className="orders-sidebar">
         <div className="orders-sidebar-header">
           <img src={logo} alt="LCC Logo" className="orders-sidebar-logo" />
@@ -187,7 +220,7 @@ const Scanner = () => {
             <Users size={20} /> <span>Users</span>
           </div>
           <div
-            className="admin-nav-item"
+            className="orders-nav-item"
             onClick={() => navigate("/analytics")}
           >
             <BarChart3 size={20} /> <span>Analytics</span>
@@ -210,7 +243,6 @@ const Scanner = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="orders-main-content">
         <div className="orders-header">
           <div>
@@ -225,21 +257,11 @@ const Scanner = () => {
           <div className="scanner-card">
             <div className="scanner-card-header">
               <h2 className="scanner-title">Scan Student QR Code</h2>
-              <button
-                onClick={refreshCamera}
-                className="refresh-btn"
-                title="Refresh Camera"
-              >
-                <RefreshCw size={18} color="#4b5563" />
-              </button>
             </div>
 
-            {/* SQUARE CAMERA CONTAINER */}
             <div className="camera-container">
               <div id="reader"></div>
-
-              {/* SCANNER OVERLAY */}
-              {!successData && !scanError && (
+              {!previewData && !scanError && !loading && (
                 <div className="scanner-overlay">
                   <div className="dimmed-background" />
                   <div className="scan-box">
@@ -252,43 +274,128 @@ const Scanner = () => {
                 </div>
               )}
 
-              {/* OVERLAYS */}
-              {successData && (
-                <div className="overlay-success">
-                  <CheckCircle size={80} style={{ marginBottom: "20px" }} />
-                  <h3>Order Scanned!</h3>
-                  <p>Group #GRP-{successData} is now Processing.</p>
-                </div>
-              )}
-
               {scanError && (
                 <div className="overlay-error">
-                  <XCircle size={80} style={{ marginBottom: "20px" }} />
+                  <XCircle size={80} />
                   <h3>Scan Failed</h3>
                   <p>{scanError}</p>
                 </div>
               )}
-
-              {loading && !successData && !scanError && (
+              {loading && !scanError && (
                 <div className="overlay-loading">
                   <RefreshCw
                     size={60}
-                    style={{
-                      marginBottom: "16px",
-                      animation: "spin 1s linear infinite",
-                    }}
+                    style={{ animation: "spin 1s linear infinite" }}
                   />
-                  <h3>Processing...</h3>
+                  <h3>Fetching Order...</h3>
                 </div>
               )}
             </div>
-
             <p className="scanner-help-text">
               Align the QR code inside the green corners.
             </p>
           </div>
         </div>
       </div>
+
+      {previewData && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="receipt-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeModal}>
+              <X size={20} />
+            </button>
+
+            <div className="receipt">
+              <div className="receipt-header">
+                <img src={logo} alt="LCC Logo" className="receipt-logo" />
+                <div>
+                  <h2>ORDER RECEIPT PREVIEW</h2>
+                  <p>{previewData.group_code}</p>
+                </div>
+              </div>
+
+              <div className="receipt-info">
+                <div className="receipt-info-row">
+                  <span>Student ID:</span>
+                  <strong>{previewData.user_id}</strong>
+                </div>
+                <div className="receipt-info-row">
+                  <span>Status:</span>
+                  <strong>{previewData.status}</strong>
+                </div>
+              </div>
+
+              <table className="receipt-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Subtotal</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editedItems.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        {item.name} ({item.size})
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            handleEditQty(item.id, parseInt(e.target.value))
+                          }
+                          style={{
+                            width: "60px",
+                            padding: "5px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "4px",
+                          }}
+                        />
+                      </td>
+                      <td>₱{item.total_price.toLocaleString()}</td>
+                      <td>
+                        <button
+                          onClick={() => handleRemoveItem(item.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "red",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="receipt-total">
+                <span>TOTAL</span>
+                <span>
+                  ₱
+                  {editedItems
+                    .reduce((s, i) => s + i.total_price, 0)
+                    .toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="receipt-actions">
+              <button className="btn-close" onClick={closeModal}>
+                Cancel
+              </button>
+              <button className="btn-print" onClick={handleConfirmPayment}>
+                Confirm Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

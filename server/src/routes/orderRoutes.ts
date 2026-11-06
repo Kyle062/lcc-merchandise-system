@@ -7,7 +7,8 @@ import {
   updateOrderStatus,
   deleteOrder,
   deleteMyPendingOrder,
-  scanOrderQR, 
+  getScanPreview,
+  confirmScanOrder,
 } from "../controllers/orderController";
 import { protect, authorize } from "../middleware/authMiddleware";
 
@@ -21,10 +22,21 @@ router.get("/:id", protect, authorize(["admin", "staff"]), getOrderById);
 // Student routes
 router.post("/", protect, authorize(["student"]), placeOrder);
 
-// ✅ THIS IS THE CRITICAL MISSING ROUTE
-router.post("/scan-qr", protect, authorize(["admin", "staff"]), scanOrderQR);
+// Scanner routes
+router.post(
+  "/scan-preview",
+  protect,
+  authorize(["admin", "staff"]),
+  getScanPreview,
+);
+router.post(
+  "/confirm-scan",
+  protect,
+  authorize(["admin", "staff"]),
+  confirmScanOrder,
+);
 
-// Update status
+// Update status (Now updates the whole group)
 router.put(
   "/:id/status",
   protect,

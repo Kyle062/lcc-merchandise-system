@@ -580,6 +580,7 @@ const Shop = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="receipt-top-header">
+              <img src={logo} alt="LCC Logo" className="receipt-logo" />
               <div className="receipt-icon-badge">
                 <svg
                   width="32"

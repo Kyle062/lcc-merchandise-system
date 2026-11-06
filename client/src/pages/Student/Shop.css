@@ -487,16 +487,37 @@
 .receipt-modal {
   text-align: center;
   padding: 30px 24px;
+  max-width: 520px;
+  max-height: 95vh;
+  overflow-y: auto;
+  border-radius: 24px;
 }
+
+.receipt-modal::-webkit-scrollbar {
+  display: none;
+}
+.receipt-modal {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .receipt-top-header {
   display: flex;
   flex-direction: column;
   align-items: center;
   margin-bottom: 20px;
 }
+
+.receipt-logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
 .receipt-icon-badge {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   background: #ecfdf5;
   color: #00874e;
   border-radius: 50%;
@@ -505,6 +526,7 @@
   justify-content: center;
   margin-bottom: 15px;
 }
+
 .receipt-title {
   font-size: 22px;
   font-weight: 800;
@@ -750,5 +772,9 @@
   }
   .size-options-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .receipt-modal {
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
   }
 }
