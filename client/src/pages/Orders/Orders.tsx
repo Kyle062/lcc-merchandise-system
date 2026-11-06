@@ -110,7 +110,10 @@ const Orders = () => {
   };
 
   useEffect(() => {
-    if (!token) return navigate("/login");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     fetchOrders();
   }, [token, navigate]);
 
@@ -171,7 +174,20 @@ const Orders = () => {
     return counts;
   }, [orders]);
 
-  const handleStatusChange = async (groupId: number, newStatus: string) => {
+  const handleStatusChange = async (
+    groupId: number,
+    newStatus: string,
+    currentStatus: string,
+  ) => {
+    if (newStatus === "Pending" && currentStatus !== "Pending") {
+      showToast(
+        "error",
+        "Action Denied",
+        "Cannot revert an order back to Pending.",
+      );
+      return;
+    }
+
     try {
       const res = await fetch(
         `http://192.168.254.111:5000/api/orders/${groupId}/status`,
@@ -395,10 +411,20 @@ const Orders = () => {
                           className={`status-select ${getStatusClass(order.status)}`}
                           value={order.status}
                           onChange={(e) =>
-                            handleStatusChange(order.group_id, e.target.value)
+                            handleStatusChange(
+                              order.group_id,
+                              e.target.value,
+                              order.status,
+                            )
                           }
+                          style={{ cursor: "pointer" }}
                         >
-                          <option value="Pending">Pending</option>
+                          <option
+                            value="Pending"
+                            disabled={order.status !== "Pending"}
+                          >
+                            Pending
+                          </option>
                           <option value="Processing">Processing</option>
                           <option value="Ready for Pickup">
                             Ready for Pickup

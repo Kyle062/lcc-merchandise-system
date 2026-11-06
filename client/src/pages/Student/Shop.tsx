@@ -26,12 +26,19 @@ const Shop = () => {
   const [selectedCourse, setSelectedCourse] = useState<string>("All");
   const [loading, setLoading] = useState(true);
 
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<any[]>(() => {
+    const savedCart = localStorage.getItem("student_cart");
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
-
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [isSizeModalOpen, setIsSizeModalOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("student_cart", JSON.stringify(cart));
+  }, [cart]);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -256,7 +263,6 @@ const Shop = () => {
               total: cartTotal,
               items: orderSummary,
             });
-
             setCart([]);
             setIsCartOpen(false);
 
@@ -473,13 +479,10 @@ const Shop = () => {
                 <X size={24} color="#6b7280" />
               </button>
             </div>
-
             <p className="size-modal-desc">
               {selectedProduct.description || "No description available."}
             </p>
-
             <h3 className="size-modal-label">Select Size</h3>
-
             <div className="size-options-grid">
               {selectedProduct.sizes.map((sizeItem: any) => (
                 <button
@@ -513,7 +516,6 @@ const Shop = () => {
                 <X size={24} color="#6b7280" />
               </button>
             </div>
-
             <div className="cart-items-list">
               {cart.length === 0 ? (
                 <div className="empty-cart-state">
@@ -554,7 +556,6 @@ const Shop = () => {
                 ))
               )}
             </div>
-
             <div className="cart-footer">
               <div className="cart-total-row">
                 <span>Total:</span>
@@ -600,14 +601,12 @@ const Shop = () => {
                 Your order has been successfully placed.
               </p>
             </div>
-
             <div className="receipt-status-bar">
               <span>Status:</span>
               <span className="receipt-status-pending">
                 Pending (Not yet paid)
               </span>
             </div>
-
             <div className="receipt-summary-box">
               <h3 className="receipt-section-title">Order Summary</h3>
               <div className="receipt-items">
@@ -627,7 +626,6 @@ const Shop = () => {
                 <span>₱{receiptData.total.toLocaleString()}</span>
               </div>
             </div>
-
             <div className="receipt-guide-box">
               <h3 className="receipt-section-title">Payment Guide</h3>
               <p className="receipt-guide-text">
@@ -636,7 +634,6 @@ const Shop = () => {
                 process your payment.
               </p>
             </div>
-
             <div className="receipt-qr-box">
               <div className="receipt-group-label">
                 Group #GRP-{String(receiptData.groupId).padStart(3, "0")}
@@ -647,7 +644,6 @@ const Shop = () => {
                 className="receipt-qr-img"
               />
             </div>
-
             <button
               className="receipt-done-btn"
               onClick={() => setReceiptData(null)}

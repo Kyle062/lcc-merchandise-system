@@ -150,8 +150,9 @@ const StudentDashboard = () => {
           <h1 className="student-header-title">My Dashboard</h1>
           <div className="student-header-right">
             <Bell size={20} color="#6b7280" />
-            <div className="student-avatar">{studentName.charAt(0)}</div>
-            {/* ✅ LOGOUT BUTTON FOR MOBILE */}
+            <div className="student-avatar">
+              {studentName.charAt(0).toUpperCase()}
+            </div>
             <button className="mobile-logout-btn" onClick={handleLogout}>
               <LogOut size={20} color="#dc2626" />
             </button>
@@ -205,9 +206,8 @@ const StudentDashboard = () => {
             <table className="student-table">
               <thead>
                 <tr>
-                  <th>Order ID</th>
-                  <th>Item</th>
-                  <th>Size</th>
+                  <th>Group ID</th>
+                  <th>Items</th>
                   <th>Total</th>
                   <th>Status</th>
                   <th>Date</th>
@@ -217,7 +217,7 @@ const StudentDashboard = () => {
                 {recentOrders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={5}
                       style={{
                         textAlign: "center",
                         padding: "30px",
@@ -229,10 +229,11 @@ const StudentDashboard = () => {
                   </tr>
                 ) : (
                   recentOrders.map((order) => (
-                    <tr key={order.id}>
-                      <td>#ORD-{String(order.id).padStart(3, "0")}</td>
-                      <td style={{ fontWeight: 600 }}>{order.product_name}</td>
-                      <td>{order.product_size || "—"}</td>
+                    <tr key={order.group_id}>
+                      <td>#GRP-{String(order.group_id).padStart(3, "0")}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {order.item_count} item(s)
+                      </td>
                       <td>₱{Number(order.total_price).toLocaleString()}</td>
                       <td>
                         <span className={getBadgeClass(order.status)}>

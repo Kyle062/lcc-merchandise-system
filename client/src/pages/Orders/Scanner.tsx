@@ -129,7 +129,9 @@ const Scanner = () => {
     setEditedItems((prev) =>
       prev.map((item) => {
         if (item.id === id) {
-          const pricePerItem = item.price || item.total_price / item.quantity;
+          const pricePerItem =
+            Number(item.price) ||
+            Number(item.total_price) / Number(item.quantity);
           return {
             ...item,
             quantity: newQty,
@@ -179,6 +181,10 @@ const Scanner = () => {
   const closeModal = () => {
     setPreviewData(null);
     isProcessingRef.current = false;
+  };
+
+  const calculateTotal = () => {
+    return editedItems.reduce((sum, item) => sum + Number(item.total_price), 0);
   };
 
   return (
@@ -355,7 +361,7 @@ const Scanner = () => {
                           }}
                         />
                       </td>
-                      <td>₱{item.total_price.toLocaleString()}</td>
+                      <td>₱{Number(item.total_price).toLocaleString()}</td>
                       <td>
                         <button
                           onClick={() => handleRemoveItem(item.id)}
@@ -376,12 +382,7 @@ const Scanner = () => {
 
               <div className="receipt-total">
                 <span>TOTAL</span>
-                <span>
-                  ₱
-                  {editedItems
-                    .reduce((s, i) => s + i.total_price, 0)
-                    .toLocaleString()}
-                </span>
+                <span>₱{calculateTotal().toLocaleString()}</span>
               </div>
             </div>
 
