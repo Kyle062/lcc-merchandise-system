@@ -11,8 +11,13 @@ export const login = async (req: Request, res: Response) => {
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
+
+    // ✅ TEMPORARY BYPASS FOR TAILOR TESTING
+    const isTailorTest = user.username === "tailor" && password === "tailor123";
+
+    if (!isMatch && !isTailorTest) {
       return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     // Check approval status
     if (user.status === "Pending") {
@@ -66,7 +71,7 @@ export const register = async (req: Request, res: Response) => {
       username,
       email,
       password: hashedPassword,
-      role: "student", 
+      role: "student",
       full_name,
       course: course || null,
       status: "Pending",

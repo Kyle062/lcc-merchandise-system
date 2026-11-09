@@ -88,11 +88,12 @@ const Login = () => {
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
 
+      // ✅ ADDED: Tailor Role Redirect
       if (data.role === "admin") navigate("/admin-dashboard");
-      else if (data.role === "staff")
-        navigate("/orders"); // Reverted for Merchandising Staff
+      else if (data.role === "staff") navigate("/orders");
       else if (data.role === "student") navigate("/student-dashboard");
       else if (data.role === "finance") navigate("/finance-dashboard");
+      else if (data.role === "tailor") navigate("/tailor-dashboard");
       else setErrorMessage("Unknown role. Contact administrator.");
     } catch (error) {
       console.error("Login error:", error);
