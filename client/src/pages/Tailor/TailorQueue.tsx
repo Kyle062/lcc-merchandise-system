@@ -12,7 +12,8 @@ import {
   PlayCircle,
   Inbox,
 } from "lucide-react";
-import "./TailorDashboard.css"; // Reusing the same CSS
+import "./TailorDashboard.css";
+import "./TailorQueue.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
@@ -23,7 +24,6 @@ const TailorQueue = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Modal state
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderDetails, setOrderDetails] = useState<any[]>([]);
 
@@ -66,7 +66,6 @@ const TailorQueue = () => {
     navigate("/login");
   };
 
-  // Fetch specific items when clicking "View Details"
   const handleViewDetails = async (order: any) => {
     setSelectedOrder(order);
     try {
@@ -83,7 +82,6 @@ const TailorQueue = () => {
     }
   };
 
-  // Update Status to "In Tailoring" or "Ready for Pickup"
   const handleUpdateProgress = async (groupId: number, newStatus: string) => {
     try {
       const res = await fetch(
@@ -105,8 +103,8 @@ const TailorQueue = () => {
         "Status Updated",
         `Order #GRP-${groupId} is now ${newStatus}`,
       );
-      fetchAssignedOrders(); // Refresh list
-      setSelectedOrder(null); // Close modal if open
+      fetchAssignedOrders();
+      setSelectedOrder(null);
     } catch (error) {
       showToast("error", "Update Failed", "Could not update order status.");
     }
@@ -225,42 +223,23 @@ const TailorQueue = () => {
                       </td>
                       <td>{new Date(order.order_date).toLocaleDateString()}</td>
                       <td>
-                        <div style={{ display: "flex", gap: "8px" }}>
+                        <div className="action-buttons-group">
                           <button
+                            className="btn-view"
                             onClick={() => handleViewDetails(order)}
-                            style={{
-                              background: "#e5e7eb",
-                              border: "none",
-                              padding: "6px 10px",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
                           >
                             <Eye size={14} /> View
                           </button>
 
                           {order.status === "Processing" && (
                             <button
+                              className="btn-start"
                               onClick={() =>
                                 handleUpdateProgress(
                                   order.group_id,
                                   "In Tailoring",
                                 )
                               }
-                              style={{
-                                background: "#d97706",
-                                color: "white",
-                                border: "none",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
                             >
                               <PlayCircle size={14} /> Start
                             </button>
@@ -268,23 +247,13 @@ const TailorQueue = () => {
 
                           {order.status === "In Tailoring" && (
                             <button
+                              className="btn-finish"
                               onClick={() =>
                                 handleUpdateProgress(
                                   order.group_id,
                                   "Ready for Pickup",
                                 )
                               }
-                              style={{
-                                background: "#059669",
-                                color: "white",
-                                border: "none",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
                             >
                               <CheckCircle size={14} /> Finish
                             </button>
@@ -300,19 +269,14 @@ const TailorQueue = () => {
         </div>
       </div>
 
-      {/* Item Details Modal */}
       {selectedOrder && (
-        <div className="modal-overlay" onClick={() => setSelectedOrder(null)}>
-          <div
-            className="cart-modal"
-            style={{ maxWidth: "400px", textAlign: "center" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="cart-modal-header"
-              style={{ justifyContent: "space-between" }}
-            >
-              <h2 className="cart-modal-title">Order Details</h2>
+        <div
+          className="tailor-modal-overlay"
+          onClick={() => setSelectedOrder(null)}
+        >
+          <div className="tailor-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="tailor-modal-header">
+              <h2 className="tailor-modal-title">Order Details</h2>
               <button
                 onClick={() => setSelectedOrder(null)}
                 style={{
@@ -325,42 +289,21 @@ const TailorQueue = () => {
               </button>
             </div>
 
-            <p
-              style={{
-                fontSize: "14px",
-                color: "#6b7280",
-                marginBottom: "15px",
-              }}
-            >
+            <p className="tailor-modal-subtitle">
               Group #GRP-{String(selectedOrder.group_id).padStart(3, "0")} for{" "}
               {selectedOrder.student_name}
             </p>
 
-            <div
-              style={{
-                textAlign: "left",
-                background: "#f9fafb",
-                padding: "15px",
-                borderRadius: "8px",
-              }}
-            >
+            <div className="tailor-modal-items">
               {orderDetails.length === 0 ? (
                 <p style={{ textAlign: "center" }}>Loading items...</p>
               ) : (
                 orderDetails.map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "8px 0",
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
-                  >
-                    <span style={{ fontWeight: "600" }}>
+                  <div key={idx} className="tailor-modal-item-row">
+                    <span className="tailor-item-name">
                       {item.quantity}x {item.name}
                     </span>
-                    <span style={{ color: "#d97706", fontWeight: "700" }}>
+                    <span className="tailor-item-size">
                       Size: {item.size || "N/A"}
                     </span>
                   </div>
@@ -369,18 +312,8 @@ const TailorQueue = () => {
             </div>
 
             <button
+              className="tailor-modal-close-btn"
               onClick={() => setSelectedOrder(null)}
-              style={{
-                width: "100%",
-                padding: "12px",
-                background: "#1f2937",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                marginTop: "20px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
             >
               Close
             </button>
