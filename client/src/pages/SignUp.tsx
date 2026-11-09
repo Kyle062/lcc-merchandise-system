@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   EyeOff,
   Eye,
@@ -10,8 +10,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { BrowserMultiFormatReader } from "@zxing/browser";
-import { BarcodeFormat, DecodeHintType } from "@zxing/library"; // ✅ Import hints
 import "./SignUp.css";
 
 import bgImage from "../assets/images/Background Merchandising.png";
@@ -49,35 +47,23 @@ const SignUp = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const [showCamera, setShowCamera] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState("Initializing camera...");
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
 
-  // ✅ Auto-scan logic with Hints
   useEffect(() => {
     if (showCamera) {
-      // 1. Setup hints for 1D barcodes
-      const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.CODE_39,
-      ]);
-      hints.set(DecodeHintType.TRY_HARDER, true);
-
-      const codeReader = new BrowserMultiFormatReader(hints);
-      codeReaderRef.current = codeReader;
-
-      setScanStatus("Hold your Student ID up to the camera...");
-
-      codeReader
-        .decodeFromVideoDevice(undefined, "video-preview", (result, error) => {
-          if (result) {
-            handleBarcodeDetected(result.getText());
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: "environment" } })
+        .then((stream) => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            setIsCameraReady(true);
+            setScanStatus("Hold your ID up to the camera and click Capture.");
           }
         })
         .catch((err) => {
@@ -85,66 +71,61 @@ const SignUp = () => {
           setErrorMessage("Could not access camera. Please allow permissions.");
           setShowCamera(false);
         });
-    }
-
-    return () => {
-      if (codeReaderRef.current) {
-        BrowserMultiFormatReader.releaseAllStreams();
+    } else {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => track.stop());
+        setIsCameraReady(false);
       }
-    };
+    }
   }, [showCamera]);
 
-  const handleBarcodeDetected = async (barcodeText: string) => {
-    if (isLoading || !showCamera) return;
+  const captureAndScan = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
 
-    // Stop scanning immediately
-    if (codeReaderRef.current) {
-      BrowserMultiFormatReader.releaseAllStreams();
-    }
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL("image/jpeg");
 
     setIsScanning(true);
-    setScanStatus("Barcode detected! Verifying...");
+    setScanStatus("Analyzing barcode with Python AI...");
 
-    const VALID_BARCODE = "2024005107";
-    const VALID_NAME = "KYLE BERNARD A. TRIMIDAL";
+    try {
+      // ✅ Send the captured image to the Python service
+      const response = await fetch("http://192.168.254.111:8001/scan-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: imageData,
+          full_name: formData.full_name,
+        }),
+      });
 
-    // Add a small delay to ensure camera releases
-    setTimeout(() => {
-      if (barcodeText === VALID_BARCODE) {
-        if (formData.full_name.toUpperCase() === VALID_NAME) {
-          submitRegistration(true);
-        } else {
-          setScanStatus(
-            "Error: ID Name does not match your registration name.",
-          );
-          setTimeout(() => {
-            setIsScanning(false);
-            setScanStatus("Hold your Student ID up to the camera...");
-            startScanner();
-          }, 3000);
-        }
+      const data = await response.json();
+
+      if (data.success) {
+        setScanStatus("ID Verified Successfully!");
+        setTimeout(() => submitRegistration(true), 1000);
       } else {
-        setScanStatus(`Error: Unregistered Barcode (${barcodeText}).`);
+        setScanStatus(`Error: ${data.message}`);
         setTimeout(() => {
           setIsScanning(false);
-          setScanStatus("Hold your Student ID up to the camera...");
-          startScanner();
+          setScanStatus("Hold your ID up to the camera and click Capture.");
         }, 3000);
       }
-    }, 500);
-  };
-
-  const startScanner = () => {
-    if (codeReaderRef.current && videoRef.current) {
-      codeReaderRef.current.decodeFromVideoDevice(
-        undefined,
-        "video-preview",
-        (result, error) => {
-          if (result) {
-            handleBarcodeDetected(result.getText());
-          }
-        },
-      );
+    } catch (error) {
+      setScanStatus("Network error. Could not reach Python service.");
+      setTimeout(() => {
+        setIsScanning(false);
+        setScanStatus("Hold your ID up to the camera and click Capture.");
+      }, 3000);
     }
   };
 
@@ -209,7 +190,6 @@ const SignUp = () => {
     }
   };
 
-  // ====== SUCCESS SCREEN ======
   if (success) {
     const isActive = successMessage.includes("active");
     return (
@@ -289,39 +269,55 @@ const SignUp = () => {
     );
   }
 
-  // ====== AUTO-SCANNING CAMERA MODAL ======
   if (showCamera) {
     return (
       <div className="camera-modal-overlay">
         <div className="camera-modal">
           <div className="camera-modal-header">
-            <h3>Verifying Student ID</h3>
+            <h3>Verify Student ID</h3>
             <button onClick={() => setShowCamera(false)} className="close-btn">
               <X size={20} />
             </button>
           </div>
 
           <div className="camera-preview-container">
-            <video id="video-preview" className="camera-video" />
-
-            {!isScanning && (
-              <div className="scanner-overlay">
-                <div className="scan-line"></div>
+            {!isScanning ? (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="camera-video"
+              />
+            ) : (
+              <div className="scanning-overlay">
+                <Loader2
+                  className="spinner-icon-large"
+                  size={48}
+                  color="#00874e"
+                />
               </div>
             )}
+            <canvas ref={canvasRef} style={{ display: "none" }} />
 
             <div
               className={`scan-status ${isScanning ? "scanning-active" : ""}`}
             >
-              {isScanning && <Loader2 className="spinner-icon" size={20} />}
               <span>{scanStatus}</span>
             </div>
           </div>
 
+          <div className="camera-actions">
+            <button
+              onClick={captureAndScan}
+              disabled={!isCameraReady || isScanning}
+              className="btn-capture"
+            >
+              <Camera size={18} /> Capture & Scan ID
+            </button>
+          </div>
+
           <div className="camera-footer">
-            <p>
-              Look at the camera and hold your LCC ID barcode clearly in frame.
-            </p>
+            <p>Make sure the barcode is well-lit and clearly visible.</p>
             {errorMessage && <div className="camera-error">{errorMessage}</div>}
           </div>
         </div>
@@ -329,7 +325,6 @@ const SignUp = () => {
     );
   }
 
-  // ====== REGISTRATION FORM ======
   return (
     <div className="signup-container">
       <div
@@ -496,7 +491,7 @@ const SignUp = () => {
             </div>
 
             <button type="submit" className="submit-btn" disabled={isLoading}>
-              Scan ID & SIGN UP
+              Capture ID & SIGN UP
             </button>
           </form>
 
