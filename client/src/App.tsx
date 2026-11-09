@@ -16,9 +16,9 @@ import StudentDashboard from "./pages/Dashboard/StudentDashboard";
 import Shop from "./pages/Student/Shop";
 import TrackOrders from "./pages/Student/TrackOrders";
 
-// Merchandising Staff Pages
-// ✅ FIXED: Changed the path to point to the Dashboard folder
-import MerchandisingStaffDashboard from "./pages/Dashboard/MerchandisingStaffDashboard";
+// Tailor Pages
+import TailorDashboard from "./pages/Tailor/TailorDashboard";
+import TailorQueue from "./pages/Tailor/TailorQueue";
 
 function App() {
   return (
@@ -44,11 +44,9 @@ function App() {
       <Route path="/shop" element={<Shop />} />
       <Route path="/track-orders" element={<TrackOrders />} />
 
-      {/* Merchandising Staff Routes */}
-      <Route
-        path="/merchandising-staff-dashboard"
-        element={<MerchandisingStaffDashboard />}
-      />
+      {/* Tailor Staff Routes */}
+      <Route path="/tailor-dashboard" element={<TailorDashboard />} />
+      <Route path="/tailor-queue" element={<TailorQueue />} />
     </Routes>
   );
 }
