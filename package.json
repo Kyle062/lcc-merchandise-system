@@ -6,7 +6,8 @@
     "start:client": "cd client && npm run dev",
     "start:server": "cd server && npm run dev",
     "start:python": "cd python-qr-service && .\\venv\\Scripts\\activate && python app.py",
-    "dev": "concurrently \"npm:start:client\" \"npm:start:server\" \"npm:start:python\""
+    "start:analytics": "cd python-qr-service && .\\venv\\Scripts\\activate && python analytics_service.py",
+    "dev": "concurrently \"npm:start:client\" \"npm:start:server\" \"npm:start:python\" \"npm:start:analytics\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
