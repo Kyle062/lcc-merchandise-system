@@ -8,7 +8,17 @@ import {
   LogOut,
   Search,
   Bell,
+  FileText,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import "./TailorDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
 
@@ -20,12 +30,11 @@ const TailorDashboard = () => {
     completedToday: 0,
   });
   const [queue, setQueue] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    // ✅ FIXED: Added curly braces to prevent returning the navigate function
     if (!token) {
       navigate("/login");
       return;
@@ -49,6 +58,17 @@ const TailorDashboard = () => {
           completedToday: Number(statsData?.completedToday) || 0,
         });
         setQueue(Array.isArray(queueData) ? queueData : []);
+
+        // Mock Chart Data (You can replace this with real data from your API later)
+        setChartData([
+          { name: "Mon", completed: 4 },
+          { name: "Tue", completed: 6 },
+          { name: "Wed", completed: 2 },
+          { name: "Thu", completed: 8 },
+          { name: "Fri", completed: 5 },
+          { name: "Sat", completed: 0 },
+        ]);
+
         setLoading(false);
       } catch (error) {
         console.error(error);
@@ -92,6 +112,14 @@ const TailorDashboard = () => {
             }
           >
             <Scissors size={20} /> <span>Work Queue</span>
+          </NavLink>
+          <NavLink
+            to="/tailor-reports"
+            className={({ isActive }) =>
+              isActive ? "tailor-nav-item active" : "tailor-nav-item"
+            }
+          >
+            <FileText size={20} /> <span>Reports</span>
           </NavLink>
         </nav>
         <div className="tailor-sidebar-footer" onClick={handleLogout}>
@@ -141,6 +169,25 @@ const TailorDashboard = () => {
                 <h3 className="tailor-stat-value">{stats.completedToday}</h3>
               </div>
             </div>
+          </div>
+
+          {/* Chart Row */}
+          <div className="tailor-chart-card">
+            <h3 className="tailor-chart-title">Weekly Completed Tailoring</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: "#f3f4f6" }} />
+                <Bar
+                  dataKey="completed"
+                  fill="#d97706"
+                  radius={[4, 4, 0, 0]}
+                  name="Orders Completed"
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
 
           <div className="tailor-table-card">
