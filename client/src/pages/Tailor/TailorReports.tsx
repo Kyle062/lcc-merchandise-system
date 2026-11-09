@@ -8,7 +8,18 @@ import {
   Bell,
   FileText,
   Download,
+  TrendingUp,
+  DollarSign,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import "./TailorDashboard.css";
 import "./TailorReports.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -16,43 +27,62 @@ import logo from "../../assets/images/LCClogo1.png";
 const TailorReports = () => {
   const navigate = useNavigate();
   const [reports, setReports] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>({
+    revenueChart: [],
+    topItemsChart: [],
+    totalRevenue: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // ✅ New State for Filters
+  const [timeframe, setTimeframe] = useState<"day" | "week" | "month">("week");
+
+  const token = localStorage.getItem("token");
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
     if (!token) {
       navigate("/login");
       return;
     }
 
-    const fetchReports = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(
+        // Fetch the raw list of finished orders
+        const resList = await fetch(
           "http://192.168.254.111:5000/api/tailor/assigned",
           {
             headers: { Authorization: `Bearer ${token}` },
           },
         );
-        const data = await res.json();
-
-        // Filter for finished orders
-        const finished = Array.isArray(data)
-          ? data.filter(
+        const dataList = await resList.json();
+        const finished = Array.isArray(dataList)
+          ? dataList.filter(
               (o: any) =>
                 o.status === "Ready for Pickup" || o.status === "Completed",
             )
           : [];
-
         setReports(finished);
+
+        // Fetch the Analytics (Charts) based on the selected timeframe
+        const resAnalytics = await fetch(
+          `http://192.168.254.111:5000/api/tailor/analytics?timeframe=${timeframe}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        const dataAnalytics = await resAnalytics.json();
+        setAnalytics(dataAnalytics);
+
         setLoading(false);
       } catch (error) {
         console.error(error);
         setLoading(false);
       }
     };
-    fetchReports();
-  }, [navigate]);
+    fetchData();
+  }, [navigate, token, timeframe]); // Re-run when timeframe changes
 
   const handleLogout = () => {
     localStorage.clear();
@@ -125,6 +155,94 @@ const TailorReports = () => {
         </div>
 
         <div className="tailor-dashboard-content">
+          {/* ✅ NEW: Filter Buttons & Revenue Card */}
+          <div className="report-top-bar">
+            <div className="timeframe-filters">
+              <button
+                className={timeframe === "day" ? "active" : ""}
+                onClick={() => setTimeframe("day")}
+              >
+                Today
+              </button>
+              <button
+                className={timeframe === "week" ? "active" : ""}
+                onClick={() => setTimeframe("week")}
+              >
+                This Week
+              </button>
+              <button
+                className={timeframe === "month" ? "active" : ""}
+                onClick={() => setTimeframe("month")}
+              >
+                This Month
+              </button>
+            </div>
+
+            <div className="revenue-card">
+              <div className="revenue-icon">
+                <DollarSign size={24} color="#059669" />
+              </div>
+              <div>
+                <p className="revenue-label">Total Tailoring Revenue</p>
+                <h3 className="revenue-value">
+                  ₱{Number(analytics.totalRevenue || 0).toLocaleString()}
+                </h3>
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ NEW: Charts Grid */}
+          <div className="reports-charts-grid">
+            <div className="report-chart-card">
+              <h3 className="chart-title">Revenue Generated</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={analytics.revenueChart || []}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} />
+                  <YAxis axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: "#f3f4f6" }}
+                    formatter={(val) => `₱${val}`}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    fill="#059669"
+                    radius={[4, 4, 0, 0]}
+                    name="Revenue"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="report-chart-card">
+              <h3 className="chart-title">Most Requested Merchandise</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={analytics.topItemsChart || []}
+                  layout="vertical"
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" axisLine={false} tickLine={false} />
+                  <YAxis
+                    dataKey="item_name"
+                    type="category"
+                    axisLine={false}
+                    tickLine={false}
+                    width={120}
+                  />
+                  <Tooltip cursor={{ fill: "#f3f4f6" }} />
+                  <Bar
+                    dataKey="total_qty"
+                    fill="#d97706"
+                    radius={[0, 4, 4, 0]}
+                    name="Qty Ordered"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Completed Orders Table */}
           <div className="tailor-table-card">
             <div className="tailor-table-header">
               <h3 className="tailor-table-title">Completed Tailoring Work</h3>
