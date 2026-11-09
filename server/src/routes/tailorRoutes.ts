@@ -4,6 +4,7 @@ import {
   getAssignedOrders,
   getOrderDetails,
   updateWorkProgress,
+  getTailorReportAnalytics, 
 } from "../controllers/tailorController";
 import { protect, authorize } from "../middleware/authMiddleware";
 
@@ -28,5 +29,11 @@ router.put(
   authorize(["tailor", "admin"]),
   updateWorkProgress,
 );
+router.get(
+  "/analytics",
+  protect,
+  authorize(["tailor", "admin"]),
+  getTailorReportAnalytics,
+); // ✅ Add this
 
 export default router;
