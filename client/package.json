@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.40.0",
     "react": "^19.2.8",

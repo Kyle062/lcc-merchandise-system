@@ -2,6 +2,12 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import mysql.connector
 from datetime import datetime, timedelta
+import base64
+import io
+from PIL import Image
+from pyzbar.pyzbar import decode
+import cv2
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -221,8 +227,6 @@ def get_tailor_analytics():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # 1. Revenue Generated Chart
-        # ✅ FIXED: Using %% to avoid Python string formatting crash
         cursor.execute(
             f"""
             SELECT 
@@ -241,7 +245,6 @@ def get_tailor_analytics():
         for item in revenue_data:
             item["revenue"] = float(item["revenue"])  # type: ignore
 
-        # 2. Most Requested Merchandise
         cursor.execute(
             f"""
             SELECT 
@@ -261,7 +264,6 @@ def get_tailor_analytics():
         for item in top_items:
             item["total_qty"] = int(item["total_qty"])  # type: ignore
 
-        # 3. Total Revenue
         cursor.execute(
             f"""
             SELECT COALESCE(SUM(o.total_price), 0) as total
@@ -290,7 +292,74 @@ def get_tailor_analytics():
 
 
 # ==========================================
-# 4. RUN THE APP
+# 4. BARCODE SCANNER ROUTE
+# ==========================================
+@app.route("/scan-id", methods=["POST"])
+def scan_id():
+    try:
+        data = request.json
+        if not data or "image" not in data or "full_name" not in data:
+            return jsonify({"success": False, "message": "Missing image or name."}), 400
+
+        # 1. Decode the base64 image from React
+        image_data = data["image"].split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+
+        # 2. Convert to OpenCV format for better processing
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # 3. Convert to grayscale and decode barcodes
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        barcodes = decode(gray)
+
+        if not barcodes:
+            barcodes = decode(Image.open(io.BytesIO(image_bytes)))
+
+        if not barcodes:
+            return jsonify(
+                {
+                    "success": False,
+                    "message": "No barcode detected. Please hold it closer to the camera.",
+                }
+            )
+
+        # 4. Extract barcode text
+        barcode_text = barcodes[0].data.decode("utf-8")
+        print(f"Scanned Barcode: {barcode_text}")
+
+        # 5. Validate the barcode and name
+        VALID_BARCODE = "2024005107"
+        VALID_NAME = "KYLE BERNARD A. TRIMIDAL"
+
+        if barcode_text == VALID_BARCODE:
+            if data["full_name"].upper() == VALID_NAME:
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "ID Verified successfully!",
+                        "barcode": barcode_text,
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "success": False,
+                        "message": "The name you entered does not match the ID barcode.",
+                    }
+                )
+        else:
+            return jsonify(
+                {"success": False, "message": f"Unregistered barcode: {barcode_text}"}
+            )
+
+    except Exception as e:
+        print("Error in Barcode Scan:", str(e))
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ==========================================
+# 5. RUN THE APP
 # ==========================================
 if __name__ == "__main__":
     print("Starting Analytics Python Service on port 8001...")

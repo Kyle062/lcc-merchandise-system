@@ -14,8 +14,6 @@ import {
   X,
   AlertCircle,
   Trash2,
-  Clock,
-  UserX,
   ChevronDown,
   ChevronUp,
   QrCode,
@@ -68,8 +66,6 @@ const Users = () => {
   const [roleFilter, setRoleFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState<User | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [showRejected, setShowRejected] = useState(false);
 
@@ -115,7 +111,8 @@ const Users = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/users", {
+      // ✅ FIXED: Using your local IP instead of localhost
+      const res = await fetch("http://192.168.254.111:5000/api/users", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -135,10 +132,6 @@ const Users = () => {
     fetchUsers();
   }, [token, navigate]);
 
-  const pendingUsers = useMemo(
-    () => users.filter((u) => u.status === "Pending"),
-    [users],
-  );
   const activeUsers = useMemo(
     () => users.filter((u) => u.status === "Active"),
     [users],
@@ -182,75 +175,6 @@ const Users = () => {
     navigate("/login");
   };
 
-  const handleApprove = (user: User) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: "Approve Account?",
-      message: `Approve ${user.full_name || user.username}'s account? They will be able to log in immediately.`,
-      confirmLabel: "Approve",
-      variant: "info",
-      onConfirm: async () => {
-        try {
-          const res = await fetch(
-            `http://localhost:5000/api/users/${user.id}/approve`,
-            {
-              method: "PUT",
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
-          if (res.ok) {
-            showToast(
-              "success",
-              "Account Approved",
-              `${user.full_name || user.username} can now log in.`,
-            );
-            await fetchUsers();
-          } else {
-            showToast("error", "Approval Failed", "Could not approve account.");
-          }
-        } catch {
-          showToast("error", "Connection Error", "Cannot reach the server.");
-        }
-        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-      },
-    });
-  };
-
-  const handleRejectClick = (user: User) => {
-    setShowRejectModal(user);
-    setRejectReason("");
-  };
-
-  const handleRejectConfirm = async () => {
-    if (!showRejectModal) return;
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/users/${showRejectModal.id}/reject`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ reason: rejectReason }),
-        },
-      );
-      if (res.ok) {
-        showToast(
-          "warning",
-          "Account Rejected",
-          `${showRejectModal.full_name || showRejectModal.username} will not be able to log in.`,
-        );
-        setShowRejectModal(null);
-        await fetchUsers();
-      } else {
-        showToast("error", "Rejection Failed", "Could not reject account.");
-      }
-    } catch {
-      showToast("error", "Connection Error", "Cannot reach the server.");
-    }
-  };
-
   const handleDelete = (user: User) => {
     setConfirmDialog({
       isOpen: true,
@@ -261,7 +185,7 @@ const Users = () => {
       onConfirm: async () => {
         try {
           const res = await fetch(
-            `http://localhost:5000/api/users/${user.id}`,
+            `http://192.168.254.111:5000/api/users/${user.id}`,
             {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` },
@@ -288,7 +212,7 @@ const Users = () => {
   const handleRoleChange = async (userId: number, newRole: string) => {
     try {
       const res = await fetch(
-        `http://localhost:5000/api/users/${userId}/role`,
+        `http://192.168.254.111:5000/api/users/${userId}/role`,
         {
           method: "PUT",
           headers: {
@@ -316,7 +240,7 @@ const Users = () => {
     setErrorMessage("");
 
     try {
-      const res = await fetch("http://localhost:5000/api/users", {
+      const res = await fetch("http://192.168.254.111:5000/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -464,10 +388,7 @@ const Users = () => {
         <div className="users-header">
           <div>
             <h1 className="users-header-title">User Management</h1>
-            <p className="users-subtitle">
-              {users.length} total users · {pendingUsers.length} pending
-              approval
-            </p>
+            <p className="users-subtitle">{users.length} total users</p>
           </div>
           <div className="users-header-right">
             <div className="users-search-bar">
@@ -491,82 +412,20 @@ const Users = () => {
         </div>
 
         <div className="users-content">
-          {pendingUsers.length > 0 && (
-            <div className="pending-section">
-              <div className="pending-banner">
-                <Clock size={20} />
-                <div>
-                  <strong>
-                    {pendingUsers.length} account(s) pending approval
-                  </strong>
-                  <p>Review new student sign-ups before they can log in.</p>
-                </div>
-              </div>
-
-              <div className="users-table-card">
-                <table className="users-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Username</th>
-                      <th>Full Name</th>
-                      <th>Email</th>
-                      <th>Course</th>
-                      <th>Date Registered</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td>#{user.id}</td>
-                        <td style={{ fontWeight: 600 }}>{user.username}</td>
-                        <td>{user.full_name}</td>
-                        <td>{user.email}</td>
-                        <td>
-                          {user.course ? (
-                            <span className="course-badge">{user.course}</span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td>{formatDate(user.created_at)}</td>
-                        <td>
-                          <div className="pending-actions">
-                            <button
-                              className="btn-approve"
-                              onClick={() => handleApprove(user)}
-                            >
-                              <Check size={16} /> Approve
-                            </button>
-                            <button
-                              className="btn-reject"
-                              onClick={() => handleRejectClick(user)}
-                            >
-                              <X size={16} /> Reject
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           <div className="section-title-row">
             <h2>Active Users ({filteredActiveUsers.length})</h2>
             <div className="role-filter">
-              {["All", "student", "staff", "finance", "admin"].map((r) => (
-                <button
-                  key={r}
-                  className={`role-tab ${roleFilter === r ? "active" : ""}`}
-                  onClick={() => setRoleFilter(r)}
-                >
-                  {r.charAt(0).toUpperCase() + r.slice(1)}
-                </button>
-              ))}
+              {["All", "student", "staff", "finance", "admin", "tailor"].map(
+                (r) => (
+                  <button
+                    key={r}
+                    className={`role-tab ${roleFilter === r ? "active" : ""}`}
+                    onClick={() => setRoleFilter(r)}
+                  >
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </button>
+                ),
+              )}
             </div>
           </div>
 
@@ -648,6 +507,7 @@ const Users = () => {
                           <option value="student">Student</option>
                           <option value="staff">Staff</option>
                           <option value="finance">Finance</option>
+                          <option value="tailor">Tailor</option>
                           <option value="admin">Admin</option>
                         </select>
                       </td>
@@ -673,7 +533,7 @@ const Users = () => {
                 className="rejected-toggle"
                 onClick={() => setShowRejected(!showRejected)}
               >
-                <UserX size={18} />
+                <AlertCircle size={18} />
                 <span>Rejected Accounts ({rejectedUsers.length})</span>
                 {showRejected ? (
                   <ChevronUp size={18} />
@@ -723,11 +583,10 @@ const Users = () => {
                           <td>{formatDate(user.created_at)}</td>
                           <td>
                             <button
-                              className="btn-approve"
-                              onClick={() => handleApprove(user)}
-                              style={{ fontSize: 11, padding: "4px 10px" }}
+                              className="action-btn delete"
+                              onClick={() => handleDelete(user)}
                             >
-                              <Check size={12} /> Restore
+                              <Trash2 size={16} />
                             </button>
                           </td>
                         </tr>
@@ -818,6 +677,7 @@ const Users = () => {
                   >
                     <option value="staff">Staff</option>
                     <option value="finance">Finance</option>
+                    <option value="tailor">Tailor</option>
                     <option value="admin">Admin</option>
                     <option value="student">Student</option>
                   </select>
@@ -854,68 +714,6 @@ const Users = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {showRejectModal && (
-        <div className="modal-overlay" onClick={() => setShowRejectModal(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Reject Account</h3>
-              <button
-                className="modal-close"
-                onClick={() => setShowRejectModal(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <p style={{ fontSize: 14, color: "#4b5563", marginBottom: 16 }}>
-              Rejecting{" "}
-              <strong>
-                {showRejectModal.full_name || showRejectModal.username}
-              </strong>{" "}
-              will prevent them from logging in. Optionally provide a reason.
-            </p>
-            <div className="modal-group">
-              <label>Reason (optional)</label>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="e.g., Invalid student ID, duplicate account..."
-                rows={3}
-                style={{
-                  width: "100%",
-                  padding: 10,
-                  borderRadius: 8,
-                  border: "1.5px solid #d1d5db",
-                  fontFamily: "inherit",
-                  resize: "vertical",
-                }}
-              />
-            </div>
-            <div className="modal-actions">
-              <button
-                className="btn-cancel"
-                onClick={() => setShowRejectModal(null)}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRejectConfirm}
-                style={{
-                  background: "#dc2626",
-                  color: "white",
-                  padding: "10px 20px",
-                  border: "none",
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Confirm Rejection
-              </button>
-            </div>
           </div>
         </div>
       )}

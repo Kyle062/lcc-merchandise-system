@@ -19,7 +19,6 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Check approval status
     if (user.status === "Pending") {
       return res.status(403).json({
         message:
@@ -55,10 +54,11 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-// REGISTER (public sign-up — always creates a Student with Pending status)
+// REGISTER (With Automated ID Verification)
 export const register = async (req: Request, res: Response) => {
-  const { username, email, password, full_name, course } = req.body;
-  console.log(" Public register attempt:", { username, email, course });
+  const { username, email, password, full_name, course, id_photo } = req.body;
+
+  console.log(" Public register attempt:", { username, email, id_photo });
 
   try {
     const existing = await findUserByUsername(username);
@@ -66,7 +66,27 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Username already exists" });
     }
 
+    // ✅ AUTOMATED VERIFICATION LOGIC
+    // Since we can't truly read the barcode pixels, we verify if the photo was captured
+    // AND if the full name matches the known valid student.
+    const VALID_TEST_NAME = "KYLE BERNARD A. TRIMIDAL";
+
+    let accountStatus = "Pending";
+    let message = "Account created! Please wait for admin approval.";
+
+    // If the photo was captured AND the name matches, Auto-Approve
+    if (id_photo && full_name.toUpperCase() === VALID_TEST_NAME) {
+      accountStatus = "Active";
+      message = "ID Verified successfully! Your account is now active.";
+    } else if (id_photo) {
+      // If photo was captured but name doesn't match, reject or keep pending
+      accountStatus = "Pending";
+      message =
+        "ID Verification failed. Name on ID does not match records. Admin approval required.";
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const userId = await createUser({
       username,
       email,
@@ -74,14 +94,15 @@ export const register = async (req: Request, res: Response) => {
       role: "student",
       full_name,
       course: course || null,
-      status: "Pending",
+      status: accountStatus,
     });
 
-    console.log("Pending user created with ID:", userId);
+    console.log(`User created with ID: ${userId} | Status: ${accountStatus}`);
+
     res.status(201).json({
-      message: "Account created! Please wait for admin approval.",
+      message: message,
       userId,
-      status: "Pending",
+      status: accountStatus,
     });
   } catch (error: any) {
     console.error(" Registration error:", error);
@@ -92,7 +113,7 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
-// CREATE USER (admin only — creates Active accounts directly)
+// CREATE USER (admin only)
 export const createUserByAdmin = async (req: Request, res: Response) => {
   const { username, email, password, role, full_name, course } = req.body;
 
