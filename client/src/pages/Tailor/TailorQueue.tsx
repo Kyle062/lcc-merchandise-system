@@ -11,6 +11,9 @@ import {
   CheckCircle,
   PlayCircle,
   Inbox,
+  Clock,
+  CheckSquare,
+  Layers,
 } from "lucide-react";
 import "./TailorDashboard.css";
 import "./TailorQueue.css";
@@ -23,6 +26,7 @@ const TailorQueue = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("All");
 
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderDetails, setOrderDetails] = useState<any[]>([]);
@@ -45,7 +49,16 @@ const TailorQueue = () => {
         },
       );
       const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
+
+      // Only show active work (exclude completed/ready for the queue view)
+      const activeOrders = Array.isArray(data)
+        ? data.filter(
+            (o: any) =>
+              o.status === "Processing" || o.status === "In Tailoring",
+          )
+        : [];
+
+      setOrders(activeOrders);
       setLoading(false);
     } catch (error) {
       console.error(error);
@@ -110,11 +123,19 @@ const TailorQueue = () => {
     }
   };
 
-  const filteredOrders = orders.filter(
-    (o) =>
+  // Compute stats
+  const totalPending = orders.filter((o) => o.status === "Processing").length;
+  const totalInProgress = orders.filter(
+    (o) => o.status === "In Tailoring",
+  ).length;
+
+  const filteredOrders = orders.filter((o) => {
+    const matchesSearch =
       o.group_id.toString().includes(searchTerm) ||
-      o.student_name.toLowerCase().includes(searchTerm),
-  );
+      o.student_name.toLowerCase().includes(searchTerm);
+    const matchesTab = activeTab === "All" || o.status === activeTab;
+    return matchesSearch && matchesTab;
+  });
 
   const getBadgeClass = (status: string) => {
     return `tailor-badge status-${status.toLowerCase().replace(/\s+/g, "-")}`;
@@ -153,6 +174,14 @@ const TailorQueue = () => {
           >
             <Scissors size={20} /> <span>Work Queue</span>
           </NavLink>
+          <NavLink
+            to="/tailor-reports"
+            className={({ isActive }) =>
+              isActive ? "tailor-nav-item active" : "tailor-nav-item"
+            }
+          >
+            <Layers size={20} /> <span>Reports</span>
+          </NavLink>
         </nav>
         <div className="tailor-sidebar-footer" onClick={handleLogout}>
           <LogOut size={20} /> <span>Logout</span>
@@ -178,9 +207,52 @@ const TailorQueue = () => {
         </div>
 
         <div className="tailor-dashboard-content">
+          {/* Stats Grid */}
+          <div className="queue-stats-grid">
+            <div className="queue-stat-card">
+              <div className="queue-stat-icon bg-yellow">
+                <Clock size={20} color="#d97706" />
+              </div>
+              <div>
+                <p className="queue-stat-label">Pending Tailoring</p>
+                <h3 className="queue-stat-value">{totalPending}</h3>
+              </div>
+            </div>
+            <div className="queue-stat-card">
+              <div className="queue-stat-icon bg-blue">
+                <Scissors size={20} color="#2563eb" />
+              </div>
+              <div>
+                <p className="queue-stat-label">In Progress</p>
+                <h3 className="queue-stat-value">{totalInProgress}</h3>
+              </div>
+            </div>
+          </div>
+
+          {/* Table Card */}
           <div className="tailor-table-card">
-            <div className="tailor-table-header">
+            <div
+              className="tailor-table-header"
+              style={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: "15px",
+              }}
+            >
               <h3 className="tailor-table-title">Assigned Orders</h3>
+
+              {/* Tabs */}
+              <div className="queue-tabs">
+                {["All", "Processing", "In Tailoring"].map((tab) => (
+                  <button
+                    key={tab}
+                    className={`queue-tab ${activeTab === tab ? "active" : ""}`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {loading ? (
@@ -195,8 +267,8 @@ const TailorQueue = () => {
                   color: "#6b7280",
                 }}
               >
-                <Inbox size={48} style={{ margin: "0 auto 10px" }} />
-                <p>No orders in your queue right now.</p>
+                <CheckSquare size={48} style={{ margin: "0 auto 10px" }} />
+                <p>All caught up! No pending orders in this tab.</p>
               </div>
             ) : (
               <table className="tailor-table">
@@ -213,7 +285,9 @@ const TailorQueue = () => {
                 <tbody>
                   {filteredOrders.map((order) => (
                     <tr key={order.group_id}>
-                      <td>#GRP-{String(order.group_id).padStart(3, "0")}</td>
+                      <td style={{ fontWeight: "600" }}>
+                        #GRP-{String(order.group_id).padStart(3, "0")}
+                      </td>
                       <td>{order.student_name}</td>
                       <td>{order.item_count} item(s)</td>
                       <td>
@@ -230,7 +304,6 @@ const TailorQueue = () => {
                           >
                             <Eye size={14} /> View
                           </button>
-
                           {order.status === "Processing" && (
                             <button
                               className="btn-start"
@@ -244,7 +317,6 @@ const TailorQueue = () => {
                               <PlayCircle size={14} /> Start
                             </button>
                           )}
-
                           {order.status === "In Tailoring" && (
                             <button
                               className="btn-finish"
