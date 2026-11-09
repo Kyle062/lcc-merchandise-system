@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { EyeOff, Eye, AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { EyeOff, Eye, AlertCircle, ShieldAlert } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import "./Login.css";
 
@@ -14,10 +14,36 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Security: Brute-force protection state
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState(0);
+
   const navigate = useNavigate();
+
+  // Security: Countdown timer for lockout
+  useEffect(() => {
+    if (lockoutTime > 0) {
+      const timer = setTimeout(() => setLockoutTime(lockoutTime - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [lockoutTime]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Security: Prevent submission if locked out
+    if (lockoutTime > 0) return;
+
+    // Security: Trim inputs to prevent basic injection/spacing bypasses
+    const sanitizedEmail = email.trim();
+    const sanitizedPassword = password.trim();
+
+    if (!sanitizedEmail || !sanitizedPassword) {
+      setErrorMessage("Please enter both username and password.");
+      return;
+    }
+
     setErrorMessage("");
     setIsLoading(true);
 
@@ -27,31 +53,44 @@ const Login = () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: email, password: password }),
+          body: JSON.stringify({
+            username: sanitizedEmail,
+            password: sanitizedPassword,
+          }),
         },
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 403) {
+        // Security: Track failed attempts
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
+
+        if (newAttempts >= 5) {
+          setLockoutTime(30); // Lock for 30 seconds
+          setErrorMessage("Too many failed attempts. Please wait 30 seconds.");
+          setFailedAttempts(0); // Reset counter after lockout triggers
+        } else if (response.status === 403) {
           setErrorMessage(data.message || "Your account is not yet active.");
-          setIsLoading(false);
-          return;
+        } else {
+          setErrorMessage(data.message || "Invalid username or password.");
         }
-        setErrorMessage(data.message || "Invalid username or password.");
+
         setIsLoading(false);
         return;
       }
+
+      // Security: Reset attempts on successful login
+      setFailedAttempts(0);
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
 
-      // ✅ FIXED: Redirect staff to the Merchandising Staff Dashboard
       if (data.role === "admin") navigate("/admin-dashboard");
       else if (data.role === "staff")
-        navigate("/merchandising-staff-dashboard");
+        navigate("/orders"); // Reverted for Merchandising Staff
       else if (data.role === "student") navigate("/student-dashboard");
       else if (data.role === "finance") navigate("/finance-dashboard");
       else setErrorMessage("Unknown role. Contact administrator.");
@@ -63,6 +102,8 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  const isLocked = lockoutTime > 0;
 
   return (
     <div className="signup-container">
@@ -112,7 +153,19 @@ const Login = () => {
             <p>Log in to access your merchandising account</p>
           </div>
 
-          {errorMessage && (
+          {isLocked && (
+            <div
+              className="error-banner"
+              style={{ backgroundColor: "#fee2e2", color: "#b91c1c" }}
+            >
+              <ShieldAlert size={18} />
+              <span>
+                Account temporarily locked. Try again in {lockoutTime}s.
+              </span>
+            </div>
+          )}
+
+          {errorMessage && !isLocked && (
             <div className="error-banner">
               <AlertCircle size={18} />
               <span>{errorMessage}</span>
@@ -124,12 +177,13 @@ const Login = () => {
               <label>Email or username:</label>
               <input
                 type="text"
-                className={`form-input ${errorMessage ? "input-error" : ""}`}
+                className={`form-input ${errorMessage || isLocked ? "input-error" : ""}`}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setErrorMessage("");
                 }}
+                disabled={isLocked || isLoading}
                 required
               />
             </div>
@@ -139,18 +193,20 @@ const Login = () => {
               <div className="password-wrapper">
                 <input
                   type={showPassword ? "text" : "password"}
-                  className={`form-input ${errorMessage ? "input-error" : ""}`}
+                  className={`form-input ${errorMessage || isLocked ? "input-error" : ""}`}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setErrorMessage("");
                   }}
+                  disabled={isLocked || isLoading}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
+                  disabled={isLocked || isLoading}
                 >
                   {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                 </button>
@@ -166,10 +222,14 @@ const Login = () => {
             <button
               type="submit"
               className="submit-btn"
-              disabled={isLoading}
-              style={{ opacity: isLoading ? 0.7 : 1 }}
+              disabled={isLoading || isLocked}
+              style={{ opacity: isLoading || isLocked ? 0.7 : 1 }}
             >
-              {isLoading ? "LOGGING IN..." : "LOG IN"}
+              {isLoading
+                ? "LOGGING IN..."
+                : isLocked
+                  ? `LOCKED (${lockoutTime}s)`
+                  : "LOG IN"}
             </button>
           </form>
 
