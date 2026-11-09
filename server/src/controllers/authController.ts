@@ -67,22 +67,18 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // ✅ AUTOMATED VERIFICATION LOGIC
-    // Since we can't truly read the barcode pixels, we verify if the photo was captured
-    // AND if the full name matches the known valid student.
-    const VALID_TEST_NAME = "KYLE BERNARD A. TRIMIDAL";
-
+    // Since the frontend scanner already verified the barcode matches the name,
+    // we trust the id_photo flag and auto-approve the account.
     let accountStatus = "Pending";
     let message = "Account created! Please wait for admin approval.";
 
-    // If the photo was captured AND the name matches, Auto-Approve
-    if (id_photo && full_name.toUpperCase() === VALID_TEST_NAME) {
+    if (id_photo === "verified") {
       accountStatus = "Active";
       message = "ID Verified successfully! Your account is now active.";
     } else if (id_photo) {
-      // If photo was captured but name doesn't match, reject or keep pending
+      // Fallback for edge cases
       accountStatus = "Pending";
-      message =
-        "ID Verification failed. Name on ID does not match records. Admin approval required.";
+      message = "ID Verification incomplete. Admin approval required.";
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

@@ -152,14 +152,14 @@ body {
   z-index: 20;
   width: 100%;
   max-width: 430px;
-  background: #ffffff; /* ✅ Restored White Background */
+  background: #ffffff;
   border-radius: 22px;
   padding: 2.2rem 2.4rem 2rem 2.4rem;
   box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.4),
     0 0 15px rgba(16, 185, 129, 0.4),
     0 0 30px rgba(16, 185, 129, 0.2),
-    0 0 60px rgba(16, 185, 129, 0.1); /* ✅ Restored Glow */
+    0 0 60px rgba(16, 185, 129, 0.1);
   margin-top: 0.5rem;
   transform: translateY(-20px);
 }
@@ -190,7 +190,7 @@ body {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #374151; /* ✅ Restored Dark Label Color */
+  color: #374151;
   margin-bottom: 0.35rem;
 }
 
@@ -271,7 +271,7 @@ body {
   text-align: center;
   margin-top: 1.1rem;
   font-size: 11.5px;
-  color: #6b7280; /* ✅ Restored Footer Color */
+  color: #6b7280;
 }
 
 .form-footer a {
@@ -351,7 +351,9 @@ body {
   pointer-events: none;
 }
 
-/* ====== CAMERA MODAL STYLES ====== */
+/* =========================================
+   CAMERA MODAL & SCANNER STYLES
+   ========================================= */
 .camera-modal-overlay {
   position: fixed;
   inset: 0;
@@ -425,79 +427,14 @@ body {
   object-fit: cover;
 }
 
-.camera-captured-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #111;
+.camera-footer {
+  text-align: center;
+  margin-top: 15px;
 }
 
-.camera-loading {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.camera-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.btn-capture,
-.btn-submit-id {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px;
-  border: none;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-capture {
-  background: #00874e;
-  color: white;
-}
-
-.btn-capture:hover:not(:disabled) {
-  background: #006336;
-}
-
-.btn-capture:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
-}
-
-.btn-retake {
-  flex: 1;
-  background: #f3f4f6;
-  color: #4b5563;
-  padding: 14px;
-  border: none;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.btn-submit-id {
-  flex: 2;
-  background: #00874e;
-  color: white;
-}
-
-.btn-submit-id:hover {
-  background: #006336;
+.camera-footer p {
+  font-size: 13px;
+  color: #6b7280;
 }
 
 .camera-error {
@@ -509,6 +446,98 @@ body {
   font-size: 13px;
   text-align: center;
   border: 1px solid #fecaca;
+}
+
+/* Scanner Overlay */
+.scanner-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.scan-line {
+  width: 80%;
+  height: 3px;
+  background-color: #00ff88;
+  box-shadow:
+    0 0 10px #00ff88,
+    0 0 20px #00ff88;
+  animation: scanAnimation 2s infinite linear;
+}
+
+@keyframes scanAnimation {
+  0% {
+    transform: translateY(-120px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120px);
+    opacity: 0;
+  }
+}
+
+/* Scan Status Pill */
+.scan-status {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.spinner-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Detected Barcode Green Box */
+.detected-barcode-box {
+  position: absolute;
+  border: 3px solid #00ff88;
+  box-shadow: 0 0 15px #00ff88;
+  border-radius: 4px;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+/* html5-qrcode Overrides */
+#reader {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+#reader__dashboard {
+  display: none !important;
 }
 
 @keyframes slideUp {
@@ -577,103 +606,4 @@ body {
   .group-right-img {
     display: none;
   }
-}
-
-/* ====== SCANNER OVERLAY STYLES ====== */
-.scanner-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.scan-line {
-  width: 80%;
-  height: 3px;
-  background-color: #00ff88;
-  box-shadow:
-    0 0 10px #00ff88,
-    0 0 20px #00ff88;
-  animation: scanAnimation 2s infinite linear;
-}
-
-@keyframes scanAnimation {
-  0% {
-    transform: translateY(-120px);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(120px);
-    opacity: 0;
-  }
-}
-
-.scan-status {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.scan-status.scanning-active {
-  background: #00874e;
-  color: white;
-}
-
-.spinner-icon {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.camera-footer {
-  text-align: center;
-  margin-top: 15px;
-}
-
-.camera-footer p {
-  font-size: 13px;
-  color: #6b7280;
-}
-/* Add to bottom of SignUp.css */
-
-.scanning-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.spinner-icon-large {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  100% { transform: rotate(360deg); }
 }

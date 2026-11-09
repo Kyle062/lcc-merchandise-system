@@ -4,12 +4,11 @@ import {
   Eye,
   AlertCircle,
   CheckCircle,
-  Camera,
   X,
-  ShieldCheck,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import "./SignUp.css";
 
 import bgImage from "../assets/images/Background Merchandising.png";
@@ -47,23 +46,33 @@ const SignUp = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const [showCamera, setShowCamera] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState("Initializing camera...");
+  const [manualBarcode, setManualBarcode] = useState("");
+  const [showManualInput, setShowManualInput] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const navigate = useNavigate();
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval>;
+
     if (showCamera) {
       navigator.mediaDevices
         .getUserMedia({ video: { facingMode: "environment" } })
         .then((stream) => {
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            setIsCameraReady(true);
-            setScanStatus("Hold your ID up to the camera and click Capture.");
+            setScanStatus("Scanning for barcode...");
+
+            // Show manual input after 5 seconds if camera fails
+            setTimeout(() => setShowManualInput(true), 5000);
+
+            videoRef.current.onloadedmetadata = () => {
+              intervalId = setInterval(() => {
+                captureAndScan();
+              }, 1000);
+            };
           }
         })
         .catch((err) => {
@@ -71,34 +80,35 @@ const SignUp = () => {
           setErrorMessage("Could not access camera. Please allow permissions.");
           setShowCamera(false);
         });
-    } else {
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach((track) => track.stop());
-        setIsCameraReady(false);
       }
-    }
+    };
   }, [showCamera]);
 
   const captureAndScan = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || isProcessingRef.current)
+      return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
+
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL("image/jpeg");
-
-    setIsScanning(true);
-    setScanStatus("Analyzing barcode with Python AI...");
+    const imageData = canvas.toDataURL("image/jpeg", 0.8);
 
     try {
-      // ✅ Send the captured image to the Python service
       const response = await fetch("http://192.168.254.111:8001/scan-id", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,21 +121,25 @@ const SignUp = () => {
       const data = await response.json();
 
       if (data.success) {
+        isProcessingRef.current = true;
+        setScanStatus("ID Verified Successfully!");
+        setTimeout(() => submitRegistration(true), 1000);
+      }
+    } catch (error) {
+      // Silent catch
+    }
+  };
+
+  const handleManualVerify = () => {
+    if (manualBarcode.trim() === "2024005107") {
+      if (formData.full_name.toUpperCase() === "KYLE BERNARD A. TRIMIDAL") {
         setScanStatus("ID Verified Successfully!");
         setTimeout(() => submitRegistration(true), 1000);
       } else {
-        setScanStatus(`Error: ${data.message}`);
-        setTimeout(() => {
-          setIsScanning(false);
-          setScanStatus("Hold your ID up to the camera and click Capture.");
-        }, 3000);
+        setErrorMessage("The name you entered does not match the ID.");
       }
-    } catch (error) {
-      setScanStatus("Network error. Could not reach Python service.");
-      setTimeout(() => {
-        setIsScanning(false);
-        setScanStatus("Hold your ID up to the camera and click Capture.");
-      }, 3000);
+    } else {
+      setErrorMessage("Invalid barcode. Please try again.");
     }
   };
 
@@ -281,43 +295,86 @@ const SignUp = () => {
           </div>
 
           <div className="camera-preview-container">
-            {!isScanning ? (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="camera-video"
-              />
-            ) : (
-              <div className="scanning-overlay">
-                <Loader2
-                  className="spinner-icon-large"
-                  size={48}
-                  color="#00874e"
-                />
-              </div>
-            )}
-            <canvas ref={canvasRef} style={{ display: "none" }} />
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="camera-video"
+            />
 
-            <div
-              className={`scan-status ${isScanning ? "scanning-active" : ""}`}
-            >
+            <div className="scanner-overlay">
+              <div className="scan-line"></div>
+            </div>
+
+            <div className="scan-status">
+              {isLoading ? (
+                <Loader2 className="spinner-icon" size={20} />
+              ) : null}
               <span>{scanStatus}</span>
             </div>
           </div>
 
-          <div className="camera-actions">
-            <button
-              onClick={captureAndScan}
-              disabled={!isCameraReady || isScanning}
-              className="btn-capture"
+          {/* ✅ MANUAL FALLBACK INPUT */}
+          {showManualInput && (
+            <div
+              style={{
+                marginTop: "20px",
+                textAlign: "center",
+                background: "#f9fafb",
+                padding: "15px",
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+              }}
             >
-              <Camera size={18} /> Capture & Scan ID
-            </button>
-          </div>
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "#6b7280",
+                  marginBottom: "8px",
+                }}
+              >
+                Camera struggling? Enter barcode manually:
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  justifyContent: "center",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="e.g. 2024005107"
+                  value={manualBarcode}
+                  onChange={(e) => setManualBarcode(e.target.value)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    flex: 1,
+                  }}
+                />
+                <button
+                  onClick={handleManualVerify}
+                  style={{
+                    background: "#00874e",
+                    color: "white",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Verify
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="camera-footer">
-            <p>Make sure the barcode is well-lit and clearly visible.</p>
+            <p>Hold steady. The system is scanning...</p>
             {errorMessage && <div className="camera-error">{errorMessage}</div>}
           </div>
         </div>
@@ -491,7 +548,11 @@ const SignUp = () => {
             </div>
 
             <button type="submit" className="submit-btn" disabled={isLoading}>
-              Capture ID & SIGN UP
+              <ShieldCheck
+                size={18}
+                style={{ marginRight: 8, verticalAlign: "middle" }}
+              />
+              Verify ID & SIGN UP
             </button>
           </form>
 

@@ -8,6 +8,10 @@ from PIL import Image
 from pyzbar.pyzbar import decode
 import cv2
 import numpy as np
+import pytesseract
+
+# ✅ Point to the Tesseract installation path
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 app = Flask(__name__)
 CORS(app)
@@ -19,10 +23,8 @@ db_config = {
     "database": "lcc_merchandise",
 }
 
-
 def get_db_connection():
     return mysql.connector.connect(**db_config)
-
 
 # ==========================================
 # 1. ADMIN DASHBOARD ROUTE
@@ -33,23 +35,17 @@ def get_admin_dashboard():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        cursor.execute(
-            "SELECT COALESCE(SUM(total_price), 0) as total_sales FROM orders"
-        )
-        total_sales = float(cursor.fetchone()["total_sales"])  # type: ignore
+        cursor.execute("SELECT COALESCE(SUM(total_price), 0) as total_sales FROM orders")
+        total_sales = float(cursor.fetchone()["total_sales"]) # type: ignore
 
         cursor.execute("SELECT COUNT(DISTINCT id) as total_orders FROM order_groups")
-        total_orders = cursor.fetchone()["total_orders"]  # type: ignore
+        total_orders = cursor.fetchone()["total_orders"] # type: ignore
 
-        cursor.execute(
-            "SELECT COUNT(*) as pending_orders FROM order_groups WHERE status = 'Pending'"
-        )
-        pending_orders = cursor.fetchone()["pending_orders"]  # type: ignore
+        cursor.execute("SELECT COUNT(*) as pending_orders FROM order_groups WHERE status = 'Pending'")
+        pending_orders = cursor.fetchone()["pending_orders"] # type: ignore
 
-        cursor.execute(
-            "SELECT COUNT(*) as low_stock FROM products WHERE stock_quantity <= 10"
-        )
-        low_stock = cursor.fetchone()["low_stock"]  # type: ignore
+        cursor.execute("SELECT COUNT(*) as low_stock FROM products WHERE stock_quantity <= 10")
+        low_stock = cursor.fetchone()["low_stock"] # type: ignore
 
         cursor.execute("""
             SELECT 
@@ -63,7 +59,7 @@ def get_admin_dashboard():
         """)
         recent_orders = cursor.fetchall()
         for order in recent_orders:
-            order["order_date"] = str(order["order_date"])  # type: ignore
+            order["order_date"] = str(order["order_date"]) # type: ignore
 
         cursor.execute("""
             SELECT 
@@ -77,7 +73,7 @@ def get_admin_dashboard():
         """)
         sales_data = cursor.fetchall()
         for item in sales_data:
-            item["sales"] = float(item["sales"])  # type: ignore
+            item["sales"] = float(item["sales"]) # type: ignore
 
         cursor.execute("""
             SELECT course as name, SUM(stock_quantity) as value
@@ -87,29 +83,26 @@ def get_admin_dashboard():
         """)
         inv_dist = cursor.fetchall()
         for item in inv_dist:
-            item["value"] = int(item["value"])  # type: ignore
+            item["value"] = int(item["value"]) # type: ignore
 
         cursor.close()
         conn.close()
 
-        return jsonify(
-            {
-                "stats": {
-                    "totalSales": total_sales,
-                    "totalOrders": total_orders,
-                    "pendingOrders": pending_orders,
-                    "lowStock": low_stock,
-                },
-                "recentOrders": recent_orders,
-                "salesData": sales_data,
-                "inventoryData": inv_dist,
-            }
-        )
+        return jsonify({
+            "stats": {
+                "totalSales": total_sales,
+                "totalOrders": total_orders,
+                "pendingOrders": pending_orders,
+                "lowStock": low_stock,
+            },
+            "recentOrders": recent_orders,
+            "salesData": sales_data,
+            "inventoryData": inv_dist,
+        })
 
     except Exception as e:
         print("Error in Admin Dashboard:", str(e))
         return jsonify({"error": str(e)}), 500
-
 
 # ==========================================
 # 2. ANALYTICS PAGE ROUTE
@@ -127,7 +120,7 @@ def get_analytics():
             GROUP BY course
         """)
         stock_by_faculty = [
-            {"name": row["course"], "value": int(row["total_stock"])}  # type: ignore
+            {"name": row["course"], "value": int(row["total_stock"])} # type: ignore
             for row in cursor.fetchall()
         ]
 
@@ -151,13 +144,11 @@ def get_analytics():
 
         top_sellers = []
         for item in top_sellers_raw:
-            top_sellers.append(
-                {
-                    "name": item["name"],  # type: ignore
-                    "sold": item["sold"],  # type: ignore
-                    "revenue": float(item["revenue"]),  # type: ignore
-                }
-            )
+            top_sellers.append({
+                "name": item["name"], # type: ignore
+                "sold": item["sold"], # type: ignore
+                "revenue": float(item["revenue"]), # type: ignore
+            })
         top_sellers = sorted(top_sellers, key=lambda x: x["sold"], reverse=True)[:5]
 
         cursor.execute("""
@@ -169,7 +160,7 @@ def get_analytics():
             GROUP BY p.course
         """)
         revenue_by_faculty = [
-            {"name": row["course"], "revenue": float(row["revenue"])}  # type: ignore
+            {"name": row["course"], "revenue": float(row["revenue"])} # type: ignore
             for row in cursor.fetchall()
         ]
 
@@ -181,7 +172,7 @@ def get_analytics():
             ORDER BY DATE(created_at) ASC
         """)
         daily_orders = [
-            {"day": str(row["day"]), "orders": row["orders"]}  # type: ignore
+            {"day": str(row["day"]), "orders": row["orders"]} # type: ignore
             for row in cursor.fetchall()
         ]
 
@@ -190,21 +181,18 @@ def get_analytics():
         cursor.close()
         conn.close()
 
-        return jsonify(
-            {
-                "stockByFaculty": stock_by_faculty,
-                "lowStock": low_stock,
-                "topSellers": top_sellers,
-                "revenueByFaculty": revenue_by_faculty,
-                "dailyOrders": daily_orders,
-                "avgFulfillmentHours": avg_hours,
-            }
-        )
+        return jsonify({
+            "stockByFaculty": stock_by_faculty,
+            "lowStock": low_stock,
+            "topSellers": top_sellers,
+            "revenueByFaculty": revenue_by_faculty,
+            "dailyOrders": daily_orders,
+            "avgFulfillmentHours": avg_hours,
+        })
 
     except Exception as e:
         print("Error in Analytics:", str(e))
         return jsonify({"error": str(e)}), 500
-
 
 # ==========================================
 # 3. TAILOR ANALYTICS ROUTE
@@ -219,7 +207,7 @@ def get_tailor_analytics():
     elif timeframe == "month":
         start_date = datetime.now().replace(day=1).strftime("%Y-%m-%d")
         date_filter = "o.order_date >= %s"
-    else:  # week
+    else: 
         start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
         date_filter = "o.order_date >= %s"
 
@@ -227,8 +215,7 @@ def get_tailor_analytics():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        cursor.execute(
-            f"""
+        cursor.execute(f"""
             SELECT 
                 DATE_FORMAT(o.order_date, '%%b %%d') as label,
                 SUM(o.total_price) as revenue
@@ -237,16 +224,13 @@ def get_tailor_analytics():
             WHERE g.status IN ('Ready for Pickup', 'Completed') AND {date_filter}
             GROUP BY DATE_FORMAT(o.order_date, '%%b %%d')
             ORDER BY DATE(o.order_date) ASC
-        """,
-            (start_date,),
-        )
-
+        """, (start_date,))
+        
         revenue_data = cursor.fetchall()
         for item in revenue_data:
-            item["revenue"] = float(item["revenue"])  # type: ignore
+            item["revenue"] = float(item["revenue"]) # type: ignore
 
-        cursor.execute(
-            f"""
+        cursor.execute(f"""
             SELECT 
                 p.name as item_name,
                 SUM(o.quantity) as total_qty
@@ -257,106 +241,94 @@ def get_tailor_analytics():
             GROUP BY p.name
             ORDER BY total_qty DESC
             LIMIT 5
-        """,
-            (start_date,),
-        )
+        """, (start_date,))
         top_items = cursor.fetchall()
         for item in top_items:
-            item["total_qty"] = int(item["total_qty"])  # type: ignore
+            item["total_qty"] = int(item["total_qty"]) # type: ignore
 
-        cursor.execute(
-            f"""
+        cursor.execute(f"""
             SELECT COALESCE(SUM(o.total_price), 0) as total
             FROM orders o
             JOIN order_groups g ON o.group_id = g.id
             WHERE g.status IN ('Ready for Pickup', 'Completed') AND {date_filter}
-        """,
-            (start_date,),
-        )
-        total_revenue = float(cursor.fetchone()["total"])  # type: ignore
+        """, (start_date,))
+        total_revenue = float(cursor.fetchone()["total"]) # type: ignore
 
         cursor.close()
         conn.close()
 
-        return jsonify(
-            {
-                "revenueChart": revenue_data,
-                "topItemsChart": top_items,
-                "totalRevenue": total_revenue,
-            }
-        )
+        return jsonify({
+            "revenueChart": revenue_data,
+            "topItemsChart": top_items,
+            "totalRevenue": total_revenue,
+        })
 
     except Exception as e:
         print("Error in Tailor Analytics:", str(e))
         return jsonify({"error": str(e)}), 500
 
-
 # ==========================================
-# 4. BARCODE SCANNER ROUTE
+# 4. HYBRID SCANNER (Barcode + OCR)
 # ==========================================
 @app.route("/scan-id", methods=["POST"])
 def scan_id():
     try:
         data = request.json
-        if not data or "image" not in data or "full_name" not in data:
-            return jsonify({"success": False, "message": "Missing image or name."}), 400
+        if not data or "image" not in data:
+            return jsonify({"success": False, "message": "Missing image."}), 400
 
-        # 1. Decode the base64 image from React
         image_data = data["image"].split(",")[1]
         image_bytes = base64.b64decode(image_data)
 
-        # 2. Convert to OpenCV format for better processing
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # 3. Convert to grayscale and decode barcodes
+        if img is None:
+            return jsonify({"success": False, "message": "Could not read image."})
+
+        VALID_ID_NUMBER = "2024005107"
+
+        # ----------------------------------------------------
+        # METHOD 1: Try scanning the Barcode Lines using pyzbar
+        # ----------------------------------------------------
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        barcodes = decode(gray)
+        gray_resized = cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+        
+        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+        sharpened = cv2.filter2D(gray_resized, -1, kernel)
 
-        if not barcodes:
-            barcodes = decode(Image.open(io.BytesIO(image_bytes)))
+        barcodes = decode(sharpened)
+        
+        if barcodes:
+            barcode_text = barcodes[0].data.decode("utf-8")
+            if VALID_ID_NUMBER in barcode_text:
+                return jsonify({
+                    "success": True, 
+                    "message": "ID Verified (Barcode)!", 
+                    "barcode": barcode_text,
+                })
 
-        if not barcodes:
-            return jsonify(
-                {
-                    "success": False,
-                    "message": "No barcode detected. Please hold it closer to the camera.",
-                }
-            )
+        # ----------------------------------------------------
+        # METHOD 2: If barcode fails, try reading TEXT using OCR
+        # ----------------------------------------------------
+        height, width = img.shape[:2]
+        cropped_img = img[int(height/2):height, 0:width]
+        
+        text = pytesseract.image_to_string(cropped_img, config='--psm 6')
+        cleaned_text = text.replace(" ", "").replace("\n", "").strip()
+        
+        if VALID_ID_NUMBER in cleaned_text:
+            return jsonify({
+                "success": True,
+                "message": "ID Verified (OCR)!",
+                "barcode": VALID_ID_NUMBER,
+            })
 
-        # 4. Extract barcode text
-        barcode_text = barcodes[0].data.decode("utf-8")
-        print(f"Scanned Barcode: {barcode_text}")
-
-        # 5. Validate the barcode and name
-        VALID_BARCODE = "2024005107"
-        VALID_NAME = "KYLE BERNARD A. TRIMIDAL"
-
-        if barcode_text == VALID_BARCODE:
-            if data["full_name"].upper() == VALID_NAME:
-                return jsonify(
-                    {
-                        "success": True,
-                        "message": "ID Verified successfully!",
-                        "barcode": barcode_text,
-                    }
-                )
-            else:
-                return jsonify(
-                    {
-                        "success": False,
-                        "message": "The name you entered does not match the ID barcode.",
-                    }
-                )
-        else:
-            return jsonify(
-                {"success": False, "message": f"Unregistered barcode: {barcode_text}"}
-            )
+        return jsonify({"success": False, "message": "Scanning... Hold steady."})
 
     except Exception as e:
         print("Error in Barcode Scan:", str(e))
         return jsonify({"success": False, "message": str(e)}), 500
-
 
 # ==========================================
 # 5. RUN THE APP
