@@ -1,6 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import mysql.connector
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -142,7 +143,6 @@ def get_analytics():
         """)
         top_sellers_raw = cursor.fetchall()
 
-        # ✅ Fixed for the linter
         top_sellers = []
         for item in top_sellers_raw:
             top_sellers.append(
@@ -201,7 +201,96 @@ def get_analytics():
 
 
 # ==========================================
-# 3. RUN THE APP
+# 3. TAILOR ANALYTICS ROUTE
+# ==========================================
+@app.route("/tailor-analytics", methods=["GET"])
+def get_tailor_analytics():
+    timeframe = request.args.get("timeframe", "week")
+
+    if timeframe == "day":
+        start_date = datetime.now().strftime("%Y-%m-%d")
+        date_filter = "DATE(o.order_date) = %s"
+    elif timeframe == "month":
+        start_date = datetime.now().replace(day=1).strftime("%Y-%m-%d")
+        date_filter = "o.order_date >= %s"
+    else:  # week
+        start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        date_filter = "o.order_date >= %s"
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # 1. Revenue Generated Chart
+        # ✅ FIXED: Using %% to avoid Python string formatting crash
+        cursor.execute(
+            f"""
+            SELECT 
+                DATE_FORMAT(o.order_date, '%%b %%d') as label,
+                SUM(o.total_price) as revenue
+            FROM orders o
+            JOIN order_groups g ON o.group_id = g.id
+            WHERE g.status IN ('Ready for Pickup', 'Completed') AND {date_filter}
+            GROUP BY DATE_FORMAT(o.order_date, '%%b %%d')
+            ORDER BY DATE(o.order_date) ASC
+        """,
+            (start_date,),
+        )
+
+        revenue_data = cursor.fetchall()
+        for item in revenue_data:
+            item["revenue"] = float(item["revenue"])  # type: ignore
+
+        # 2. Most Requested Merchandise
+        cursor.execute(
+            f"""
+            SELECT 
+                p.name as item_name,
+                SUM(o.quantity) as total_qty
+            FROM orders o
+            JOIN order_groups g ON o.group_id = g.id
+            JOIN products p ON o.product_id = p.id
+            WHERE g.status IN ('Ready for Pickup', 'Completed') AND {date_filter}
+            GROUP BY p.name
+            ORDER BY total_qty DESC
+            LIMIT 5
+        """,
+            (start_date,),
+        )
+        top_items = cursor.fetchall()
+        for item in top_items:
+            item["total_qty"] = int(item["total_qty"])  # type: ignore
+
+        # 3. Total Revenue
+        cursor.execute(
+            f"""
+            SELECT COALESCE(SUM(o.total_price), 0) as total
+            FROM orders o
+            JOIN order_groups g ON o.group_id = g.id
+            WHERE g.status IN ('Ready for Pickup', 'Completed') AND {date_filter}
+        """,
+            (start_date,),
+        )
+        total_revenue = float(cursor.fetchone()["total"])  # type: ignore
+
+        cursor.close()
+        conn.close()
+
+        return jsonify(
+            {
+                "revenueChart": revenue_data,
+                "topItemsChart": top_items,
+                "totalRevenue": total_revenue,
+            }
+        )
+
+    except Exception as e:
+        print("Error in Tailor Analytics:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+
+# ==========================================
+# 4. RUN THE APP
 # ==========================================
 if __name__ == "__main__":
     print("Starting Analytics Python Service on port 8001...")

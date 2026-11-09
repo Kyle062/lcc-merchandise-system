@@ -8,7 +8,6 @@ import {
   Bell,
   FileText,
   Download,
-  TrendingUp,
   DollarSign,
 } from "lucide-react";
 import {
@@ -34,8 +33,6 @@ const TailorReports = () => {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // ✅ New State for Filters
   const [timeframe, setTimeframe] = useState<"day" | "week" | "month">("week");
 
   const token = localStorage.getItem("token");
@@ -49,12 +46,10 @@ const TailorReports = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch the raw list of finished orders
+        // 1. Fetch Raw List from Node.js (for the table)
         const resList = await fetch(
           "http://192.168.254.111:5000/api/tailor/assigned",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         const dataList = await resList.json();
         const finished = Array.isArray(dataList)
@@ -65,12 +60,9 @@ const TailorReports = () => {
           : [];
         setReports(finished);
 
-        // Fetch the Analytics (Charts) based on the selected timeframe
+        // 2. Fetch Analytics Charts from Python Service (Port 8001)
         const resAnalytics = await fetch(
-          `http://192.168.254.111:5000/api/tailor/analytics?timeframe=${timeframe}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
+          `http://192.168.254.111:8001/tailor-analytics?timeframe=${timeframe}`,
         );
         const dataAnalytics = await resAnalytics.json();
         setAnalytics(dataAnalytics);
@@ -82,7 +74,7 @@ const TailorReports = () => {
       }
     };
     fetchData();
-  }, [navigate, token, timeframe]); // Re-run when timeframe changes
+  }, [navigate, token, timeframe]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -155,7 +147,6 @@ const TailorReports = () => {
         </div>
 
         <div className="tailor-dashboard-content">
-          {/* ✅ NEW: Filter Buttons & Revenue Card */}
           <div className="report-top-bar">
             <div className="timeframe-filters">
               <button
@@ -191,7 +182,6 @@ const TailorReports = () => {
             </div>
           </div>
 
-          {/* ✅ NEW: Charts Grid */}
           <div className="reports-charts-grid">
             <div className="report-chart-card">
               <h3 className="chart-title">Revenue Generated</h3>
@@ -242,7 +232,6 @@ const TailorReports = () => {
             </div>
           </div>
 
-          {/* Completed Orders Table */}
           <div className="tailor-table-card">
             <div className="tailor-table-header">
               <h3 className="tailor-table-title">Completed Tailoring Work</h3>
