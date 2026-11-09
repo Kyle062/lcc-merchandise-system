@@ -24,7 +24,12 @@ const TailorDashboard = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return navigate("/login");
+
+    // ✅ FIXED: Added curly braces to prevent returning the navigate function
+    if (!token) {
+      navigate("/login");
+      return;
+    }
 
     const headers = { Authorization: `Bearer ${token}` };
 
