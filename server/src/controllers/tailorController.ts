@@ -40,7 +40,7 @@ export const getAssignedOrders = async (req: Request, res: Response) => {
       FROM order_groups g
       JOIN users u ON g.user_id = u.id
       JOIN orders o ON g.id = o.group_id
-      WHERE g.status IN ('Processing', 'In Tailoring')
+      WHERE g.status IN ('Processing', 'In Tailoring', 'Ready for Pickup', 'Completed')
       GROUP BY g.id
       ORDER BY g.created_at ASC
     `);

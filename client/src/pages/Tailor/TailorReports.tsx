@@ -10,6 +10,7 @@ import {
   Download,
 } from "lucide-react";
 import "./TailorDashboard.css";
+import "./TailorReports.css";
 import logo from "../../assets/images/LCClogo1.png";
 
 const TailorReports = () => {
@@ -27,7 +28,6 @@ const TailorReports = () => {
 
     const fetchReports = async () => {
       try {
-        // Fetch all assigned orders
         const res = await fetch(
           "http://192.168.254.111:5000/api/tailor/assigned",
           {
@@ -36,7 +36,7 @@ const TailorReports = () => {
         );
         const data = await res.json();
 
-        // Filter for finished orders (Ready for Pickup or Completed)
+        // Filter for finished orders
         const finished = Array.isArray(data)
           ? data.filter(
               (o: any) =>
@@ -128,21 +128,7 @@ const TailorReports = () => {
           <div className="tailor-table-card">
             <div className="tailor-table-header">
               <h3 className="tailor-table-title">Completed Tailoring Work</h3>
-              <button
-                onClick={() => window.print()}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  background: "#f3f4f6",
-                  border: "1px solid #d1d5db",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  color: "#374151",
-                }}
-              >
+              <button className="print-btn" onClick={() => window.print()}>
                 <Download size={16} /> Print Report
               </button>
             </div>

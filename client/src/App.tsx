@@ -19,6 +19,7 @@ import TrackOrders from "./pages/Student/TrackOrders";
 // Tailor Pages
 import TailorDashboard from "./pages/Tailor/TailorDashboard";
 import TailorQueue from "./pages/Tailor/TailorQueue";
+import TailorReports from "./pages/Tailor/TailorReports";
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
       {/* Tailor Staff Routes */}
       <Route path="/tailor-dashboard" element={<TailorDashboard />} />
       <Route path="/tailor-queue" element={<TailorQueue />} />
+      <Route path="/tailor-reports" element={<TailorReports />} />
     </Routes>
   );
 }
