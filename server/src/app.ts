@@ -9,6 +9,7 @@ import userRoutes from './routes/userRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import studentRoutes from './routes/studentRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import tailorRoutes from './routes/tailorRoutes';
 const app = express();
 
 app.use(cors());
@@ -26,6 +27,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/student', studentRoutes); 
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/tailor', tailorRoutes);
 console.log('✅ app.ts loaded — all routes registered');
 
 export default app;
