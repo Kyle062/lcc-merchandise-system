@@ -43,7 +43,8 @@ const Analytics = () => {
 
     const fetchAnalytics = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/analytics", {
+        // ✅ FIXED: Pointing to the Python Analytics service (Port 8001)
+        const res = await fetch("http://192.168.254.111:8001/analytics", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const result = await res.json();

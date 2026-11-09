@@ -63,61 +63,33 @@ const AdminDashboard = () => {
       return;
     }
 
-    const headers = { Authorization: `Bearer ${token}` };
-
     const fetchData = async () => {
       try {
-        const [statsRes, ordersRes, salesRes, invRes] = await Promise.all([
-          fetch("http://192.168.254.111:5000/api/dashboard/stats", { headers }),
-          fetch("http://192.168.254.111:5000/api/dashboard/recent-orders", {
-            headers,
-          }),
-          fetch("http://192.168.254.111:5000/api/dashboard/monthly-sales", {
-            headers,
-          }),
-          fetch(
-            "http://192.168.254.111:5000/api/dashboard/inventory-distribution",
-            {
-              headers,
-            },
-          ),
-        ]);
+        // Fetch from Python Service
+        const res = await fetch("http://192.168.254.111:8001/admin-dashboard");
 
-        const statsData = await statsRes.json();
-        const ordersData = await ordersRes.json();
-        const salesDataRes = await salesRes.json();
-        const invData = await invRes.json();
+        if (!res.ok) throw new Error("Failed to fetch data");
+
+        const data = await res.json();
 
         setStats({
-          totalSales: Number(statsData?.totalSales) || 0,
-          totalOrders: Number(statsData?.totalOrders) || 0,
-          pendingOrders: Number(statsData?.pendingOrders) || 0,
-          lowStock: Number(statsData?.lowStock) || 0,
+          totalSales: Number(data?.stats?.totalSales) || 0,
+          totalOrders: Number(data?.stats?.totalOrders) || 0,
+          pendingOrders: Number(data?.stats?.pendingOrders) || 0,
+          lowStock: Number(data?.stats?.lowStock) || 0,
         });
 
-        setRecentOrders(Array.isArray(ordersData) ? ordersData : []);
-        setSalesData(Array.isArray(salesDataRes) ? salesDataRes : []);
-
-        if (Array.isArray(invData)) {
-          // ✅ FIX: Filter out the "All" category
-          const filteredInvData = invData.filter(
-            (item: any) => String(item.name).toLowerCase() !== "all",
-          );
-
-          setInventoryData(
-            filteredInvData.map((item: any) => ({
-              name: String(item.name || "Unknown"),
-              value: Number(item.value) || 0,
-            })),
-          );
-        } else {
-          setInventoryData([]);
-        }
-
-        setLoading(false);
+        setRecentOrders(
+          Array.isArray(data?.recentOrders) ? data.recentOrders : [],
+        );
+        setSalesData(Array.isArray(data?.salesData) ? data.salesData : []);
+        setInventoryData(
+          Array.isArray(data?.inventoryData) ? data.inventoryData : [],
+        );
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-        setLoading(false);
+      } finally {
+        setLoading(false); // Stop loading regardless of success or failure
       }
     };
 
@@ -164,9 +136,11 @@ const AdminDashboard = () => {
           justifyContent: "center",
           alignItems: "center",
           height: "100vh",
+          flexDirection: "column",
         }}
       >
-        <h2>Loading dashboard...</h2>
+        <div className="spinner"></div>
+        <h2 style={{ marginTop: 20 }}>Loading dashboard...</h2>
       </div>
     );
   }
@@ -207,7 +181,6 @@ const AdminDashboard = () => {
           >
             <ShoppingCart size={20} /> <span>Orders</span>
           </NavLink>
-
           <NavLink
             to="/scanner"
             className={({ isActive }) =>
@@ -216,7 +189,6 @@ const AdminDashboard = () => {
           >
             <QrCode size={20} /> <span>QR Scanner</span>
           </NavLink>
-
           <NavLink
             to="/users"
             className={({ isActive }) =>
@@ -225,14 +197,12 @@ const AdminDashboard = () => {
           >
             <Users size={20} /> <span>Users</span>
           </NavLink>
-
           <div
             className="admin-nav-item"
             onClick={() => navigate("/analytics")}
           >
             <BarChart3 size={20} /> <span>Analytics</span>
           </div>
-
           <NavLink
             to="/settings"
             className={({ isActive }) =>
@@ -400,7 +370,7 @@ const AdminDashboard = () => {
                 ) : (
                   recentOrders.map((order) => (
                     <tr key={order.id}>
-                      <td>#ORD-{String(order.id).padStart(3, "0")}</td>
+                      <td>#GRP-{String(order.id).padStart(3, "0")}</td>
                       <td>{order.full_name || order.username}</td>
                       <td>{order.product_name}</td>
                       <td>
