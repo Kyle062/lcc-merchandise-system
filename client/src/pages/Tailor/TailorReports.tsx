@@ -9,6 +9,7 @@ import {
   FileText,
   Download,
   DollarSign,
+  Printer,
 } from "lucide-react";
 import {
   BarChart,
@@ -19,6 +20,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import "./TailorDashboard.css";
 import "./TailorReports.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -32,6 +35,7 @@ const TailorReports = () => {
     totalRevenue: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [timeframe, setTimeframe] = useState<"day" | "week" | "month">("week");
 
@@ -81,6 +85,79 @@ const TailorReports = () => {
     navigate("/login");
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = async () => {
+    const input = document.getElementById("tailor-report-content");
+    if (!input) return;
+
+    setIsExporting(true);
+
+    try {
+      // 1. Temporarily remove internal scrolling and set a fixed width
+      const originalWidth = input.style.width;
+      const originalHeight = input.style.height;
+      const originalOverflow = input.style.overflow;
+      const originalAnimation = input.style.animation;
+      const originalOpacity = input.style.opacity;
+
+      // Force the container to expand fully and disable animations
+      input.style.width = "1200px";
+      input.style.height = "auto";
+      input.style.overflow = "visible";
+      input.style.animation = "none";
+      input.style.opacity = "1";
+
+      // Wait for layout recalculation
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      // 2. Capture the canvas
+      const canvas = await html2canvas(input, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 1200,
+        // Ensure cloned elements have solid colors and no animations
+        onclone: (clonedDoc) => {
+          const clonedInput = clonedDoc.getElementById("tailor-report-content");
+          if (clonedInput) {
+            clonedInput.style.animation = "none";
+            clonedInput.style.opacity = "1";
+            const allElements = clonedInput.querySelectorAll("*");
+            allElements.forEach((el: any) => {
+              if (el.style) {
+                el.style.opacity = "1";
+              }
+            });
+          }
+        },
+      });
+
+      // 3. Restore original styles immediately
+      input.style.width = originalWidth;
+      input.style.height = originalHeight;
+      input.style.overflow = originalOverflow;
+      input.style.animation = originalAnimation;
+      input.style.opacity = originalOpacity;
+
+      // 4. Generate PDF
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("LCC-Tailor-Reports.pdf");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const filteredReports = reports.filter(
     (r) =>
       r.group_id.toString().includes(searchTerm) ||
@@ -89,7 +166,7 @@ const TailorReports = () => {
 
   return (
     <div className="tailor-dashboard-container">
-      <div className="tailor-sidebar">
+      <div className="tailor-sidebar no-print">
         <div className="tailor-sidebar-header">
           <img src={logo} alt="LCC Logo" className="tailor-sidebar-logo" />
           <div>
@@ -129,7 +206,7 @@ const TailorReports = () => {
       </div>
 
       <div className="tailor-main-content">
-        <div className="tailor-header">
+        <div className="tailor-header no-print">
           <h1 className="tailor-header-title">Tailoring Reports</h1>
           <div className="tailor-header-right">
             <div className="tailor-search-bar">
@@ -146,9 +223,28 @@ const TailorReports = () => {
           </div>
         </div>
 
-        <div className="tailor-dashboard-content">
+        {/* Print Header (Only visible when printing) */}
+        <div className="print-only print-header">
+          <img src={logo} alt="LCC Logo" className="print-logo" />
+          <div className="print-header-titles">
+            <h1 className="print-title">LCC Merchandise System</h1>
+            <p className="print-subtitle">Tailoring Reports</p>
+          </div>
+          <div className="print-date">
+            {new Date().toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </div>
+        </div>
+
+        <div
+          className="tailor-dashboard-content fade-in"
+          id="tailor-report-content"
+        >
           <div className="report-top-bar">
-            <div className="timeframe-filters">
+            <div className="timeframe-filters no-print">
               <button
                 className={timeframe === "day" ? "active" : ""}
                 onClick={() => setTimeframe("day")}
@@ -180,64 +276,81 @@ const TailorReports = () => {
                 </h3>
               </div>
             </div>
+
+            <div className="print-actions no-print">
+              <button className="print-btn" onClick={handlePrint}>
+                <Printer size={16} /> Print
+              </button>
+              <button
+                className="print-btn"
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                style={{ opacity: isExporting ? 0.7 : 1 }}
+              >
+                <Download size={16} />
+                {isExporting ? "Exporting..." : "Export PDF"}
+              </button>
+            </div>
           </div>
 
           <div className="reports-charts-grid">
             <div className="report-chart-card">
               <h3 className="chart-title">Revenue Generated</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={analytics.revenueChart || []}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="label" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip
-                    cursor={{ fill: "#f3f4f6" }}
-                    formatter={(val) => `₱${val}`}
-                  />
-                  <Bar
-                    dataKey="revenue"
-                    fill="#059669"
-                    radius={[4, 4, 0, 0]}
-                    name="Revenue"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <div style={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.revenueChart || []}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip
+                      cursor={{ fill: "#f3f4f6" }}
+                      formatter={(val) => `₱${val}`}
+                    />
+                    <Bar
+                      dataKey="revenue"
+                      fill="#059669"
+                      radius={[4, 4, 0, 0]}
+                      name="Revenue"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             <div className="report-chart-card">
               <h3 className="chart-title">Most Requested Merchandise</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart
-                  data={analytics.topItemsChart || []}
-                  layout="vertical"
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" axisLine={false} tickLine={false} />
-                  <YAxis
-                    dataKey="item_name"
-                    type="category"
-                    axisLine={false}
-                    tickLine={false}
-                    width={120}
-                  />
-                  <Tooltip cursor={{ fill: "#f3f4f6" }} />
-                  <Bar
-                    dataKey="total_qty"
-                    fill="#d97706"
-                    radius={[0, 4, 4, 0]}
-                    name="Qty Ordered"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <div style={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={analytics.topItemsChart || []}
+                    layout="vertical"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" axisLine={false} tickLine={false} />
+                    <YAxis
+                      dataKey="item_name"
+                      type="category"
+                      axisLine={false}
+                      tickLine={false}
+                      width={120}
+                    />
+                    <Tooltip cursor={{ fill: "#f3f4f6" }} />
+                    <Bar
+                      dataKey="total_qty"
+                      fill="#d97706"
+                      radius={[0, 4, 4, 0]}
+                      name="Qty Ordered"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
           <div className="tailor-table-card">
             <div className="tailor-table-header">
               <h3 className="tailor-table-title">Completed Tailoring Work</h3>
-              <button className="print-btn" onClick={() => window.print()}>
-                <Download size={16} /> Print Report
-              </button>
+              {/* Note: Print button is now in the top bar, so we hide this one during print */}
             </div>
 
             {loading ? (

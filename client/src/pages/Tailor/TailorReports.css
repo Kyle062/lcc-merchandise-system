@@ -1,6 +1,22 @@
 /* TailorReports.css */
 
-/* Top Bar (Filters + Revenue) */
+/* Animation */
+.fade-in {
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Top Bar (Filters + Revenue + Actions) */
 .report-top-bar {
   display: flex;
   justify-content: space-between;
@@ -33,6 +49,14 @@
   background: #ffffff;
   color: #d97706;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* New Wrapper for right side elements to align properly */
+.report-top-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
 }
 
 .revenue-card {
@@ -69,6 +93,13 @@
   color: #059669;
 }
 
+/* Print Actions */
+.print-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 /* Charts Grid */
 .reports-charts-grid {
   display: grid;
@@ -97,30 +128,90 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f3f4f6;
+  background: #ffffff;
   border: 1px solid #d1d5db;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 14px;
   color: #374151;
   transition: all 0.2s;
+  height: 48px; /* Match height of revenue card */
 }
 
 .print-btn:hover {
-  background: #e5e7eb;
-  color: #111827;
+  background: #f9fafb;
+  color: #059669;
+  border-color: #059669;
 }
 
-/* Print Overrides */
+.print-btn:disabled {
+  cursor: not-allowed;
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+}
+
+/* Print Specific Styles */
+.print-only {
+  display: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .reports-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .report-top-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .report-top-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .print-actions {
+    justify-content: space-between;
+  }
+}
+
+/* =========================================
+   PRINT STYLES
+   ========================================= */
 @media print {
+  /* Set page margins */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  /* Force colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide non-printable UI elements */
+  .no-print,
   .tailor-sidebar,
   .tailor-header,
-  .report-top-bar,
-  .reports-charts-grid,
-  .tailor-table-header .print-btn,
+  .print-actions,
+  .timeframe-filters,
   .tailor-sidebar-footer {
     display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: flex !important;
+  }
+
+  /* Reset container layouts */
+  body, html, #root {
+    height: auto !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
   }
 
   .tailor-dashboard-container,
@@ -131,15 +222,92 @@
     overflow: visible !important;
     background: white !important;
     padding: 0 !important;
+    animation: none !important;
+    opacity: 1 !important;
   }
 
+  .tailor-dashboard-content {
+    margin-top: 20px !important;
+  }
+
+  /* Print Header Styling */
+  .print-header {
+    display: flex !important;
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #059669;
+    width: 100%;
+  }
+
+  .print-logo {
+    display: block !important;
+    width: 60px !important;
+    height: 60px !important;
+    max-width: 60px;
+    object-fit: contain;
+  }
+
+  .print-header-titles {
+    flex-grow: 1;
+  }
+
+  .print-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #059669;
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .print-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .print-date {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  /* Force report top bar to fit properly */
+  .report-top-bar {
+    display: flex !important;
+    justify-content: flex-end !important;
+    margin-bottom: 20px !important;
+  }
+  
+  .report-top-right {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  /* Prevent cards from breaking across pages */
+  .report-chart-card,
   .tailor-table-card {
     box-shadow: none !important;
-    border: none !important;
-    padding: 0 !important;
-    width: 100% !important;
+    border: 1px solid #d1d5db !important;
+    page-break-inside: avoid;
+    background-color: #ffffff !important;
+    margin-bottom: 20px !important;
   }
 
+  /* Ensure charts are visible and maintain size */
+  .recharts-responsive-container {
+    width: 100% !important;
+    height: 250px !important;
+    page-break-inside: avoid;
+  }
+
+  /* Table adjustments for print */
+  .tailor-table {
+    width: 100% !important;
+  }
   .tailor-table th {
     background-color: #f3f4f6 !important;
     color: #000 !important;
@@ -153,16 +321,5 @@
     border: 1px solid #000 !important;
     color: #000 !important;
     background: transparent !important;
-  }
-}
-
-/* Mobile Responsive */
-@media (max-width: 768px) {
-  .reports-charts-grid {
-    grid-template-columns: 1fr;
-  }
-  .report-top-bar {
-    flex-direction: column;
-    align-items: stretch;
   }
 }

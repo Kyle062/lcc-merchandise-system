@@ -119,6 +119,33 @@
   color: #1f2937;
 }
 
+.analytics-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.analytics-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.analytics-action-btn:hover {
+  background-color: #f9fafb;
+  color: #00874e;
+  border-color: #00874e;
+}
+
 .analytics-content {
   flex: 1;
   padding: 30px;
@@ -126,6 +153,22 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+/* Animation */
+.fade-in {
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* KPI Cards Grid */
@@ -248,6 +291,11 @@
   border-radius: 8px;
 }
 
+/* Print Specific Styles */
+.print-only {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .analytics-kpi-grid {
@@ -281,5 +329,125 @@
   }
   .analytics-content {
     padding: 20px;
+  }
+}
+
+/* =========================================
+   PRINT STYLES
+   ========================================= */
+@media print {
+  /* Set page margins */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  /* Force colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide non-printable UI elements */
+  .no-print,
+  .analytics-sidebar,
+  .analytics-header,
+  .analytics-action-btn {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: flex !important;
+  }
+
+  /* Reset container layouts */
+  body,
+  html,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+  }
+
+  .analytics-container {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+  }
+
+  .analytics-main-content {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  .analytics-content {
+    padding: 0 !important;
+    margin-top: 20px !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px !important;
+    animation: none !important; /* Disable fade-in for print */
+    opacity: 1 !important; /* Force solid opacity for print */
+  }
+
+  /* Print Header Styling */
+  .print-header {
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #00874e;
+    width: 100%;
+  }
+
+  .print-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+  }
+
+  .print-header-titles {
+    flex-grow: 1;
+  }
+
+  .print-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #00874e;
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .print-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .print-date {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  /* Prevent cards from breaking across pages */
+  .analytics-card {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    page-break-inside: avoid;
+    background-color: #ffffff !important;
+  }
+
+  /* Ensure charts are visible and maintain size */
+  .recharts-responsive-container {
+    width: 100% !important;
+    height: 250px !important;
+    page-break-inside: avoid;
   }
 }

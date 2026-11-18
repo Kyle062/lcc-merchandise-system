@@ -14,6 +14,8 @@ import {
   Bell,
   Clock,
   DollarSign,
+  Printer,
+  Download,
 } from "lucide-react";
 import {
   BarChart,
@@ -26,6 +28,8 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import "./Analytics.css";
 import logo from "../../assets/images/LCClogo1.png";
 
@@ -33,6 +37,7 @@ const Analytics = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -43,7 +48,6 @@ const Analytics = () => {
 
     const fetchAnalytics = async () => {
       try {
-        // ✅ FIXED: Pointing to the Python Analytics service (Port 8001)
         const res = await fetch("http://192.168.254.111:8001/analytics", {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -63,6 +67,83 @@ const Analytics = () => {
     navigate("/login");
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = async () => {
+    const input = document.getElementById("analytics-report-content");
+    if (!input) return;
+
+    setIsExporting(true);
+
+    try {
+      // 1. Temporarily remove internal scrolling and set a fixed width
+      const originalWidth = input.style.width;
+      const originalHeight = input.style.height;
+      const originalOverflow = input.style.overflow;
+      const originalAnimation = input.style.animation;
+      const originalOpacity = input.style.opacity;
+
+      // Force the container to expand fully and disable animations
+      input.style.width = "1200px";
+      input.style.height = "auto";
+      input.style.overflow = "visible";
+      input.style.animation = "none"; // Disable fade-in
+      input.style.opacity = "1"; // Force solid opacity
+
+      // Wait for layout recalculation
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      // 2. Capture the canvas
+      const canvas = await html2canvas(input, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 1200,
+        // The onclone function ensures the cloned document has solid colors
+        onclone: (clonedDoc) => {
+          const clonedInput = clonedDoc.getElementById(
+            "analytics-report-content",
+          );
+          if (clonedInput) {
+            clonedInput.style.animation = "none";
+            clonedInput.style.opacity = "1";
+
+            // Force all child elements to have solid opacity
+            const allElements = clonedInput.querySelectorAll("*");
+            allElements.forEach((el: any) => {
+              if (el.style) {
+                el.style.opacity = "1";
+              }
+            });
+          }
+        },
+      });
+
+      // 3. Restore original styles immediately
+      input.style.width = originalWidth;
+      input.style.height = originalHeight;
+      input.style.overflow = originalOverflow;
+      input.style.animation = originalAnimation;
+      input.style.opacity = originalOpacity;
+
+      // 4. Generate PDF
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("LCC-Analytics-Report.pdf");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: 50, textAlign: "center", fontWeight: "bold" }}>
@@ -74,7 +155,7 @@ const Analytics = () => {
   return (
     <div className="analytics-container">
       {/* SIDEBAR */}
-      <div className="analytics-sidebar">
+      <div className="analytics-sidebar no-print">
         <div className="analytics-sidebar-header">
           <img src={logo} alt="LCC Logo" className="analytics-sidebar-logo" />
           <div>
@@ -131,12 +212,46 @@ const Analytics = () => {
 
       {/* MAIN CONTENT */}
       <div className="analytics-main-content">
-        <div className="analytics-header">
+        <div className="analytics-header no-print">
           <h1 className="analytics-header-title">Analytics & Reports</h1>
-          <Bell size={20} color="#6b7280" />
+          <div className="analytics-header-actions">
+            <button className="analytics-action-btn" onClick={handlePrint}>
+              <Printer size={18} />
+              Print
+            </button>
+            <button
+              className="analytics-action-btn"
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              style={{ opacity: isExporting ? 0.7 : 1 }}
+            >
+              <Download size={18} />
+              {isExporting ? "Exporting..." : "Export PDF"}
+            </button>
+            <Bell size={20} color="#6b7280" style={{ marginLeft: "10px" }} />
+          </div>
         </div>
 
-        <div className="analytics-content">
+        {/* Print Header (Only visible when printing) */}
+        <div className="print-only print-header">
+          <img src={logo} alt="LCC Logo" className="print-logo" />
+          <div className="print-header-titles">
+            <h1 className="print-title">LCC Merchandise System</h1>
+            <p className="print-subtitle">Analytics & Reports</p>
+          </div>
+          <div className="print-date">
+            {new Date().toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </div>
+        </div>
+
+        <div
+          className="analytics-content fade-in"
+          id="analytics-report-content"
+        >
           {/* KPI CARDS ROW */}
           <div className="analytics-kpi-grid">
             <div className="analytics-kpi-card">
@@ -191,65 +306,69 @@ const Analytics = () => {
               <h3 className="analytics-card-title">
                 Stock Inventory per Faculty
               </h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data?.stockByFaculty || []}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip
-                    cursor={{ fill: "#f3f4f6" }}
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    }}
-                  />
-                  <Bar
-                    dataKey="value"
-                    fill="#00874e"
-                    radius={[4, 4, 0, 0]}
-                    name="Units in Stock"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <div style={{ width: "100%", height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data?.stockByFaculty || []}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11 }}
+                    />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip
+                      cursor={{ fill: "#f3f4f6" }}
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    <Bar
+                      dataKey="value"
+                      fill="#00874e"
+                      radius={[4, 4, 0, 0]}
+                      name="Units in Stock"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             <div className="analytics-card">
               <h3 className="analytics-card-title">
                 Daily Order Volume (Last 14 Days)
               </h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={data?.dailyOrders || []}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="orders"
-                    stroke="#00874e"
-                    strokeWidth={3}
-                    dot={{ r: 4, fill: "#00874e" }}
-                    name="Orders"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div style={{ width: "100%", height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data?.dailyOrders || []}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="day"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11 }}
+                    />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="orders"
+                      stroke="#00874e"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#00874e" }}
+                      name="Orders"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
@@ -366,7 +485,7 @@ const Analytics = () => {
             </div>
           </div>
 
-          {/* ✅ NEW: REVENUE PER FACULTY CHART */}
+          {/* REVENUE PER FACULTY CHART */}
           <div className="analytics-card">
             <div className="analytics-card-header">
               <DollarSign size={20} color="#00874e" />
@@ -374,43 +493,45 @@ const Analytics = () => {
                 Total Revenue per Faculty (Completed Orders)
               </h3>
             </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={data?.revenueByFaculty || []}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tickFormatter={(value) => `₱${value.toLocaleString()}`}
-                />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  width={100}
-                  tick={{ fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  formatter={(value: any) =>
-                    `₱${Number(value).toLocaleString()}`
-                  }
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "none",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                  }}
-                />
-                <Bar
-                  dataKey="revenue"
-                  fill="#3b82f6"
-                  radius={[0, 4, 4, 0]}
-                  name="Revenue"
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ width: "100%", height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={data?.revenueByFaculty || []}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tickFormatter={(value) => `₱${value.toLocaleString()}`}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={100}
+                    tick={{ fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(value: any) =>
+                      `₱${Number(value).toLocaleString()}`
+                    }
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "none",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    }}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    fill="#3b82f6"
+                    radius={[0, 4, 4, 0]}
+                    name="Revenue"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>
