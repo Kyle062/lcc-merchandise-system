@@ -28,6 +28,34 @@ const COURSES = [
   "BSTM",
 ];
 
+// Array of valid students for manual verification
+const VALID_STUDENTS = [
+  {
+    barcode: "2024005107",
+    names: ["Kyle Bernard A. Trimidal", "Kyle Bernard Trimidal"],
+  },
+  {
+    barcode: "20244004891",
+    names: ["Angelo Guiritan", "Angelo G. Guiritan"],
+  },
+  {
+    barcode: "2023005563",
+    names: ["Jiefrey M Balagat", "Jiefrey Balagat", "Jiefrey M. Balagat"],
+  },
+  {
+    barcode: "2024005081",
+    names: [
+      "Anna Grace C Tingwasan",
+      "Anna Grace Tingwasan",
+      "Anna Grace C. Tingwasan",
+    ],
+  },
+  {
+    barcode: "2024004213",
+    names: ["Jan Robin Layog"],
+  },
+];
+
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -130,16 +158,41 @@ const SignUp = () => {
     }
   };
 
+  // Helper function to normalize names (removes middle initials, periods, and extra spaces)
+  const normalizeName = (name: string) => {
+    return name
+      .toUpperCase()
+      .replace(/\./g, "") // Remove periods
+      .split(" ") // Split by space
+      .filter((word) => word.length > 1) // Ignore single letters (middle initials)
+      .join(" ")
+      .trim();
+  };
+
   const handleManualVerify = () => {
-    if (manualBarcode.trim() === "2024005107") {
-      if (formData.full_name.toUpperCase() === "KYLE BERNARD A. TRIMIDAL") {
-        setScanStatus("ID Verified Successfully!");
-        setTimeout(() => submitRegistration(true), 1000);
-      } else {
-        setErrorMessage("The name you entered does not match the ID.");
-      }
-    } else {
+    const cleanBarcode = manualBarcode.trim();
+    const userInputName = normalizeName(formData.full_name);
+
+    // 1. Find if the barcode exists in our list
+    const student = VALID_STUDENTS.find((s) => s.barcode === cleanBarcode);
+
+    if (!student) {
       setErrorMessage("Invalid barcode. Please try again.");
+      return;
+    }
+
+    // 2. Check if the entered name matches any of the accepted names for this barcode
+    const isNameMatch = student.names.some((validName) => {
+      return normalizeName(validName) === userInputName;
+    });
+
+    if (isNameMatch) {
+      setScanStatus("ID Verified Successfully!");
+      setTimeout(() => submitRegistration(true), 1000);
+    } else {
+      setErrorMessage(
+        "The name you entered does not match the name registered to this ID number.",
+      );
     }
   };
 
@@ -315,7 +368,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* ✅ MANUAL FALLBACK INPUT */}
+          {/* MANUAL FALLBACK INPUT */}
           {showManualInput && (
             <div
               style={{
