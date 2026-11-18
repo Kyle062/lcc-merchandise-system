@@ -69,7 +69,27 @@ const TailorReports = () => {
           `http://192.168.254.111:8001/tailor-analytics?timeframe=${timeframe}`,
         );
         const dataAnalytics = await resAnalytics.json();
-        setAnalytics(dataAnalytics);
+
+        // Optional: Fix the "%b %d" bug if the backend sends it
+        const fixedRevenueChart = dataAnalytics.revenueChart?.map(
+          (item: any) => {
+            if (item.label && item.label.includes("%b")) {
+              return {
+                ...item,
+                label: new Date().toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                }),
+              };
+            }
+            return item;
+          },
+        );
+
+        setAnalytics({
+          ...dataAnalytics,
+          revenueChart: fixedRevenueChart || [],
+        });
 
         setLoading(false);
       } catch (error) {
@@ -96,31 +116,26 @@ const TailorReports = () => {
     setIsExporting(true);
 
     try {
-      // 1. Temporarily remove internal scrolling and set a fixed width
       const originalWidth = input.style.width;
       const originalHeight = input.style.height;
       const originalOverflow = input.style.overflow;
       const originalAnimation = input.style.animation;
       const originalOpacity = input.style.opacity;
 
-      // Force the container to expand fully and disable animations
       input.style.width = "1200px";
       input.style.height = "auto";
       input.style.overflow = "visible";
       input.style.animation = "none";
       input.style.opacity = "1";
 
-      // Wait for layout recalculation
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // 2. Capture the canvas
       const canvas = await html2canvas(input, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
         windowWidth: 1200,
-        // Ensure cloned elements have solid colors and no animations
         onclone: (clonedDoc) => {
           const clonedInput = clonedDoc.getElementById("tailor-report-content");
           if (clonedInput) {
@@ -128,22 +143,18 @@ const TailorReports = () => {
             clonedInput.style.opacity = "1";
             const allElements = clonedInput.querySelectorAll("*");
             allElements.forEach((el: any) => {
-              if (el.style) {
-                el.style.opacity = "1";
-              }
+              if (el.style) el.style.opacity = "1";
             });
           }
         },
       });
 
-      // 3. Restore original styles immediately
       input.style.width = originalWidth;
       input.style.height = originalHeight;
       input.style.overflow = originalOverflow;
       input.style.animation = originalAnimation;
       input.style.opacity = originalOpacity;
 
-      // 4. Generate PDF
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -223,9 +234,14 @@ const TailorReports = () => {
           </div>
         </div>
 
-        {/* Print Header (Only visible when printing) */}
+        {/* Print Header (Visible on Print and PDF Export) */}
         <div className="print-only print-header">
-          <img src={logo} alt="LCC Logo" className="print-logo" />
+          <img
+            src={logo}
+            alt="LCC Logo"
+            className="print-logo"
+            crossOrigin="anonymous"
+          />
           <div className="print-header-titles">
             <h1 className="print-title">LCC Merchandise System</h1>
             <p className="print-subtitle">Tailoring Reports</p>
@@ -265,31 +281,34 @@ const TailorReports = () => {
               </button>
             </div>
 
-            <div className="revenue-card">
-              <div className="revenue-icon">
-                <DollarSign size={24} color="#059669" />
+            {/* Grouped Revenue Card and Actions on the right side */}
+            <div className="report-top-right">
+              <div className="revenue-card">
+                <div className="revenue-icon">
+                  <DollarSign size={24} color="#059669" />
+                </div>
+                <div>
+                  <p className="revenue-label">Total Tailoring Revenue</p>
+                  <h3 className="revenue-value">
+                    ₱{Number(analytics.totalRevenue || 0).toLocaleString()}
+                  </h3>
+                </div>
               </div>
-              <div>
-                <p className="revenue-label">Total Tailoring Revenue</p>
-                <h3 className="revenue-value">
-                  ₱{Number(analytics.totalRevenue || 0).toLocaleString()}
-                </h3>
-              </div>
-            </div>
 
-            <div className="print-actions no-print">
-              <button className="print-btn" onClick={handlePrint}>
-                <Printer size={16} /> Print
-              </button>
-              <button
-                className="print-btn"
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                style={{ opacity: isExporting ? 0.7 : 1 }}
-              >
-                <Download size={16} />
-                {isExporting ? "Exporting..." : "Export PDF"}
-              </button>
+              <div className="print-actions no-print">
+                <button className="print-btn" onClick={handlePrint}>
+                  <Printer size={16} /> Print
+                </button>
+                <button
+                  className="print-btn"
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  style={{ opacity: isExporting ? 0.7 : 1 }}
+                >
+                  <Download size={16} />
+                  {isExporting ? "Exporting..." : "Export PDF"}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -350,7 +369,6 @@ const TailorReports = () => {
           <div className="tailor-table-card">
             <div className="tailor-table-header">
               <h3 className="tailor-table-title">Completed Tailoring Work</h3>
-              {/* Note: Print button is now in the top bar, so we hide this one during print */}
             </div>
 
             {loading ? (
