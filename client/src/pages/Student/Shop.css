@@ -486,7 +486,7 @@
 /* --- PROFESSIONAL RECEIPT MODAL --- */
 .receipt-modal {
   text-align: center;
-  padding: 30px 24px;
+  padding: 30px 28px;
   max-width: 520px;
   max-height: 95vh;
   overflow-y: auto;
@@ -628,8 +628,8 @@
   margin-bottom: 10px;
 }
 .receipt-qr-img {
-  width: 160px;
-  height: 160px;
+  width: 180px;
+  height: 180px;
   object-fit: contain;
 }
 .receipt-done-btn {
@@ -776,5 +776,6 @@
   .receipt-modal {
     max-width: 100%;
     border-radius: 20px 20px 0 0;
+    padding: 24px 20px;
   }
 }
