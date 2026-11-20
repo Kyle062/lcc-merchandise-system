@@ -13,7 +13,6 @@ import {
   Trash2,
   X,
   AlertTriangle,
-  ShieldAlert,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
@@ -111,7 +110,7 @@ const Scanner = () => {
           isProcessingRef.current = false;
           setScanError(null);
           setTamperDiffs([]);
-        }, 8000); // Give admin 8 seconds to read the diff
+        }, 15000); // Give admin 15 seconds to read the diff
         setLoading(false);
         return; // Stop processing immediately
       }
@@ -220,6 +219,51 @@ const Scanner = () => {
 
   const calculateTotal = () => {
     return editedItems.reduce((sum, item) => sum + Number(item.total_price), 0);
+  };
+
+  // ✅ Helper to format the diff rows for the cashier
+  const renderDiffRow = (d: any, i: number) => {
+    let displayField = d.field;
+
+    // If the field is an item-level change (e.g. items.0.quantity)
+    if (d.field.startsWith("items.")) {
+      const parts = d.field.split(".");
+      const itemIndex = parseInt(parts[1]);
+      const property = parts[2];
+
+      // We can try to get the product name from the signed payload if possible.
+      // Since we only have the diff data here, we'll display it formatted.
+      const propLabel =
+        property === "quantity"
+          ? "Quantity"
+          : property === "subtotal"
+            ? "Subtotal"
+            : property === "unit_price"
+              ? "Unit Price"
+              : property === "name"
+                ? "Product Name"
+                : property;
+
+      displayField = `Item #${itemIndex + 1} (${propLabel})`;
+    } else if (d.field === "total") {
+      displayField = "Total Amount";
+    } else if (d.field === "user_id") {
+      displayField = "Student ID";
+    } else if (d.field === "full_name") {
+      displayField = "Student Name";
+    } else if (d.field === "username") {
+      displayField = "Student Username";
+    }
+
+    return (
+      <tr key={i}>
+        <td>
+          <strong>{displayField}</strong>
+        </td>
+        <td className="diff-old">{d.signed}</td>
+        <td className="diff-new">{d.current}</td>
+      </tr>
+    );
   };
 
   return (
@@ -366,15 +410,7 @@ const Scanner = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {tamperDiffs.map((d, i) => (
-                              <tr key={i}>
-                                <td>
-                                  <code>{d.field}</code>
-                                </td>
-                                <td className="diff-old">{d.signed}</td>
-                                <td className="diff-new">{d.current}</td>
-                              </tr>
-                            ))}
+                            {tamperDiffs.map((d, i) => renderDiffRow(d, i))}
                           </tbody>
                         </table>
                       </div>
