@@ -26,6 +26,7 @@ const Scanner = () => {
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [tamperDiffs, setTamperDiffs] = useState<any[]>([]);
+  const [signedSnapshot, setSignedSnapshot] = useState<any>(null); // ✅ NEW: store snapshot
 
   const [previewData, setPreviewData] = useState<any>(null);
   const [editedItems, setEditedItems] = useState<any[]>([]);
@@ -82,6 +83,7 @@ const Scanner = () => {
     setLoading(true);
     setScanError(null);
     setTamperDiffs([]);
+    setSignedSnapshot(null); // Reset snapshot
 
     try {
       // ✅ STEP 1: Verify the Digital Signature
@@ -105,11 +107,13 @@ const Scanner = () => {
             "TAMPERED RECEIPT DETECTED! This receipt is forged.",
         );
         setTamperDiffs(verifyData.diffs || []);
+        setSignedSnapshot(verifyData.signed_snapshot || null); // ✅ Save the snapshot for diff rendering
         showToast("error", "SECURITY ALERT", "Digital signature mismatch.");
         setTimeout(() => {
           isProcessingRef.current = false;
           setScanError(null);
           setTamperDiffs([]);
+          setSignedSnapshot(null);
         }, 15000); // Give admin 15 seconds to read the diff
         setLoading(false);
         return; // Stop processing immediately
@@ -221,7 +225,7 @@ const Scanner = () => {
     return editedItems.reduce((sum, item) => sum + Number(item.total_price), 0);
   };
 
-  // ✅ Helper to format the diff rows for the cashier
+  // ✅ UPDATED Helper to format the diff rows using the product name
   const renderDiffRow = (d: any, i: number) => {
     let displayField = d.field;
 
@@ -231,8 +235,19 @@ const Scanner = () => {
       const itemIndex = parseInt(parts[1]);
       const property = parts[2];
 
-      // We can try to get the product name from the signed payload if possible.
-      // Since we only have the diff data here, we'll display it formatted.
+      // Try to get the actual product name from the signed snapshot
+      let productName = `Item #${itemIndex + 1}`;
+      if (
+        signedSnapshot &&
+        signedSnapshot.items &&
+        signedSnapshot.items[itemIndex]
+      ) {
+        productName = signedSnapshot.items[itemIndex].name;
+        if (signedSnapshot.items[itemIndex].size) {
+          productName += ` (${signedSnapshot.items[itemIndex].size})`;
+        }
+      }
+
       const propLabel =
         property === "quantity"
           ? "Quantity"
@@ -244,7 +259,7 @@ const Scanner = () => {
                 ? "Product Name"
                 : property;
 
-      displayField = `Item #${itemIndex + 1} (${propLabel})`;
+      displayField = `${productName} - ${propLabel}`;
     } else if (d.field === "total") {
       displayField = "Total Amount";
     } else if (d.field === "user_id") {

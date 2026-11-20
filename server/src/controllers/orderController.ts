@@ -323,6 +323,7 @@ export const verifyReceiptSignature = async (req: Request, res: Response) => {
       isValid: false,
       message: "TAMPERED RECEIPT DETECTED. Fields have been modified.",
       diffs,
+      signed_snapshot: storedSnapshot, // ✅ Send this so frontend can read product names
     });
   } catch (error: any) {
     console.error("❌ verifyReceiptSignature error:", error.message);
@@ -359,8 +360,7 @@ export const getScanPreview = async (req: Request, res: Response) => {
         .status(400)
         .json({ message: `This order is already "${group.status}".` });
 
-    // ✅ FIX: Extract items from the signed payload_snapshot, NOT the database.
-    // This guarantees the cashier sees the original prices that were signed.
+    // ✅ Extract items from the signed payload_snapshot, NOT the database.
     let items: any[] = [];
 
     if (group.payload_snapshot) {
@@ -371,7 +371,7 @@ export const getScanPreview = async (req: Request, res: Response) => {
       );
 
       items = snapshot.items.map((i, index) => ({
-        id: index, // Used for React keys & removal in frontend
+        id: index,
         product_id: i.product_id,
         name: i.name,
         size: i.size,
@@ -380,7 +380,7 @@ export const getScanPreview = async (req: Request, res: Response) => {
         total_price: i.subtotal,
       }));
     } else {
-      // Fallback for legacy orders (should not happen if verify-receipt passed)
+      // Fallback for legacy orders
       const [dbItems]: any = await db.query(
         `SELECT o.id, o.product_id, o.quantity, o.total_price, p.name, p.size, p.price
          FROM orders o JOIN products p ON o.product_id = p.id
