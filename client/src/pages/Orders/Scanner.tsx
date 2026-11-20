@@ -314,7 +314,7 @@ const Scanner = () => {
             <div className="receipt">
               <div className="receipt-header">
                 <img src={logo} alt="LCC Logo" className="receipt-logo" />
-                <div>
+                <div className="receipt-header-text">
                   <h2>ORDER RECEIPT PREVIEW</h2>
                   <p>{previewData.group_code}</p>
                 </div>
