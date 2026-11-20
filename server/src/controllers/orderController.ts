@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
 import db from "../config/db";
-import { signReceipt, verifyReceipt } from "../utils/cryptoUtils";
+import {
+  signReceipt,
+  verifyReceipt,
+  buildOrderSnapshot,
+  buildCanonicalString,
+  diffSnapshots,
+  OrderSnapshot,
+} from "../utils/cryptoUtils";
 
 // GET all orders (Admin)
 export const getAllOrders = async (req: Request, res: Response) => {
@@ -8,9 +15,9 @@ export const getAllOrders = async (req: Request, res: Response) => {
     const [rows] = await db.query(`
       SELECT 
         o.id, o.quantity, o.total_price, o.status, o.order_date, o.group_id,
-        p.id AS product_id, p.name AS product_name, p.course AS product_course, p.size AS product_size,
+        p.id AS product_id, p.name AS product_name, p.course AS product_course, p.size AS product_size, p.price AS product_unit_price,
         u.id AS user_id, u.username, u.full_name, u.email, u.course AS user_course,
-        g.digital_signature
+        g.digital_signature, g.payload_snapshot, g.group_code
       FROM orders o
       JOIN products p ON o.product_id = p.id
       JOIN users u ON o.user_id = u.id
@@ -86,7 +93,7 @@ export const getMyOrders = async (req: Request, res: Response) => {
   }
 };
 
-// PLACE MULTIPLE ORDERS (With Digital Signature)
+// PLACE MULTIPLE ORDERS (With Digital Signature + Snapshot)
 export const placeOrder = async (req: Request, res: Response) => {
   const { items } = req.body;
   const user_id = (req as any).user.id;
@@ -106,7 +113,23 @@ export const placeOrder = async (req: Request, res: Response) => {
     );
     const groupId = groupResult.insertId;
 
-    let totalCartValue = 0;
+    // 1. Fetch user info (needed for the snapshot)
+    const [userRows]: any = await conn.query(
+      "SELECT id, username, full_name, email, course FROM users WHERE id = ?",
+      [user_id],
+    );
+    if (userRows.length === 0) throw new Error("User not found");
+    const user = userRows[0];
+
+    // 2. Insert order rows + collect items for snapshot
+    const snapshotItems: Array<{
+      product_id: number;
+      name: string;
+      size: string | null;
+      course: string | null;
+      quantity: number;
+      unit_price: number;
+    }> = [];
 
     for (const item of items) {
       const { product_id, quantity } = item;
@@ -120,31 +143,56 @@ export const placeOrder = async (req: Request, res: Response) => {
       if (product.stock_quantity < quantity)
         throw new Error(`Insufficient stock for ${product.name}`);
 
-      const total_price = product.price * quantity;
-      totalCartValue += total_price;
+      const total_price = Number((product.price * quantity).toFixed(2));
 
       await conn.query(
         "INSERT INTO orders (group_id, user_id, product_id, quantity, total_price, status) VALUES (?, ?, ?, ?, ?, ?)",
         [groupId, user_id, product_id, quantity, total_price, "Pending"],
       );
+
+      snapshotItems.push({
+        product_id: product.id,
+        name: product.name,
+        size: product.size,
+        course: product.course,
+        quantity,
+        unit_price: Number(product.price),
+      });
     }
 
-    // ✅ CRYPTOGRAPHY: Generate Digital Signature
+    // 3. Build snapshot + sign it
     const timestamp = new Date().toISOString();
-    const receiptDataString = `${groupId}|${totalCartValue}|${timestamp}`;
-    const digitalSignature = signReceipt(receiptDataString);
+    const snapshot = buildOrderSnapshot({
+      group_id: groupId,
+      group_code: groupCode,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        email: user.email,
+        course: user.course,
+      },
+      items: snapshotItems,
+      timestamp,
+    });
 
-    // ✅ Save the signature to the database
+    const payloadString = buildCanonicalString(snapshot);
+    const digitalSignature = signReceipt(payloadString);
+
+    // 4. Save signature + snapshot
     await conn.query(
-      "UPDATE order_groups SET digital_signature = ? WHERE id = ?",
-      [digitalSignature, groupId],
+      "UPDATE order_groups SET digital_signature = ?, payload_snapshot = ? WHERE id = ?",
+      [digitalSignature, JSON.stringify(snapshot), groupId],
     );
 
     await conn.commit();
+
     res.status(201).json({
       message: "Order placed",
       groupId,
       digitalSignature,
+      // frontend wants the snapshot total for receipt display
+      total: snapshot.total,
     });
   } catch (error: any) {
     await conn.rollback();
@@ -155,50 +203,137 @@ export const placeOrder = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ NEW: Verify Receipt Signature (For Admin Scanner)
+// ✅ NEW: Verify Receipt Signature (With Field-Level Diff)
 export const verifyReceiptSignature = async (req: Request, res: Response) => {
   const { group_id } = req.body;
 
   try {
-    const [rows]: any = await db.query(
-      "SELECT id, digital_signature FROM order_groups WHERE id = ?",
+    // 1. Fetch group + stored snapshot
+    const [groupRows]: any = await db.query(
+      "SELECT id, group_code, user_id, digital_signature, payload_snapshot FROM order_groups WHERE id = ?",
       [group_id],
     );
 
-    if (rows.length === 0) {
+    if (groupRows.length === 0) {
       return res
         .status(404)
         .json({ isValid: false, message: "Order group not found" });
     }
 
-    const orderGroup = rows[0];
+    const group = groupRows[0];
 
-    if (!orderGroup.digital_signature) {
+    // 2. Legacy fallback: no signature at all
+    if (!group.digital_signature) {
       return res.json({
         isValid: false,
         message: "No digital signature found for this receipt.",
+        diffs: [
+          {
+            field: "digital_signature",
+            signed: "(missing)",
+            current: "(missing)",
+          },
+        ],
       });
     }
 
-    // Simulated verification: In a real system, you would reconstruct the exact string
-    // and use verifyReceipt(). For this Capstone, we check if the signature exists.
-    const isValid = !!orderGroup.digital_signature;
+    // 3. Legacy fallback: old order that has signature but no snapshot
+    if (!group.payload_snapshot) {
+      return res.json({
+        isValid: false,
+        legacy: true,
+        message:
+          "This order was placed before the secure snapshot system. It cannot be verified.",
+        diffs: [
+          {
+            field: "payload_snapshot",
+            signed: "(missing — legacy order)",
+            current: "(unverifiable)",
+          },
+        ],
+      });
+    }
 
-    res.json({
-      isValid: isValid,
-      message: isValid
-        ? "Signature is valid"
-        : "Signature is missing or tampered with",
+    // 4. Rebuild LIVE snapshot from current DB state
+    const [userRows]: any = await db.query(
+      "SELECT id, username, full_name, email, course FROM users WHERE id = ?",
+      [group.user_id],
+    );
+    if (userRows.length === 0) {
+      return res.json({ isValid: false, message: "User no longer exists." });
+    }
+    const user = userRows[0];
+
+    const [itemRows]: any = await db.query(
+      `SELECT o.product_id, o.quantity, o.total_price,
+              p.name, p.size, p.course, p.price
+       FROM orders o
+       JOIN products p ON o.product_id = p.id
+       WHERE o.group_id = ?
+       ORDER BY o.id ASC`,
+      [group_id],
+    );
+
+    // 5. Rebuild snapshot using the SAME function as placeOrder
+    //    Preserve the ORIGINAL timestamp from the stored snapshot so
+    //    "timestamp" is not flagged as a tamper.
+    const storedSnapshot: OrderSnapshot = JSON.parse(
+      typeof group.payload_snapshot === "string"
+        ? group.payload_snapshot
+        : JSON.stringify(group.payload_snapshot),
+    );
+
+    const liveSnapshot = buildOrderSnapshot({
+      group_id: group.id,
+      group_code: group.group_code,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        email: user.email,
+        course: user.course,
+      },
+      items: itemRows.map((r: any) => ({
+        product_id: r.product_id,
+        name: r.name,
+        size: r.size,
+        course: r.course,
+        quantity: r.quantity,
+        unit_price: Number(r.price),
+      })),
+      timestamp: storedSnapshot.timestamp, // keep original timestamp
+    });
+
+    // 6. Recompute signature from LIVE snapshot
+    const liveString = buildCanonicalString(liveSnapshot);
+    const recomputedSignature = signReceipt(liveString);
+
+    // 7. Compare
+    const signaturesMatch = recomputedSignature === group.digital_signature;
+
+    if (signaturesMatch) {
+      return res.json({
+        isValid: true,
+        message: "Signature is valid. No tampering detected.",
+        diffs: [],
+      });
+    }
+
+    // 8. Tampered! Compute field-level diff
+    const diffs = diffSnapshots(storedSnapshot, liveSnapshot);
+
+    return res.json({
+      isValid: false,
+      message: "TAMPERED RECEIPT DETECTED. Fields have been modified.",
+      diffs,
     });
   } catch (error: any) {
     console.error("❌ verifyReceiptSignature error:", error.message);
-    res
-      .status(500)
-      .json({
-        isValid: false,
-        message: "Error verifying signature",
-        details: error.message,
-      });
+    res.status(500).json({
+      isValid: false,
+      message: "Error verifying signature",
+      details: error.message,
+    });
   }
 };
 
@@ -214,7 +349,6 @@ export const getScanPreview = async (req: Request, res: Response) => {
     if (groupRows.length === 0)
       return res.status(404).json({ message: "Order Group not found." });
 
-    // ✅ CRYPTOGRAPHY: Check for Signature before allowing preview
     if (!groupRows[0].digital_signature) {
       return res
         .status(400)
