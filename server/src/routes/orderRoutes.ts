@@ -9,6 +9,7 @@ import {
   deleteMyPendingOrder,
   getScanPreview,
   confirmScanOrder,
+  verifyReceiptSignature,
 } from "../controllers/orderController";
 import { protect, authorize } from "../middleware/authMiddleware";
 
@@ -34,6 +35,14 @@ router.post(
   protect,
   authorize(["admin", "staff"]),
   confirmScanOrder,
+);
+
+// ✅ NEW: Verify Receipt Signature Route
+router.post(
+  "/verify-receipt",
+  protect,
+  authorize(["admin", "staff"]),
+  verifyReceiptSignature,
 );
 
 // Update status (Now updates the whole group)

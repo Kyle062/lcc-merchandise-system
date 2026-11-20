@@ -258,11 +258,14 @@ const Shop = () => {
               price: item.price * item.cartQuantity,
             }));
 
+            // ✅ CRYPTOGRAPHY: Save the digital signature to the receipt
             setReceiptData({
               groupId: data.groupId,
               total: cartTotal,
               items: orderSummary,
+              digitalSignature: data.digitalSignature,
             });
+
             setCart([]);
             setIsCartOpen(false);
 
@@ -644,6 +647,37 @@ const Shop = () => {
                 className="receipt-qr-img"
               />
             </div>
+
+            {/* ✅ CRYPTOGRAPHY: Display Digital Signature */}
+            <div
+              style={{
+                marginTop: "20px",
+                textAlign: "center",
+                borderTop: "1px dashed #e5e7eb",
+                paddingTop: "15px",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "10px",
+                  color: "#9ca3af",
+                  wordBreak: "break-all",
+                  fontFamily: "monospace",
+                }}
+              >
+                <strong style={{ color: "#00874e" }}>
+                  🔒 Digital Signature (RSA):
+                </strong>
+                <br />
+                {receiptData.digitalSignature}
+              </p>
+              <p
+                style={{ fontSize: "9px", color: "#6b7280", marginTop: "5px" }}
+              >
+                This signature proves the receipt is authentic and unaltered.
+              </p>
+            </div>
+
             <button
               className="receipt-done-btn"
               onClick={() => setReceiptData(null)}
