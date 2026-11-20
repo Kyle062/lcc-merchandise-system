@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Trash2,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
@@ -82,6 +83,33 @@ const Scanner = () => {
     setScanError(null);
 
     try {
+      // ✅ CRYPTOGRAPHY STEP 1: Verify the Digital Signature
+      const verifyRes = await fetch(
+        "http://192.168.254.111:5000/api/orders/verify-receipt",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ group_id: groupId }),
+        },
+      );
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.isValid) {
+        setScanError("TAMPERED RECEIPT DETECTED! This receipt is forged.");
+        showToast("error", "SECURITY ALERT", "Digital signature mismatch.");
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          setScanError(null);
+        }, 5000);
+        setLoading(false);
+        return; // Stop processing immediately
+      }
+
+      // ✅ CRYPTOGRAPHY STEP 2: If valid, load the preview
       const res = await fetch(
         "http://192.168.254.111:5000/api/orders/scan-preview",
         {
@@ -108,8 +136,8 @@ const Scanner = () => {
         setEditedItems(data.items);
         showToast(
           "success",
-          "QR Scanned",
-          `Loaded receipt for ${data.user?.full_name || "Student"}`,
+          "Receipt Verified!",
+          `Signature valid. Loaded receipt for ${data.user?.full_name || "Student"}`,
         );
       }
     } catch (error: any) {
@@ -280,20 +308,25 @@ const Scanner = () => {
                 </div>
               )}
 
+              {/* ✅ SECURITY ALERT: Tampered Receipt */}
               {scanError && (
-                <div className="overlay-error">
-                  <XCircle size={80} />
-                  <h3>Scan Failed</h3>
+                <div
+                  className="overlay-error"
+                  style={{ background: "rgba(220, 38, 38, 0.95)" }}
+                >
+                  <AlertTriangle size={80} style={{ marginBottom: "20px" }} />
+                  <h3>SECURITY ALERT</h3>
                   <p>{scanError}</p>
                 </div>
               )}
+
               {loading && !scanError && (
                 <div className="overlay-loading">
                   <RefreshCw
                     size={60}
                     style={{ animation: "spin 1s linear infinite" }}
                   />
-                  <h3>Fetching Order...</h3>
+                  <h3>Verifying Signature...</h3>
                 </div>
               )}
             </div>
@@ -328,6 +361,12 @@ const Scanner = () => {
                 <div className="receipt-info-row">
                   <span>Status:</span>
                   <strong>{previewData.status}</strong>
+                </div>
+                <div className="receipt-info-row">
+                  <span>Signature:</span>
+                  <strong style={{ color: "#059669", fontSize: "11px" }}>
+                    ✅ VERIFIED
+                  </strong>
                 </div>
               </div>
 
