@@ -191,7 +191,6 @@ export const placeOrder = async (req: Request, res: Response) => {
       message: "Order placed",
       groupId,
       digitalSignature,
-      // frontend wants the snapshot total for receipt display
       total: snapshot.total,
     });
   } catch (error: any) {
@@ -203,7 +202,7 @@ export const placeOrder = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ NEW: Verify Receipt Signature (With Field-Level Diff)
+// ✅ Verify Receipt Signature (With Field-Level Diff)
 export const verifyReceiptSignature = async (req: Request, res: Response) => {
   const { group_id } = req.body;
 
@@ -274,9 +273,7 @@ export const verifyReceiptSignature = async (req: Request, res: Response) => {
       [group_id],
     );
 
-    // 5. Rebuild snapshot using the SAME function as placeOrder
-    //    Preserve the ORIGINAL timestamp from the stored snapshot so
-    //    "timestamp" is not flagged as a tamper.
+    // 5. Rebuild snapshot
     const storedSnapshot: OrderSnapshot = JSON.parse(
       typeof group.payload_snapshot === "string"
         ? group.payload_snapshot
@@ -349,31 +346,57 @@ export const getScanPreview = async (req: Request, res: Response) => {
     if (groupRows.length === 0)
       return res.status(404).json({ message: "Order Group not found." });
 
-    if (!groupRows[0].digital_signature) {
+    const group = groupRows[0];
+
+    if (!group.digital_signature) {
       return res
         .status(400)
         .json({ message: "TAMPERED RECEIPT: Missing Digital Signature." });
     }
 
-    if (groupRows[0].status !== "Pending")
+    if (group.status !== "Pending")
       return res
         .status(400)
-        .json({ message: `This order is already "${groupRows[0].status}".` });
+        .json({ message: `This order is already "${group.status}".` });
 
-    const [items]: any = await db.query(
-      `SELECT o.id, o.product_id, o.quantity, o.total_price, p.name, p.size, p.price
-       FROM orders o JOIN products p ON o.product_id = p.id
-       WHERE o.group_id = ?`,
-      [group_id],
-    );
+    // ✅ FIX: Extract items from the signed payload_snapshot, NOT the database.
+    // This guarantees the cashier sees the original prices that were signed.
+    let items: any[] = [];
+
+    if (group.payload_snapshot) {
+      const snapshot: OrderSnapshot = JSON.parse(
+        typeof group.payload_snapshot === "string"
+          ? group.payload_snapshot
+          : JSON.stringify(group.payload_snapshot),
+      );
+
+      items = snapshot.items.map((i, index) => ({
+        id: index, // Used for React keys & removal in frontend
+        product_id: i.product_id,
+        name: i.name,
+        size: i.size,
+        quantity: i.quantity,
+        price: i.unit_price,
+        total_price: i.subtotal,
+      }));
+    } else {
+      // Fallback for legacy orders (should not happen if verify-receipt passed)
+      const [dbItems]: any = await db.query(
+        `SELECT o.id, o.product_id, o.quantity, o.total_price, p.name, p.size, p.price
+         FROM orders o JOIN products p ON o.product_id = p.id
+         WHERE o.group_id = ?`,
+        [group_id],
+      );
+      items = dbItems;
+    }
 
     const [userRows]: any = await db.query(
       "SELECT full_name, course FROM users WHERE id = ?",
-      [groupRows[0].user_id],
+      [group.user_id],
     );
 
     res.json({
-      group: groupRows[0],
+      group,
       user: userRows[0] || { full_name: "Unknown" },
       items,
     });
