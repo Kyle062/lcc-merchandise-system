@@ -184,8 +184,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .orders-avatar {
@@ -439,8 +443,12 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .receipt-modal {
@@ -456,8 +464,14 @@
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modal-close {
@@ -683,6 +697,133 @@
   background-color: #e5e7eb;
 }
 
+/* =========================================================
+   ✅ NEW STYLES FOR TAMPER VERIFICATION (Step 4 & 5)
+   ========================================================= */
+
+/* Loading state banner */
+.receipt-verify-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+/* Green Success Banner */
+.receipt-verified-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  padding: 14px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.receipt-verified-banner svg {
+  color: #059669;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.receipt-verified-banner strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.receipt-verified-banner p {
+  margin: 0;
+  font-size: 12px;
+  color: #047857;
+}
+
+/* Red Tampered Banner */
+.receipt-tamper-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  padding: 14px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.receipt-tamper-banner > svg {
+  color: #dc2626;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Diff Table */
+.diff-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  background-color: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+}
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.diff-table th {
+  text-align: left;
+  background-color: #fef2f2;
+  color: #991b1b;
+  padding: 8px 10px;
+  font-weight: 700;
+  border-bottom: 1px solid #fecaca;
+}
+
+.diff-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #fee2e2;
+  color: #1f2937;
+}
+
+.diff-table tr:last-child td {
+  border-bottom: none;
+}
+
+.diff-table code {
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #374151;
+}
+
+.diff-old {
+  color: #059669;
+  font-weight: 600;
+  text-decoration: line-through;
+}
+
+.diff-new {
+  color: #dc2626;
+  font-weight: 700;
+}
+
 /* PRINT STYLES */
 @media print {
   .orders-container > *:not(.modal-overlay),
@@ -698,6 +839,11 @@
     box-shadow: none;
     max-width: 100%;
     padding: 0;
+  }
+  .receipt-tamper-banner,
+  .receipt-verified-banner,
+  .receipt-verify-loading {
+    display: none !important;
   }
 }
 
