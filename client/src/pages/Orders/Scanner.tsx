@@ -9,11 +9,11 @@ import {
   Settings,
   LogOut,
   QrCode,
-  XCircle,
   RefreshCw,
   Trash2,
   X,
   AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
@@ -26,6 +26,7 @@ const Scanner = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [tamperDiffs, setTamperDiffs] = useState<any[]>([]);
 
   const [previewData, setPreviewData] = useState<any>(null);
   const [editedItems, setEditedItems] = useState<any[]>([]);
@@ -81,9 +82,10 @@ const Scanner = () => {
 
     setLoading(true);
     setScanError(null);
+    setTamperDiffs([]);
 
     try {
-      // ✅ CRYPTOGRAPHY STEP 1: Verify the Digital Signature
+      // ✅ STEP 1: Verify the Digital Signature
       const verifyRes = await fetch(
         "http://192.168.254.111:5000/api/orders/verify-receipt",
         {
@@ -99,17 +101,22 @@ const Scanner = () => {
       const verifyData = await verifyRes.json();
 
       if (!verifyData.isValid) {
-        setScanError("TAMPERED RECEIPT DETECTED! This receipt is forged.");
+        setScanError(
+          verifyData.message ||
+            "TAMPERED RECEIPT DETECTED! This receipt is forged.",
+        );
+        setTamperDiffs(verifyData.diffs || []);
         showToast("error", "SECURITY ALERT", "Digital signature mismatch.");
         setTimeout(() => {
           isProcessingRef.current = false;
           setScanError(null);
-        }, 5000);
+          setTamperDiffs([]);
+        }, 8000); // Give admin 8 seconds to read the diff
         setLoading(false);
         return; // Stop processing immediately
       }
 
-      // ✅ CRYPTOGRAPHY STEP 2: If valid, load the preview
+      // ✅ STEP 2: If valid, load the preview
       const res = await fetch(
         "http://192.168.254.111:5000/api/orders/scan-preview",
         {
@@ -223,6 +230,7 @@ const Scanner = () => {
         ))}
       </div>
 
+      {/* SIDEBAR */}
       <div className="orders-sidebar">
         <div className="orders-sidebar-header">
           <img src={logo} alt="LCC Logo" className="orders-sidebar-logo" />
@@ -277,6 +285,7 @@ const Scanner = () => {
         </div>
       </div>
 
+      {/* MAIN CONTENT */}
       <div className="orders-main-content">
         <div className="orders-header">
           <div>
@@ -295,6 +304,7 @@ const Scanner = () => {
 
             <div className="camera-container">
               <div id="reader"></div>
+
               {!previewData && !scanError && !loading && (
                 <div className="scanner-overlay">
                   <div className="dimmed-background" />
@@ -308,15 +318,68 @@ const Scanner = () => {
                 </div>
               )}
 
-              {/* ✅ SECURITY ALERT: Tampered Receipt */}
+              {/* ✅ SECURITY ALERT WITH DIFF TABLE */}
               {scanError && (
                 <div
                   className="overlay-error"
-                  style={{ background: "rgba(220, 38, 38, 0.95)" }}
+                  style={{
+                    background: "rgba(220, 38, 38, 0.98)",
+                    padding: "20px",
+                    overflowY: "auto",
+                  }}
                 >
-                  <AlertTriangle size={80} style={{ marginBottom: "20px" }} />
-                  <h3>SECURITY ALERT</h3>
-                  <p>{scanError}</p>
+                  <AlertTriangle size={60} style={{ marginBottom: "10px" }} />
+                  <h3 style={{ margin: "0 0 10px 0" }}>SECURITY ALERT</h3>
+                  <p
+                    style={{
+                      fontWeight: "bold",
+                      marginBottom: "15px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {scanError}
+                  </p>
+
+                  {tamperDiffs.length > 0 && (
+                    <div style={{ width: "100%", maxWidth: "400px" }}>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          marginBottom: "8px",
+                          textAlign: "left",
+                          color: "white",
+                        }}
+                      >
+                        DETECTED CHANGES:
+                      </div>
+                      <div
+                        className="diff-table-wrapper"
+                        style={{ background: "white", textAlign: "left" }}
+                      >
+                        <table className="diff-table">
+                          <thead>
+                            <tr>
+                              <th>Field</th>
+                              <th>Signed Value</th>
+                              <th>Current Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tamperDiffs.map((d, i) => (
+                              <tr key={i}>
+                                <td>
+                                  <code>{d.field}</code>
+                                </td>
+                                <td className="diff-old">{d.signed}</td>
+                                <td className="diff-new">{d.current}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -337,6 +400,7 @@ const Scanner = () => {
         </div>
       </div>
 
+      {/* PREVIEW MODAL */}
       {previewData && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="receipt-modal" onClick={(e) => e.stopPropagation()}>
