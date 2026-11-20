@@ -16,6 +16,9 @@ import {
   RefreshCw,
   Filter,
   QrCode,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import "./Orders.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -32,6 +35,20 @@ interface OrderGroup {
   order_date: string;
   total_price: number;
   items: any[];
+}
+
+interface DiffItem {
+  field: string;
+  signed: any;
+  current: any;
+}
+
+interface VerificationState {
+  loading: boolean;
+  isValid: boolean | null;
+  message: string;
+  diffs: DiffItem[];
+  legacy?: boolean;
 }
 
 type SortKey =
@@ -63,6 +80,14 @@ const Orders = () => {
   ]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  // ✅ NEW: verification state for tamper detection
+  const [verification, setVerification] = useState<VerificationState>({
+    loading: false,
+    isValid: null,
+    message: "",
+    diffs: [],
+  });
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastType, title: string, message?: string) => {
@@ -122,6 +147,52 @@ const Orders = () => {
     const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, [autoRefresh, token]);
+
+  // ✅ NEW: verify signature every time a receipt is opened
+  useEffect(() => {
+    if (!selectedOrder) {
+      setVerification({
+        loading: false,
+        isValid: null,
+        message: "",
+        diffs: [],
+      });
+      return;
+    }
+
+    const verify = async () => {
+      setVerification((prev) => ({ ...prev, loading: true }));
+      try {
+        const res = await fetch(
+          "http://192.168.254.111:5000/api/orders/verify-receipt",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ group_id: selectedOrder.group_id }),
+          },
+        );
+        const data = await res.json();
+        setVerification({
+          loading: false,
+          isValid: data.isValid ?? false,
+          message: data.message || "",
+          diffs: data.diffs || [],
+          legacy: data.legacy,
+        });
+      } catch (err) {
+        setVerification({
+          loading: false,
+          isValid: false,
+          message: "Could not reach verification server.",
+          diffs: [],
+        });
+      }
+    };
+    verify();
+  }, [selectedOrder, token]);
 
   const handleSort = (key: SortKey) => {
     setSortRules((prev) => {
@@ -232,6 +303,13 @@ const Orders = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  // ✅ Helper to display a diff value in a human-readable way
+  const renderValue = (val: any) => {
+    if (val === null || val === undefined) return "—";
+    if (typeof val === "object") return JSON.stringify(val);
+    return String(val);
+  };
 
   return (
     <div className="orders-container">
@@ -468,6 +546,84 @@ const Orders = () => {
                   <p>Merchandise Order Management System</p>
                 </div>
               </div>
+
+              {/* ✅ NEW: Tamper verification banners */}
+              {verification.loading && (
+                <div className="receipt-verify-loading">
+                  <RefreshCw size={16} className="spin-icon" />
+                  Verifying cryptographic signature...
+                </div>
+              )}
+
+              {!verification.loading &&
+                verification.isValid === true &&
+                !verification.legacy && (
+                  <div className="receipt-verified-banner">
+                    <ShieldCheck size={20} />
+                    <div>
+                      <strong>Signature Verified</strong>
+                      <p>
+                        This receipt is authentic and has not been tampered
+                        with.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+              {!verification.loading && verification.isValid === false && (
+                <div className="receipt-tamper-banner">
+                  <ShieldAlert size={24} />
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: 15 }}>
+                      ⚠️ SECURITY ALERT — TAMPERED RECEIPT
+                    </strong>
+                    <p style={{ margin: "4px 0 0 0", fontSize: 13 }}>
+                      {verification.message}
+                    </p>
+
+                    {verification.diffs.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            marginBottom: 6,
+                            color: "#7f1d1d",
+                          }}
+                        >
+                          DETECTED CHANGES ({verification.diffs.length}):
+                        </div>
+                        <div className="diff-table-wrapper">
+                          <table className="diff-table">
+                            <thead>
+                              <tr>
+                                <th>Field</th>
+                                <th>Signed Value</th>
+                                <th>Current Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {verification.diffs.map((d, i) => (
+                                <tr key={i}>
+                                  <td>
+                                    <code>{d.field}</code>
+                                  </td>
+                                  <td className="diff-old">
+                                    {renderValue(d.signed)}
+                                  </td>
+                                  <td className="diff-new">
+                                    {renderValue(d.current)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="receipt-title">OFFICIAL RECEIPT</div>
 
