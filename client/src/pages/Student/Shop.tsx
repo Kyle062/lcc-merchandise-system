@@ -11,6 +11,7 @@ import {
   Minus,
   Trash2,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import "./Shop.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -258,7 +259,6 @@ const Shop = () => {
               price: item.price * item.cartQuantity,
             }));
 
-            // ✅ CRYPTOGRAPHY: Save the digital signature to the receipt
             setReceiptData({
               groupId: data.groupId,
               total: cartTotal,
@@ -648,33 +648,39 @@ const Shop = () => {
               />
             </div>
 
-            {/* ✅ CRYPTOGRAPHY: Display Digital Signature */}
+            {/* ✅ SIMPLIFIED: Digital Signature Badge */}
             <div
               style={{
                 marginTop: "20px",
                 textAlign: "center",
-                borderTop: "1px dashed #e5e7eb",
-                paddingTop: "15px",
+                background: "#ecfdf5",
+                border: "1px solid #a7f3d0",
+                borderRadius: "8px",
+                padding: "12px",
               }}
             >
               <p
                 style={{
-                  fontSize: "10px",
-                  color: "#9ca3af",
-                  wordBreak: "break-all",
-                  fontFamily: "monospace",
+                  fontSize: "13px",
+                  color: "#065f46",
+                  fontWeight: "700",
+                  margin: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
                 }}
               >
-                <strong style={{ color: "#00874e" }}>
-                  🔒 Digital Signature (RSA):
-                </strong>
-                <br />
-                {receiptData.digitalSignature}
+                <ShieldCheck size={18} /> Protected by Digital Signature
               </p>
               <p
-                style={{ fontSize: "9px", color: "#6b7280", marginTop: "5px" }}
+                style={{
+                  fontSize: "11px",
+                  color: "#047857",
+                  margin: "4px 0 0 0",
+                }}
               >
-                This signature proves the receipt is authentic and unaltered.
+                This receipt is cryptographically secured and verified.
               </p>
             </div>
 
