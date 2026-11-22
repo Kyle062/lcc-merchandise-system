@@ -650,3 +650,90 @@
   border-color: #00874e;
   box-shadow: 0 0 0 3px rgba(0, 135, 78, 0.15);
 }
+
+/* ✅ NEW: Image Column in Table */
+.inventory-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+}
+
+.inventory-thumb-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e7eb;
+}
+
+/* ✅ NEW: Image Upload Modal Styles */
+.image-upload-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 120px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background-color: #f9fafb;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.image-upload-container:hover {
+  border-color: #00874e;
+  background-color: #ecfdf5;
+}
+
+.image-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+}
+
+.image-preview-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.image-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.remove-image-btn:hover {
+  background-color: #dc2626;
+}

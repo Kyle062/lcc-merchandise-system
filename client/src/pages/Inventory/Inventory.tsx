@@ -68,7 +68,6 @@ const Inventory = () => {
     { key: "id", order: "asc" },
   ]);
 
-  // Added image_url to formData
   const [formData, setFormData] = useState({
     name: "",
     course: "All",
@@ -208,7 +207,6 @@ const Inventory = () => {
     setErrorMessage("");
   };
 
-  // Handle Image File Change
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -258,7 +256,6 @@ const Inventory = () => {
   };
 
   const handleDelete = async (id: number, name: string) => {
-    // Using standard window.confirm temporarily, but you should replace with your ConfirmDialog component if available here.
     if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
 
     try {
@@ -449,7 +446,6 @@ const Inventory = () => {
                         ID <SortIcon column="id" />
                       </div>
                     </th>
-                    <th>Image</th>
                     <th
                       className="sortable"
                       onClick={(e) => handleSort("name", e.shiftKey)}
@@ -500,19 +496,6 @@ const Inventory = () => {
                     return (
                       <tr key={product.id}>
                         <td>#{product.id}</td>
-                        <td>
-                          {product.image_url ? (
-                            <img
-                              src={product.image_url}
-                              alt={product.name}
-                              className="inventory-thumb"
-                            />
-                          ) : (
-                            <div className="inventory-thumb-placeholder">
-                              <ImageIcon size={16} color="#9ca3af" />
-                            </div>
-                          )}
-                        </td>
                         <td style={{ fontWeight: 600 }}>{product.name}</td>
                         <td>
                           <span className="course-badge">{product.course}</span>
