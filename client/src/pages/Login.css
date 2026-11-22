@@ -242,6 +242,31 @@ body {
   color: #111827;
 }
 
+/* --- REMEMBER ME CHECKBOX --- */
+.remember-me-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.remember-me-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #4b5563;
+  user-select: none;
+}
+
+.remember-me-checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: #00874e;
+  cursor: pointer;
+  margin: 0;
+}
+
 .submit-btn {
   width: 100%;
   height: 46px;
@@ -250,7 +275,6 @@ body {
   font-weight: 800;
   border-radius: 8px;
   border: none;
-  margin-top: 1.2rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
   letter-spacing: 0.05em;
@@ -281,24 +305,6 @@ body {
 }
 
 .form-footer a:hover {
-  text-decoration: underline;
-}
-
-/* --- FORGOT PASSWORD --- */
-.forgot-password-wrapper {
-  text-align: right;
-  margin-top: -5px;
-  margin-bottom: 15px;
-}
-
-.forgot-password-link {
-  font-size: 12px;
-  color: #007a43;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.forgot-password-link:hover {
   text-decoration: underline;
 }
 

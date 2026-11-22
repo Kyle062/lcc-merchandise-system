@@ -353,7 +353,9 @@ const Shop = () => {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
     navigate("/login");
   };
 

@@ -12,16 +12,24 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Security: Brute-force protection state
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState(0);
 
   const navigate = useNavigate();
 
-  // Security: Countdown timer for lockout
+  // Load remembered username on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem("remembered_user");
+    if (savedUser) {
+      setEmail(savedUser);
+      setRememberMe(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (lockoutTime > 0) {
       const timer = setTimeout(() => setLockoutTime(lockoutTime - 1), 1000);
@@ -31,11 +39,8 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Security: Prevent submission if locked out
     if (lockoutTime > 0) return;
 
-    // Security: Trim inputs to prevent basic injection/spacing bypasses
     const sanitizedEmail = email.trim();
     const sanitizedPassword = password.trim();
 
@@ -63,14 +68,13 @@ const Login = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        // Security: Track failed attempts
         const newAttempts = failedAttempts + 1;
         setFailedAttempts(newAttempts);
 
         if (newAttempts >= 5) {
-          setLockoutTime(30); // Lock for 30 seconds
+          setLockoutTime(30);
           setErrorMessage("Too many failed attempts. Please wait 30 seconds.");
-          setFailedAttempts(0); // Reset counter after lockout triggers
+          setFailedAttempts(0);
         } else if (response.status === 403) {
           setErrorMessage(data.message || "Your account is not yet active.");
         } else {
@@ -81,14 +85,19 @@ const Login = () => {
         return;
       }
 
-      // Security: Reset attempts on successful login
       setFailedAttempts(0);
+
+      // ✅ REMEMBER ME LOGIC
+      if (rememberMe) {
+        localStorage.setItem("remembered_user", sanitizedEmail);
+      } else {
+        localStorage.removeItem("remembered_user");
+      }
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
 
-      // ✅ ADDED: Tailor Role Redirect
       if (data.role === "admin") navigate("/admin-dashboard");
       else if (data.role === "staff") navigate("/orders");
       else if (data.role === "student") navigate("/student-dashboard");
@@ -96,7 +105,6 @@ const Login = () => {
       else if (data.role === "tailor") navigate("/tailor-dashboard");
       else setErrorMessage("Unknown role. Contact administrator.");
     } catch (error) {
-      console.error("Login error:", error);
       setErrorMessage(
         "Cannot connect to server. Make sure backend is running.",
       );
@@ -214,17 +222,23 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="forgot-password-wrapper">
-              <a href="/forgot-password" className="forgot-password-link">
-                Forgot Password?
-              </a>
+            <div className="remember-me-wrapper">
+              <label className="remember-me-label">
+                <input
+                  type="checkbox"
+                  className="remember-me-checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                Remember me
+              </label>
             </div>
 
             <button
               type="submit"
               className="submit-btn"
               disabled={isLoading || isLocked}
-              style={{ opacity: isLoading || isLocked ? 0.7 : 1 }}
+              style={{ opacity: isLoading || isLocked ? 0.7 : 1, marginTop: 0 }}
             >
               {isLoading
                 ? "LOGGING IN..."
