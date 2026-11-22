@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   EyeOff,
   Eye,
@@ -7,8 +7,10 @@ import {
   X,
   Loader2,
   ShieldCheck,
+  Camera,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import "./SignUp.css";
 
 import bgImage from "../assets/images/Background Merchandising.png";
@@ -28,16 +30,12 @@ const COURSES = [
   "BSTM",
 ];
 
-// Array of valid students for manual verification
 const VALID_STUDENTS = [
   {
     barcode: "2024005107",
     names: ["Kyle Bernard A. Trimidal", "Kyle Bernard Trimidal"],
   },
-  {
-    barcode: "20244004891",
-    names: ["Angelo Guiritan", "Angelo G. Guiritan"],
-  },
+  { barcode: "20244004891", names: ["Angelo Guiritan", "Angelo G. Guiritan"] },
   {
     barcode: "2023005563",
     names: ["Jiefrey M Balagat", "Jiefrey Balagat", "Jiefrey M. Balagat"],
@@ -50,11 +48,15 @@ const VALID_STUDENTS = [
       "Anna Grace C. Tingwasan",
     ],
   },
-  {
-    barcode: "2024004213",
-    names: ["Jan Robin Layog"],
-  },
+  { barcode: "2024004213", names: ["Jan Robin Layog"] },
 ];
+
+const getHost = () => {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1"
+    ? "localhost"
+    : "192.168.254.111";
+};
 
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -77,123 +79,164 @@ const SignUp = () => {
   const [scanStatus, setScanStatus] = useState("Initializing camera...");
   const [manualBarcode, setManualBarcode] = useState("");
   const [showManualInput, setShowManualInput] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isProcessingRef = useRef(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
 
-  useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval>;
-
-    if (showCamera) {
-      navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: "environment" } })
-        .then((stream) => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            setScanStatus("Scanning for barcode...");
-
-            // Show manual input after 5 seconds if camera fails
-            setTimeout(() => setShowManualInput(true), 5000);
-
-            videoRef.current.onloadedmetadata = () => {
-              intervalId = setInterval(() => {
-                captureAndScan();
-              }, 1000);
-            };
-          }
-        })
-        .catch((err) => {
-          console.error("Camera error:", err);
-          setErrorMessage("Could not access camera. Please allow permissions.");
-          setShowCamera(false);
-        });
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [showCamera]);
-
-  const captureAndScan = async () => {
-    if (!videoRef.current || !canvasRef.current || isProcessingRef.current)
-      return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL("image/jpeg", 0.8);
-
-    try {
-      const response = await fetch("http://192.168.254.111:8001/scan-id", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: imageData,
-          full_name: formData.full_name,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        isProcessingRef.current = true;
-        setScanStatus("ID Verified Successfully!");
-        setTimeout(() => submitRegistration(true), 1000);
-      }
-    } catch (error) {
-      // Silent catch
-    }
-  };
-
-  // Helper function to normalize names (removes middle initials, periods, and extra spaces)
   const normalizeName = (name: string) => {
     return name
       .toUpperCase()
-      .replace(/\./g, "") // Remove periods
-      .split(" ") // Split by space
-      .filter((word) => word.length > 1) // Ignore single letters (middle initials)
+      .replace(/\./g, "")
+      .split(" ")
+      .filter((word) => word.length > 1)
       .join(" ")
       .trim();
   };
 
-  const handleManualVerify = () => {
-    const cleanBarcode = manualBarcode.trim();
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (err) {
+        console.error("Failed to stop scanner", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    if (showCamera && !scanSuccess) {
+      timeoutId = setTimeout(() => setShowManualInput(true), 5000);
+
+      const startScanner = async () => {
+        try {
+          const scanner = new Html5Qrcode("reader", {
+            formatsToSupport: [
+              Html5QrcodeSupportedFormats.CODE_128,
+              Html5QrcodeSupportedFormats.CODE_39,
+              Html5QrcodeSupportedFormats.EAN_13,
+              Html5QrcodeSupportedFormats.EAN_8,
+            ],
+            verbose: false,
+          });
+          scannerRef.current = scanner;
+
+          await scanner.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 150 },
+            },
+            (decodedText) => {
+              handleBarcodeScanned(decodedText);
+            },
+            () => {},
+          );
+          setScanStatus("Scanning for barcode...");
+        } catch (err: any) {
+          setErrorMessage("Could not access camera. Please allow permissions.");
+          setShowCamera(false);
+        }
+      };
+
+      startScanner();
+    }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      stopScanner();
+    };
+  }, [showCamera, scanSuccess]);
+
+  const handleBarcodeScanned = (barcodeText: string) => {
+    if (isLoading || scanSuccess) return;
+
+    const cleanBarcode = barcodeText.trim();
     const userInputName = normalizeName(formData.full_name);
 
-    // 1. Find if the barcode exists in our list
     const student = VALID_STUDENTS.find((s) => s.barcode === cleanBarcode);
 
     if (!student) {
-      setErrorMessage("Invalid barcode. Please try again.");
+      setScanStatus(`ID ${cleanBarcode} is not registered.`);
       return;
     }
 
-    // 2. Check if the entered name matches any of the accepted names for this barcode
     const isNameMatch = student.names.some((validName) => {
       return normalizeName(validName) === userInputName;
     });
 
     if (isNameMatch) {
+      setScanSuccess(true);
       setScanStatus("ID Verified Successfully!");
+      stopScanner();
       setTimeout(() => submitRegistration(true), 1000);
     } else {
-      setErrorMessage(
-        "The name you entered does not match the name registered to this ID number.",
-      );
+      setScanStatus("Name does not match ID. Try again.");
     }
+  };
+
+  const captureAndScanPhoto = async () => {
+    const video = document.querySelector("video");
+    if (!video) return;
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    // We crop the image to match the green box (center 250x150)
+    const cropWidth = videoWidth * 0.5;
+    const cropHeight = videoHeight * 0.35;
+    const cropX = (videoWidth - cropWidth) / 2;
+    const cropY = (videoHeight - cropHeight) / 2;
+
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
+
+    ctx.drawImage(
+      video,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      cropWidth,
+      cropHeight,
+    );
+    const imageData = canvas.toDataURL("image/jpeg", 0.8);
+
+    setScanStatus("Analyzing photo...");
+    setIsLoading(true);
+
+    try {
+      const host = getHost();
+      const response = await fetch(`http://${host}:8001/scan-id`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageData }),
+      });
+
+      const data = await response.json();
+      setIsLoading(false);
+
+      if (data.success && data.barcode) {
+        handleBarcodeScanned(data.barcode);
+      } else {
+        setScanStatus("Could not read ID. Please try again or type manually.");
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setScanStatus("Server error. Please type manually.");
+    }
+  };
+
+  const handleManualVerify = () => {
+    handleBarcodeScanned(manualBarcode);
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -221,21 +264,19 @@ const SignUp = () => {
     setErrorMessage("");
 
     try {
-      const response = await fetch(
-        "http://192.168.254.111:5000/api/auth/register",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: formData.username,
-            email: formData.email,
-            password: formData.password,
-            full_name: formData.full_name,
-            course: formData.course,
-            id_photo: isVerified ? "verified" : null,
-          }),
-        },
-      );
+      const host = getHost();
+      const response = await fetch(`http://${host}:5000/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          full_name: formData.full_name,
+          course: formData.course,
+          id_photo: isVerified ? "verified" : null,
+        }),
+      });
 
       const data = await response.json();
 
@@ -348,16 +389,48 @@ const SignUp = () => {
           </div>
 
           <div className="camera-preview-container">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="camera-video"
-            />
+            <div id="reader" style={{ width: "100%", height: "100%" }}></div>
 
-            <div className="scanner-overlay">
-              <div className="scan-line"></div>
+            {/* Professional Scanner Overlay */}
+            <div
+              className="scanner-overlay"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  width: "250px",
+                  height: "150px",
+                  border: "2px solid #00ff88",
+                  borderRadius: "10px",
+                  boxShadow:
+                    "0 0 15px rgba(0, 255, 136, 0.4) inset, 0 0 15px rgba(0, 255, 136, 0.4)",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: "100%",
+                    height: "2px",
+                    background: "#00ff88",
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    animation: "scanAnim 2s infinite linear",
+                    boxShadow: "0 0 8px #00ff88",
+                  }}
+                />
+              </div>
             </div>
 
             <div className="scan-status">
@@ -368,8 +441,29 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* MANUAL FALLBACK INPUT */}
-          {showManualInput && (
+          <div
+            style={{ display: "flex", justifyContent: "center", marginTop: 15 }}
+          >
+            <button
+              onClick={captureAndScanPhoto}
+              style={{
+                background: "#00874e",
+                color: "white",
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: "bold",
+              }}
+            >
+              <Camera size={18} /> Take Photo & Scan
+            </button>
+          </div>
+
+          {showManualInput && !scanSuccess && (
             <div
               style={{
                 marginTop: "20px",

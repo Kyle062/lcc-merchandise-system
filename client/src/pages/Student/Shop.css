@@ -164,24 +164,28 @@
   transform: translateY(-4px);
   box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
 }
+
+/* ✅ FIXED IMAGE LAYOUT: Now uses 'contain' to show the whole product without cropping out the logo */
 .product-image-container {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  background: #f9fafb;
+  height: 220px;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  padding: 15px;
 }
 .product-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain; /* Shows the full product */
   transition: transform 0.3s;
 }
 .product-card:hover .product-image {
   transform: scale(1.05);
 }
+
 .product-info {
   padding: 15px;
   display: flex;
@@ -377,7 +381,28 @@
   font-weight: 500;
 }
 
-/* Cart Items */
+/* ✅ CART ITEMS ALIGNMENT */
+.select-all-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 10px;
+}
+.cart-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #00874e;
+  margin: 0;
+}
+.select-all-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+}
+
 .cart-items-list {
   flex: 1;
   overflow-y: auto;
@@ -398,6 +423,12 @@
   align-items: center;
   padding: 12px 0;
   border-bottom: 1px solid #f3f4f6;
+  transition: opacity 0.2s;
+}
+.cart-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Aligns checkbox neatly with text */
 }
 .cart-item-info {
   display: flex;
@@ -417,7 +448,7 @@
 .cart-item-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .qty-btn {
   background: #f3f4f6;
@@ -492,7 +523,6 @@
   overflow-y: auto;
   border-radius: 24px;
 }
-
 .receipt-modal::-webkit-scrollbar {
   display: none;
 }
@@ -500,21 +530,18 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
 .receipt-top-header {
   display: flex;
   flex-direction: column;
   align-items: center;
   margin-bottom: 20px;
 }
-
 .receipt-logo {
   width: 60px;
   height: 60px;
   object-fit: contain;
   margin-bottom: 10px;
 }
-
 .receipt-icon-badge {
   width: 56px;
   height: 56px;
@@ -526,7 +553,6 @@
   justify-content: center;
   margin-bottom: 15px;
 }
-
 .receipt-title {
   font-size: 22px;
   font-weight: 800;
@@ -673,7 +699,6 @@
     align-items: center;
     justify-content: center;
   }
-
   .shop-container {
     flex-direction: column;
   }
@@ -744,6 +769,11 @@
   .product-card {
     border-radius: 12px;
   }
+
+  .product-image-container {
+    height: 160px;
+  }
+
   .product-info {
     padding: 12px;
   }

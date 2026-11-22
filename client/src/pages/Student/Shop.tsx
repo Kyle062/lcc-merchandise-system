@@ -15,6 +15,12 @@ import {
 } from "lucide-react";
 import "./Shop.css";
 import logo from "../../assets/images/LCClogo1.png";
+
+import idImage from "../../assets/images/AlldepartmentID.jpg";
+import uniformImage from "../../assets/images/AllDeptUniform.jpg";
+import capImage from "../../assets/images/ITcap.jpg";
+import slackImage from "../../assets/images/AllDeptSlacks.jpg";
+
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 import ConfirmDialog from "../../components/Toast/ConfirmDialog";
@@ -60,22 +66,37 @@ const Shop = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
+  // ✅ STRICT IMAGE MAPPING
   const getProductImage = (name: string) => {
     const lowerName = name.toLowerCase();
-    if (lowerName.includes("apron"))
-      return "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=400";
-    if (lowerName.includes("chef"))
-      return "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=400";
-    if (lowerName.includes("polo") || lowerName.includes("shirt"))
-      return "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=400";
-    if (lowerName.includes("hoodie"))
-      return "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&q=80&w=400";
-    if (lowerName.includes("cap"))
-      return "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&q=80&w=400";
-    if (lowerName.includes("uniform") || lowerName.includes("pe"))
-      return "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&q=80&w=400";
-    if (lowerName.includes("lanyard") || lowerName.includes("id"))
-      return "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&q=80&w=400";
+
+    // 1. BSIT Cap ONLY
+    if (lowerName === "bsit cap") {
+      return capImage;
+    }
+
+    // 2. ID / Lanyard ONLY
+    if (lowerName.includes("id") || lowerName.includes("lanyard")) {
+      return idImage;
+    }
+
+    // 3. Slacks / Pants ONLY
+    if (lowerName.includes("slack") || lowerName.includes("pants")) {
+      return slackImage;
+    }
+
+    // 4. Department Uniform / Polo ONLY
+    if (
+      lowerName.includes("department") ||
+      (lowerName.includes("uniform") &&
+        !lowerName.includes("pe") &&
+        !lowerName.includes("cap"))
+    ) {
+      return uniformImage;
+    }
+
+    // 5. If it's a PE Uniform or anything else, fallback to a placeholder for now
+    // (You can upload specific PE images later and add them here)
     return "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=400";
   };
 
@@ -175,6 +196,7 @@ const Shop = () => {
           size: sizeItem.size,
           stock_quantity: sizeItem.stock_quantity,
           cartQuantity: 1,
+          isSelected: true,
         },
       ];
     });
@@ -205,29 +227,49 @@ const Shop = () => {
     );
   };
 
+  const toggleCartItem = (id: number) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, isSelected: !item.isSelected } : item,
+      ),
+    );
+  };
+
+  const toggleAllCartItems = (checked: boolean) => {
+    setCart((prev) => prev.map((item) => ({ ...item, isSelected: checked })));
+  };
+
   const removeFromCart = (id: number) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const cartTotal = cart.reduce(
+  const selectedCartItems = cart.filter((item) => item.isSelected);
+  const cartTotal = selectedCartItems.reduce(
     (sum, item) => sum + item.price * item.cartQuantity,
     0,
   );
 
   const handleCheckout = () => {
-    if (cart.length === 0) return;
+    if (selectedCartItems.length === 0) {
+      showToast(
+        "warning",
+        "No Items Selected",
+        "Please select items to checkout.",
+      );
+      return;
+    }
 
     setConfirmDialog({
       isOpen: true,
       title: "Confirm Checkout",
-      message: `Place order for ${cart.length} item(s) totaling ₱${cartTotal.toLocaleString()}?`,
+      message: `Place order for ${selectedCartItems.length} item(s) totaling ₱${cartTotal.toLocaleString()}?`,
       confirmLabel: "Yes, Place Order",
       variant: "info",
       onConfirm: async () => {
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
         try {
           const payload = {
-            items: cart.map((item) => ({
+            items: selectedCartItems.map((item) => ({
               product_id: item.id,
               quantity: item.cartQuantity,
             })),
@@ -249,10 +291,10 @@ const Shop = () => {
             showToast(
               "success",
               "Order Placed!",
-              `Successfully ordered ${cart.length} item(s).`,
+              `Successfully ordered ${selectedCartItems.length} item(s).`,
             );
 
-            const orderSummary = cart.map((item) => ({
+            const orderSummary = selectedCartItems.map((item) => ({
               name: item.displayName || item.name,
               size: item.size,
               qty: item.cartQuantity,
@@ -266,7 +308,7 @@ const Shop = () => {
               digitalSignature: data.digitalSignature,
             });
 
-            setCart([]);
+            setCart((prev) => prev.filter((item) => !item.isSelected));
             setIsCartOpen(false);
 
             const updatedRes = await fetch(
@@ -519,6 +561,19 @@ const Shop = () => {
                 <X size={24} color="#6b7280" />
               </button>
             </div>
+
+            {cart.length > 0 && (
+              <div className="select-all-row">
+                <input
+                  type="checkbox"
+                  className="cart-checkbox"
+                  checked={cart.every((item) => item.isSelected)}
+                  onChange={(e) => toggleAllCartItems(e.target.checked)}
+                />
+                <span className="select-all-text">Select All</span>
+              </div>
+            )}
+
             <div className="cart-items-list">
               {cart.length === 0 ? (
                 <div className="empty-cart-state">
@@ -527,12 +582,26 @@ const Shop = () => {
                 </div>
               ) : (
                 cart.map((item) => (
-                  <div key={item.id} className="cart-item-row">
-                    <div className="cart-item-info">
-                      <span className="cart-item-name">{item.displayName}</span>
-                      <span className="cart-item-price">
-                        ₱{Number(item.price).toLocaleString()}
-                      </span>
+                  <div
+                    key={item.id}
+                    className="cart-item-row"
+                    style={{ opacity: item.isSelected ? 1 : 0.5 }}
+                  >
+                    <div className="cart-item-left">
+                      <input
+                        type="checkbox"
+                        className="cart-checkbox"
+                        checked={item.isSelected}
+                        onChange={() => toggleCartItem(item.id)}
+                      />
+                      <div className="cart-item-info">
+                        <span className="cart-item-name">
+                          {item.displayName}
+                        </span>
+                        <span className="cart-item-price">
+                          ₱{Number(item.price).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                     <div className="cart-item-actions">
                       <button
@@ -561,16 +630,16 @@ const Shop = () => {
             </div>
             <div className="cart-footer">
               <div className="cart-total-row">
-                <span>Total:</span>
+                <span>Total ({selectedCartItems.length} items):</span>
                 <span>₱{cartTotal.toLocaleString()}</span>
               </div>
               <button
                 className="checkout-submit-btn"
                 onClick={handleCheckout}
-                disabled={cart.length === 0}
-                style={{ opacity: cart.length === 0 ? 0.5 : 1 }}
+                disabled={selectedCartItems.length === 0}
+                style={{ opacity: selectedCartItems.length === 0 ? 0.5 : 1 }}
               >
-                Checkout {cart.length} Item(s)
+                Checkout {selectedCartItems.length} Item(s)
               </button>
             </div>
           </div>
@@ -648,7 +717,6 @@ const Shop = () => {
               />
             </div>
 
-            {/* ✅ SIMPLIFIED: Digital Signature Badge */}
             <div
               style={{
                 marginTop: "20px",

@@ -9,8 +9,8 @@ from pyzbar.pyzbar import decode
 import cv2
 import numpy as np
 import pytesseract
+import re
 
-# ✅ Point to the Tesseract installation path
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 app = Flask(__name__)
@@ -26,9 +26,6 @@ db_config = {
 def get_db_connection():
     return mysql.connector.connect(**db_config)
 
-# ==========================================
-# 1. ADMIN DASHBOARD ROUTE
-# ==========================================
 @app.route("/admin-dashboard", methods=["GET"])
 def get_admin_dashboard():
     try:
@@ -104,9 +101,6 @@ def get_admin_dashboard():
         print("Error in Admin Dashboard:", str(e))
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# 2. ANALYTICS PAGE ROUTE
-# ==========================================
 @app.route("/analytics", methods=["GET"])
 def get_analytics():
     try:
@@ -194,9 +188,6 @@ def get_analytics():
         print("Error in Analytics:", str(e))
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# 3. TAILOR ANALYTICS ROUTE
-# ==========================================
 @app.route("/tailor-analytics", methods=["GET"])
 def get_tailor_analytics():
     timeframe = request.args.get("timeframe", "week")
@@ -267,9 +258,6 @@ def get_tailor_analytics():
         print("Error in Tailor Analytics:", str(e))
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# 4. HYBRID SCANNER (Barcode + OCR)
-# ==========================================
 @app.route("/scan-id", methods=["POST"])
 def scan_id():
     try:
@@ -286,53 +274,54 @@ def scan_id():
         if img is None:
             return jsonify({"success": False, "message": "Could not read image."})
 
-        VALID_ID_NUMBER = "2024005107"
-
-        # ----------------------------------------------------
-        # METHOD 1: Try scanning the Barcode Lines using pyzbar
-        # ----------------------------------------------------
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray_resized = cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
-        
-        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-        sharpened = cv2.filter2D(gray_resized, -1, kernel)
 
-        barcodes = decode(sharpened)
-        
+        barcodes = decode(gray)
+        if not barcodes:
+            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+            _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            barcodes = decode(thresh)
+            
+        if not barcodes:
+            kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+            sharpened = cv2.filter2D(gray, -1, kernel)
+            barcodes = decode(sharpened)
+
         if barcodes:
-            barcode_text = barcodes[0].data.decode("utf-8")
-            if VALID_ID_NUMBER in barcode_text:
-                return jsonify({
-                    "success": True, 
-                    "message": "ID Verified (Barcode)!", 
-                    "barcode": barcode_text,
-                })
+            for barcode in barcodes:
+                barcode_text = barcode.data.decode("utf-8")
+                match = re.search(r'\d{8,12}', barcode_text)
+                if match:
+                    return jsonify({
+                        "success": True, 
+                        "message": "ID Verified (Barcode)!", 
+                        "barcode": match.group(),
+                    })
 
-        # ----------------------------------------------------
-        # METHOD 2: If barcode fails, try reading TEXT using OCR
-        # ----------------------------------------------------
-        height, width = img.shape[:2]
-        cropped_img = img[int(height/2):height, 0:width]
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
-        text = pytesseract.image_to_string(cropped_img, config='--psm 6')
-        cleaned_text = text.replace(" ", "").replace("\n", "").strip()
+        gray_resized = cv2.resize(thresh, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
         
-        if VALID_ID_NUMBER in cleaned_text:
+        text = pytesseract.image_to_string(gray_resized, config='--psm 11')
+        
+        cleaned_text = re.sub(r'[^0-9]', '', text)
+        
+        match = re.search(r'\d{8,12}', cleaned_text)
+        
+        if match:
             return jsonify({
                 "success": True,
                 "message": "ID Verified (OCR)!",
-                "barcode": VALID_ID_NUMBER,
+                "barcode": match.group(),
             })
 
-        return jsonify({"success": False, "message": "Scanning... Hold steady."})
+        return jsonify({"success": False, "message": "Could not read ID. Please try again."})
 
     except Exception as e:
         print("Error in Barcode Scan:", str(e))
         return jsonify({"success": False, "message": str(e)}), 500
 
-# ==========================================
-# 5. RUN THE APP
-# ==========================================
 if __name__ == "__main__":
     print("Starting Analytics Python Service on port 8001...")
     app.run(host="0.0.0.0", port=8001, debug=True)
