@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   QrCode,
+  Image as ImageIcon,
 } from "lucide-react";
 import "./Inventory.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -67,6 +68,7 @@ const Inventory = () => {
     { key: "id", order: "asc" },
   ]);
 
+  // Added image_url to formData
   const [formData, setFormData] = useState({
     name: "",
     course: "All",
@@ -74,13 +76,14 @@ const Inventory = () => {
     price: "",
     size: "",
     stock_quantity: "",
+    image_url: "",
   });
 
   const token = localStorage.getItem("token");
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/products");
+      const res = await fetch("http://192.168.254.111:5000/api/products");
       const data = await res.json();
       setProducts(data);
       setLoading(false);
@@ -134,9 +137,9 @@ const Inventory = () => {
     const filtered = products.filter((p) => {
       const matchesSearch =
         p.name.toLowerCase().includes(term) ||
-        p.description?.toLowerCase().includes(term) ||
-        p.size?.toLowerCase().includes(term) ||
-        p.course?.toLowerCase().includes(term);
+        (p.description && p.description.toLowerCase().includes(term)) ||
+        (p.size && p.size.toLowerCase().includes(term)) ||
+        (p.course && p.course.toLowerCase().includes(term));
 
       const matchesCourse = courseFilter === "All" || p.course === courseFilter;
 
@@ -178,6 +181,7 @@ const Inventory = () => {
       price: "",
       size: "",
       stock_quantity: "",
+      image_url: "",
     });
     setErrorMessage("");
     setIsModalOpen(true);
@@ -192,6 +196,7 @@ const Inventory = () => {
       price: String(product.price),
       size: product.size || "",
       stock_quantity: String(product.stock_quantity),
+      image_url: product.image_url || "",
     });
     setErrorMessage("");
     setIsModalOpen(true);
@@ -203,13 +208,25 @@ const Inventory = () => {
     setErrorMessage("");
   };
 
+  // Handle Image File Change
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, image_url: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
     const url = editingProduct
-      ? `http://localhost:5000/api/products/${editingProduct.id}`
-      : "http://localhost:5000/api/products";
+      ? `http://192.168.254.111:5000/api/products/${editingProduct.id}`
+      : "http://192.168.254.111:5000/api/products";
     const method = editingProduct ? "PUT" : "POST";
 
     try {
@@ -241,22 +258,26 @@ const Inventory = () => {
   };
 
   const handleDelete = async (id: number, name: string) => {
+    // Using standard window.confirm temporarily, but you should replace with your ConfirmDialog component if available here.
     if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/products/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `http://192.168.254.111:5000/api/products/${id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (res.ok) {
         await fetchProducts();
       } else {
         const data = await res.json();
-        alert(data.message || "Delete failed");
+        setErrorMessage(data.message || "Delete failed");
       }
     } catch (error) {
-      alert("Cannot connect to server.");
+      setErrorMessage("Cannot connect to server.");
     }
   };
 
@@ -330,7 +351,6 @@ const Inventory = () => {
           >
             <BarChart3 size={20} /> <span>Analytics</span>
           </div>
-
           <div
             className="inventory-nav-item"
             onClick={() => navigate("/settings")}
@@ -429,6 +449,7 @@ const Inventory = () => {
                         ID <SortIcon column="id" />
                       </div>
                     </th>
+                    <th>Image</th>
                     <th
                       className="sortable"
                       onClick={(e) => handleSort("name", e.shiftKey)}
@@ -479,6 +500,19 @@ const Inventory = () => {
                     return (
                       <tr key={product.id}>
                         <td>#{product.id}</td>
+                        <td>
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="inventory-thumb"
+                            />
+                          ) : (
+                            <div className="inventory-thumb-placeholder">
+                              <ImageIcon size={16} color="#9ca3af" />
+                            </div>
+                          )}
+                        </td>
                         <td style={{ fontWeight: 600 }}>{product.name}</td>
                         <td>
                           <span className="course-badge">{product.course}</span>
@@ -541,6 +575,41 @@ const Inventory = () => {
             )}
 
             <form onSubmit={handleSubmit} className="modal-form">
+              <div className="modal-group">
+                <label>Product Image</label>
+                <div className="image-upload-container">
+                  {formData.image_url ? (
+                    <div className="image-preview-wrapper">
+                      <img
+                        src={formData.image_url}
+                        alt="Preview"
+                        className="image-preview"
+                      />
+                      <button
+                        type="button"
+                        className="remove-image-btn"
+                        onClick={() =>
+                          setFormData({ ...formData, image_url: "" })
+                        }
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="image-upload-placeholder">
+                      <ImageIcon size={24} color="#9ca3af" />
+                      <span>Click to upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <div className="modal-group">
                 <label>Product Name *</label>
                 <input
