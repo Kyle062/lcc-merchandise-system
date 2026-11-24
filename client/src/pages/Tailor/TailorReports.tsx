@@ -317,7 +317,7 @@ const TailorReports = () => {
           <div className="reports-charts-grid">
             <div className="report-chart-card">
               <h3 className="chart-title">Revenue Generated</h3>
-              <div style={{ width: "100%", height: 280 }}>
+              <div className="chart-frame">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={analytics.revenueChart || []}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -340,7 +340,7 @@ const TailorReports = () => {
 
             <div className="report-chart-card">
               <h3 className="chart-title">Most Requested Merchandise</h3>
-              <div style={{ width: "100%", height: 280 }}>
+              <div className="chart-frame">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={analytics.topItemsChart || []}

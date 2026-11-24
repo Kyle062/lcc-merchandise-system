@@ -236,6 +236,11 @@
   flex-direction: column;
 }
 
+.chart-frame {
+  width: 100%;
+  height: 300px;
+}
+
 .analytics-card-header {
   display: flex;
   align-items: center;

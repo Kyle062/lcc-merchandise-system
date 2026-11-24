@@ -1,0 +1,791 @@
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+}
+
+table {
+  max-width: 100%;
+}
+
+.admin-table-card,
+.student-table-card,
+.inventory-table-card,
+.orders-table-card,
+.users-table-card,
+.analytics-card,
+.tailor-table-card {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.receipt-modal {
+  overflow-x: auto;
+}
+
+.recharts-responsive-container {
+  min-width: 0;
+}
+
+@media screen and (max-width: 1200px) {
+  .admin-sidebar,
+  .inventory-sidebar,
+  .orders-sidebar,
+  .users-sidebar,
+  .analytics-sidebar,
+  .settings-sidebar,
+  .tailor-sidebar,
+  .student-sidebar,
+  .shop-sidebar,
+  .track-sidebar {
+    width: 220px;
+  }
+
+  .admin-dashboard-content,
+  .student-dashboard-content,
+  .inventory-content,
+  .orders-content,
+  .users-content,
+  .analytics-content,
+  .settings-content,
+  .tailor-dashboard-content {
+    padding: 24px;
+  }
+
+  .admin-stats-grid,
+  .student-stats-grid,
+  .tailor-stats-grid,
+  .analytics-kpi-grid,
+  .queue-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-charts-grid,
+  .student-content-grid,
+  .analytics-charts-grid,
+  .analytics-tables-grid,
+  .reports-charts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media screen and (max-width: 1024px) {
+  .admin-sidebar,
+  .inventory-sidebar,
+  .orders-sidebar,
+  .users-sidebar,
+  .analytics-sidebar,
+  .settings-sidebar,
+  .tailor-sidebar,
+  .student-sidebar,
+  .shop-sidebar,
+  .track-sidebar {
+    width: 200px;
+  }
+
+  .admin-header,
+  .student-header,
+  .inventory-header,
+  .orders-header,
+  .users-header,
+  .analytics-header,
+  .settings-header,
+  .tailor-header,
+  .shop-header,
+  .track-header {
+    height: 64px;
+    padding: 0 20px;
+  }
+
+  .admin-header-right,
+  .student-header-right,
+  .inventory-header-right,
+  .orders-header-right,
+  .users-header-right,
+  .analytics-header-actions,
+  .tailor-header-right {
+    gap: 10px;
+  }
+
+  .admin-search-bar,
+  .inventory-search-bar,
+  .orders-search-bar,
+  .users-search-bar,
+  .tailor-search-bar {
+    display: none;
+  }
+
+  .admin-dashboard-content,
+  .student-dashboard-content,
+  .inventory-content,
+  .orders-content,
+  .users-content,
+  .analytics-content,
+  .settings-content,
+  .tailor-dashboard-content {
+    padding: 20px;
+  }
+
+  .admin-charts-grid,
+  .student-content-grid,
+  .analytics-charts-grid,
+  .analytics-tables-grid,
+  .reports-charts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-welcome-banner,
+  .student-welcome-banner {
+    flex-wrap: wrap;
+  }
+
+  .content-wrapper {
+    padding: 2rem;
+  }
+
+  .logo-container {
+    right: 0;
+  }
+
+  .hero-copy {
+    top: 0;
+    left: 0;
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(2rem, 5vw, 3rem);
+  }
+
+  .form-card,
+  .form-card1 {
+    top: 0;
+    transform: none;
+    margin-top: 0;
+  }
+}
+
+@media screen and (max-width: 900px) {
+  .signup-container {
+    min-height: 100vh;
+    min-height: 100svh;
+  }
+
+  .content-wrapper {
+    padding: 1.5rem;
+  }
+
+  .left-section {
+    max-width: 100%;
+  }
+
+  .hero-copy,
+  .hero-left-img,
+  .group-right-img {
+    display: none;
+  }
+
+  .form-card,
+  .form-card1 {
+    max-width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .admin-dashboard-container,
+  .student-dashboard-container,
+  .inventory-container,
+  .orders-container,
+  .users-container,
+  .analytics-container,
+  .settings-container,
+  .tailor-dashboard-container,
+  .shop-container,
+  .track-container,
+  .signup-container {
+    height: 100vh;
+    height: 100svh;
+  }
+
+  .admin-sidebar,
+  .inventory-sidebar,
+  .orders-sidebar,
+  .users-sidebar,
+  .analytics-sidebar,
+  .settings-sidebar,
+  .tailor-sidebar {
+    width: 64px;
+    padding: 12px 0;
+  }
+
+  .student-sidebar,
+  .shop-sidebar,
+  .track-sidebar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 200;
+    width: 100%;
+    height: 65px;
+    padding: 0;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .student-main-content,
+  .shop-main-content,
+  .track-main-content {
+    height: calc(100vh - 65px);
+    height: calc(100svh - 65px);
+  }
+
+  .admin-main-content,
+  .student-main-content,
+  .inventory-main-content,
+  .orders-main-content,
+  .users-main-content,
+  .analytics-main-content,
+  .settings-main-content,
+  .tailor-main-content,
+  .shop-main-content,
+  .track-main-content {
+    min-width: 0;
+  }
+
+  .admin-header,
+  .student-header,
+  .inventory-header,
+  .orders-header,
+  .users-header,
+  .analytics-header,
+  .settings-header,
+  .tailor-header,
+  .shop-header,
+  .track-header {
+    padding: 0 15px;
+  }
+
+  .admin-header-title,
+  .student-header-title,
+  .inventory-header-title,
+  .orders-header-title,
+  .users-header-title,
+  .analytics-header-title,
+  .settings-header-title,
+  .tailor-header-title,
+  .shop-header-title,
+  .track-header-title {
+    font-size: 18px;
+  }
+
+  .admin-dashboard-content,
+  .student-dashboard-content,
+  .inventory-content,
+  .orders-content,
+  .users-content,
+  .analytics-content,
+  .settings-content,
+  .tailor-dashboard-content,
+  .shop-content,
+  .track-content {
+    padding: 15px;
+  }
+
+  .admin-welcome-banner,
+  .student-welcome-banner,
+  .pending-banner,
+  .receipt-verified-banner,
+  .receipt-tamper-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-welcome-banner .shop-btn,
+  .student-welcome-banner .shop-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-stats-grid,
+  .student-stats-grid,
+  .tailor-stats-grid,
+  .analytics-kpi-grid,
+  .queue-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .admin-charts-grid,
+  .student-content-grid,
+  .analytics-charts-grid,
+  .analytics-tables-grid,
+  .reports-charts-grid,
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .admin-stat-card,
+  .student-stat-card,
+  .queue-stat-card,
+  .tailor-stat-card,
+  .analytics-kpi-card,
+  .admin-chart-card,
+  .student-panel,
+  .admin-table-card,
+  .student-table-card,
+  .inventory-table-card,
+  .orders-table-card,
+  .users-table-card,
+  .analytics-card,
+  .tailor-table-card,
+  .tailor-chart-card,
+  .report-chart-card,
+  .settings-card {
+    padding: 16px;
+    min-width: 0;
+  }
+
+  .admin-table,
+  .student-table,
+  .inventory-table,
+  .orders-table,
+  .users-table,
+  .analytics-table,
+  .tailor-table {
+    min-width: 620px;
+  }
+
+  .receipt-table,
+  .diff-table {
+    min-width: 420px;
+  }
+
+  .chart-frame,
+  .report-chart-card .chart-frame {
+    height: 240px;
+  }
+
+  .recharts-responsive-container {
+    width: 100% !important;
+    height: 240px !important;
+  }
+
+  .inventory-toolbar,
+  .section-title-row,
+  .tailor-table-header,
+  .student-table-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .product-image-container {
+    height: 180px;
+  }
+
+  .size-options-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .track-search-sort {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .track-search,
+  .track-sort {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .order-card-top {
+    flex-wrap: wrap;
+  }
+
+  .order-buttons,
+  .action-buttons,
+  .action-buttons-group,
+  .pending-actions,
+  .print-actions {
+    flex-wrap: wrap;
+  }
+
+  .timeline-step {
+    min-width: 44px;
+  }
+
+  .timeline-label {
+    font-size: 9px;
+  }
+
+  .scanner-content-wrapper {
+    padding: 15px 15px 80px;
+  }
+
+  .scanner-card {
+    padding: 16px;
+  }
+
+  .camera-container {
+    border-width: 3px;
+  }
+
+  .dimmed-background,
+  .scan-box {
+    width: min(260px, 70vw);
+    height: min(260px, 70vw);
+  }
+
+  .modal-overlay,
+  .confirm-overlay,
+  .tailor-modal-overlay,
+  .camera-modal-overlay {
+    padding: 12px;
+  }
+
+  .cart-overlay {
+    padding: 0;
+  }
+
+  .modal-content,
+  .cart-modal,
+  .receipt-modal,
+  .size-modal,
+  .added-modal,
+  .confirm-dialog,
+  .tailor-modal,
+  .camera-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100svh - 24px);
+    overflow-y: auto;
+  }
+
+  .toast-container {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+  }
+
+  .toast {
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .admin-dashboard-container,
+  .inventory-container,
+  .orders-container,
+  .users-container,
+  .analytics-container,
+  .settings-container,
+  .tailor-dashboard-container {
+    flex-direction: column;
+  }
+
+  .admin-sidebar,
+  .inventory-sidebar,
+  .orders-sidebar,
+  .users-sidebar,
+  .analytics-sidebar,
+  .settings-sidebar,
+  .tailor-sidebar {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 200;
+    width: 100%;
+    height: 65px;
+    padding: 0;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .admin-sidebar-header,
+  .inventory-sidebar-header,
+  .orders-sidebar-header,
+  .users-sidebar-header,
+  .analytics-sidebar-header,
+  .settings-sidebar-header,
+  .tailor-sidebar-header {
+    display: none;
+  }
+
+  .admin-sidebar-nav,
+  .inventory-sidebar-nav,
+  .orders-sidebar-nav,
+  .users-sidebar-nav,
+  .analytics-sidebar-nav,
+  .settings-sidebar-nav,
+  .tailor-sidebar-nav,
+  .student-sidebar-nav,
+  .shop-sidebar-nav,
+  .track-sidebar-nav {
+    flex: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2px;
+    padding: 0 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .admin-sidebar-nav::-webkit-scrollbar,
+  .inventory-sidebar-nav::-webkit-scrollbar,
+  .orders-sidebar-nav::-webkit-scrollbar,
+  .users-sidebar-nav::-webkit-scrollbar,
+  .analytics-sidebar-nav::-webkit-scrollbar,
+  .settings-sidebar-nav::-webkit-scrollbar,
+  .tailor-sidebar-nav::-webkit-scrollbar,
+  .student-sidebar-nav::-webkit-scrollbar,
+  .shop-sidebar-nav::-webkit-scrollbar,
+  .track-sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-nav-item,
+  .inventory-nav-item,
+  .orders-nav-item,
+  .users-nav-item,
+  .analytics-nav-item,
+  .settings-nav-item,
+  .settings-sidebar .admin-nav-item,
+  .users-sidebar .admin-nav-item,
+  .tailor-nav-item,
+  .student-nav-item,
+  .shop-nav-item,
+  .track-nav-item {
+    flex: 0 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 62px;
+    padding: 6px 4px;
+    border-radius: 6px;
+    font-size: 10px;
+    text-align: center;
+  }
+
+  .admin-nav-item span,
+  .inventory-nav-item span,
+  .orders-nav-item span,
+  .users-nav-item span,
+  .analytics-nav-item span,
+  .settings-nav-item span,
+  .settings-sidebar .admin-nav-item span,
+  .users-sidebar .admin-nav-item span,
+  .tailor-nav-item span {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .admin-sidebar-footer,
+  .inventory-sidebar-footer,
+  .orders-sidebar-footer,
+  .users-sidebar-footer,
+  .analytics-sidebar-footer,
+  .settings-sidebar-footer,
+  .tailor-sidebar-footer {
+    flex: 0 0 auto;
+    height: 100%;
+    padding: 0 12px;
+    border-top: none;
+    border-left: 1px solid var(--color-border);
+    border-radius: 0;
+    font-size: 0;
+    justify-content: center;
+  }
+
+  .admin-main-content,
+  .inventory-main-content,
+  .orders-main-content,
+  .users-main-content,
+  .analytics-main-content,
+  .settings-main-content,
+  .tailor-main-content,
+  .student-main-content,
+  .shop-main-content,
+  .track-main-content {
+    width: 100%;
+    height: calc(100vh - 65px);
+    height: calc(100svh - 65px);
+  }
+
+  .admin-dashboard-content,
+  .student-dashboard-content,
+  .inventory-content,
+  .orders-content,
+  .users-content,
+  .analytics-content,
+  .settings-content,
+  .tailor-dashboard-content,
+  .shop-content,
+  .track-content,
+  .scanner-content-wrapper {
+    padding-bottom: 85px;
+  }
+
+  .size-options-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cart-drawer {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+  }
+
+  .receipt-actions,
+  .added-actions,
+  .modal-actions,
+  .modal-row,
+  .confirm-actions,
+  .order-buttons,
+  .report-top-right {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .receipt-actions button,
+  .added-actions button,
+  .modal-actions button,
+  .confirm-actions button,
+  .order-buttons button {
+    width: 100%;
+  }
+
+  .dimmed-background,
+  .scan-box {
+    width: min(220px, 68vw);
+    height: min(220px, 68vw);
+  }
+
+  .corner {
+    width: 28px;
+    height: 28px;
+  }
+
+  .receipt-qr-img {
+    width: min(180px, 55vw);
+    height: auto;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .signup-container {
+    height: 100vh;
+    height: 100svh;
+    overflow-y: auto;
+  }
+
+  .content-wrapper {
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 1rem;
+    height: auto;
+  }
+
+  .logo-container {
+    right: 0;
+    justify-content: center;
+  }
+
+  .form-card,
+  .form-card1 {
+    padding: 1.25rem;
+  }
+
+  .admin-stats-grid,
+  .student-stats-grid,
+  .tailor-stats-grid,
+  .analytics-kpi-grid,
+  .queue-stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-image-container {
+    height: 200px;
+  }
+
+  .order-card {
+    padding: 14px;
+  }
+
+  .order-action {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .timeline-step {
+    min-width: 38px;
+  }
+
+  .timeline-label {
+    font-size: 8px;
+  }
+
+  .receipt-info-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .toast {
+    width: 100%;
+  }
+}
+
+@media screen and (max-height: 520px) and (orientation: landscape) {
+  .camera-container {
+    aspect-ratio: auto;
+    height: min(50vh, 300px);
+  }
+
+  .scanner-content-wrapper {
+    padding-top: 12px;
+  }
+
+  .modal-content,
+  .cart-modal,
+  .receipt-modal,
+  .size-modal,
+  .added-modal,
+  .confirm-dialog,
+  .tailor-modal,
+  .camera-modal {
+    max-height: calc(100vh - 16px);
+    max-height: calc(100svh - 16px);
+  }
+}

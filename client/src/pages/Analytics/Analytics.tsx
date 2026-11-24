@@ -308,7 +308,7 @@ const Analytics = () => {
               <h3 className="analytics-card-title">
                 Stock Inventory per Faculty
               </h3>
-              <div style={{ width: "100%", height: 300 }}>
+              <div className="chart-frame">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data?.stockByFaculty || []}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -342,7 +342,7 @@ const Analytics = () => {
               <h3 className="analytics-card-title">
                 Daily Order Volume (Last 14 Days)
               </h3>
-              <div style={{ width: "100%", height: 300 }}>
+              <div className="chart-frame">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data?.dailyOrders || []}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -495,7 +495,7 @@ const Analytics = () => {
                 Total Revenue per Faculty (Completed Orders)
               </h3>
             </div>
-            <div style={{ width: "100%", height: 300 }}>
+            <div className="chart-frame">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={data?.revenueByFaculty || []}

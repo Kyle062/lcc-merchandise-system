@@ -308,10 +308,7 @@ const SignUp = () => {
         />
         <div className="bg-overlay" />
         <div className="content-wrapper">
-          <div
-            className="form-card"
-            style={{ margin: "100px auto", maxWidth: 500 }}
-          >
+          <div className="form-card signup-success-card">
             <div style={{ textAlign: "center", padding: "20px 0" }}>
               <div
                 style={{

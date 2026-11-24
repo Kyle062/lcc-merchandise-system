@@ -44,15 +44,27 @@ const Scanner = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
 
+  const getQrBoxSize = () => {
+    const width = typeof window === "undefined" ? 280 : window.innerWidth;
+    if (width <= 600) return Math.min(220, Math.round(width * 0.68));
+    if (width <= 768) return Math.min(260, Math.round(width * 0.7));
+    return 280;
+  };
+
   useEffect(() => {
     let isMounted = true;
     const startScanner = async () => {
       try {
         const html5Qrcode = new Html5Qrcode("reader");
+        const qrBoxSize = getQrBoxSize();
         scannerRef.current = html5Qrcode;
         await html5Qrcode.start(
           { facingMode: "environment" },
-          { fps: 30, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
+          {
+            fps: 30,
+            qrbox: { width: qrBoxSize, height: qrBoxSize },
+            aspectRatio: 1.0,
+          },
           (decodedText) => processScan(decodedText),
           () => {},
         );
