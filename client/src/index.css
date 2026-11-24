@@ -1,4 +1,282 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+/* ==========================================================================
+   LCC Merchandise System — Global Design System
+   Pure vanilla CSS. All feature stylesheets consume these variables.
+   ========================================================================== */
+:root {
+  /* Brand */
+  --color-primary: #15803d;
+  --color-primary-hover: #166534;
+  --color-primary-soft: #dcfce7;
+  --color-primary-tint: #f0fdf4;
+
+  /* Surfaces & text */
+  --color-bg: #f3f4f6;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+  --color-subtle: #f9fafb;
+
+  /* Status badges */
+  --color-pending-bg: #fef3c7;
+  --color-pending-text: #92400e;
+  --color-processing-bg: #dbeafe;
+  --color-processing-text: #1e40af;
+  --color-completed-bg: #d1fae5;
+  --color-completed-text: #065f46;
+  --color-ready-bg: #e0e7ff;
+  --color-ready-text: #3730a3;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fef2f2;
+
+  /* Shape, motion, depth */
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --transition: all 0.2s ease-in-out;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: var(--radius);
+}
+
+button,
+a,
+.card,
+.product-card,
+.stat-card,
+.order-card {
+  transition: var(--transition);
+}
+
+button:not(:disabled),
+a[href],
+[role="button"] {
+  cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid rgba(21, 128, 61, 0.35);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes modalFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.25);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(21, 128, 61, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(21, 128, 61, 0);
+  }
+}
+
+/* ==========================================================================
+   Shared components
+   ========================================================================== */
+.app-fade {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+.welcome-banner,
+.student-welcome-banner,
+.admin-welcome-banner {
+  background: linear-gradient(to right, var(--color-primary-soft), var(--color-primary-tint));
+  animation: slideDown 0.25s ease-out both;
+}
+
+.status-badge,
+.admin-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-pending,
+.admin-badge-pending {
+  background-color: var(--color-pending-bg);
+  color: var(--color-pending-text);
+}
+
+.badge-processing,
+.admin-badge-processing {
+  background-color: var(--color-processing-bg);
+  color: var(--color-processing-text);
+}
+
+.badge-completed,
+.admin-badge-completed {
+  background-color: var(--color-completed-bg);
+  color: var(--color-completed-text);
+}
+
+.badge-ready,
+.admin-badge-ready {
+  background-color: var(--color-ready-bg);
+  color: var(--color-ready-text);
+}
+
+.primary-btn,
+.shop-btn,
+.checkout-submit-btn,
+.receipt-done-btn,
+.size-confirm-btn {
+  background-color: var(--color-primary);
+  color: var(--color-surface);
+  border: none;
+  box-shadow: 0 2px 4px rgba(21, 128, 61, 0.15);
+}
+
+.primary-btn:hover:not(:disabled),
+.shop-btn:hover:not(:disabled),
+.checkout-submit-btn:hover:not(:disabled),
+.receipt-done-btn:hover:not(:disabled),
+.size-confirm-btn:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 15px;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out both;
+}
+
+.modal-overlay > .cart-modal,
+.modal-overlay > .receipt-modal {
+  animation: modalFade 0.28s ease-out both;
+}
+
+.stat-card,
+.student-stat-card,
+.admin-stat-card,
+.product-card,
+.order-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.stat-card:hover,
+.student-stat-card:hover,
+.admin-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

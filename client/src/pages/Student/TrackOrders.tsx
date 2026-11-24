@@ -51,12 +51,9 @@ const TrackOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/my-orders",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await fetch("http://172.20.10.4:5000/api/orders/my-orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
 
       if (Array.isArray(data)) {
@@ -93,7 +90,25 @@ const TrackOrders = () => {
       navigate("/login");
       return;
     }
+
     fetchOrders();
+
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 5000);
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") fetchOrders();
+    };
+
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, [token, navigate]);
 
   const handleLogout = () => {
@@ -120,6 +135,8 @@ const TrackOrders = () => {
         return 1;
       case "Processing":
         return 2;
+      case "In Tailoring":
+        return 3;
       case "Ready for Pickup":
         return 3;
       case "Completed":
@@ -129,11 +146,17 @@ const TrackOrders = () => {
     }
   };
 
+  const stepClass = (step: number, currentStep: number, isDone: boolean) => {
+    if (isDone || step < currentStep) return "complete";
+    if (step === currentStep) return "current";
+    return "upcoming";
+  };
+
   const confirmDeleteOrder = async () => {
     if (!confirmDelete.groupId) return;
     try {
       const res = await fetch(
-        `http://192.168.254.111:5000/api/orders/my-orders/${confirmDelete.groupId}`,
+        `http://172.20.10.4:5000/api/orders/my-orders/${confirmDelete.groupId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -308,83 +331,30 @@ const TrackOrders = () => {
               {processedOrders.map((group) => {
                 const isCancelled = group.status === "Cancelled";
                 const currentStep = getStep(group.status);
+                const isDone = group.status === "Completed";
                 return (
                   <div
                     key={group.group_id}
                     className={`order-card ${isCancelled ? "cancelled-card" : ""}`}
                   >
-                    <div className="order-info">
-                      <div className="order-id">
-                        #GRP-{String(group.group_id).padStart(3, "0")}
+                    <div className="order-card-top">
+                      <div className="order-info">
+                        <div className="order-id">
+                          #GRP-{String(group.group_id).padStart(3, "0")}
+                        </div>
+                        <div className="order-date">
+                          {formatDate(group.order_date)}
+                        </div>
+                        <div className="order-items-list">
+                          {group.items.map((item: any, idx: number) => (
+                            <div key={idx} className="order-product">
+                              {item.qty}x {item.name} <span>({item.size})</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="order-date">
-                        {formatDate(group.order_date)}
-                      </div>
-                      <div className="order-items-list">
-                        {group.items.map((item: any, idx: number) => (
-                          <div key={idx} className="order-product">
-                            {item.qty}x {item.name} <span>({item.size})</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
 
-                    {isCancelled ? (
-                      <div className="cancelled-banner">
-                        <XCircle size={20} />
-                        <span>This order has been cancelled</span>
-                      </div>
-                    ) : (
-                      <div className="order-timeline">
-                        <div
-                          className={`timeline-step ${currentStep >= 1 ? "active" : ""}`}
-                        >
-                          <div className="timeline-dot">
-                            <Inbox size={12} />
-                          </div>
-                          <span className="timeline-label">Pending</span>
-                        </div>
-                        <div
-                          className={`timeline-line ${currentStep >= 2 ? "active" : ""}`}
-                        />
-                        <div
-                          className={`timeline-step ${currentStep >= 2 ? "active" : ""}`}
-                        >
-                          <div className="timeline-dot">
-                            <Package size={12} />
-                          </div>
-                          <span className="timeline-label">Processing</span>
-                        </div>
-                        <div
-                          className={`timeline-line ${currentStep >= 3 ? "active" : ""}`}
-                        />
-                        <div
-                          className={`timeline-step ${currentStep >= 3 ? "active" : ""}`}
-                        >
-                          <div className="timeline-dot">
-                            <Truck size={12} />
-                          </div>
-                          <span className="timeline-label">Ready</span>
-                        </div>
-                        <div
-                          className={`timeline-line ${currentStep >= 4 ? "active" : ""}`}
-                        />
-                        <div
-                          className={`timeline-step ${currentStep >= 4 ? "active" : ""}`}
-                        >
-                          <div className="timeline-dot">
-                            <Check size={12} />
-                          </div>
-                          <span className="timeline-label">Done</span>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="order-action">
-                      <div className="order-total">
-                        ₱{group.total_price.toLocaleString()}
-                      </div>
-                      {group.status === "Pending" ? (
+                      {group.status === "Pending" && (
                         <div className="order-buttons">
                           <button
                             className="qr-btn"
@@ -404,10 +374,91 @@ const TrackOrders = () => {
                             <Trash2 size={14} /> Cancel
                           </button>
                         </div>
-                      ) : isCancelled ? (
+                      )}
+                    </div>
+
+                    {isCancelled ? (
+                      <div className="cancelled-banner">
+                        <XCircle size={20} />
+                        <span>This order has been cancelled</span>
+                      </div>
+                    ) : (
+                      <div className="order-timeline">
+                        <div
+                          className={`timeline-step ${stepClass(1, currentStep, isDone)}`}
+                        >
+                          <div className="timeline-dot">
+                            {stepClass(1, currentStep, isDone) ===
+                            "complete" ? (
+                              <Check size={14} />
+                            ) : (
+                              <Inbox size={12} />
+                            )}
+                          </div>
+                          <span className="timeline-label">Pending</span>
+                        </div>
+                        <div
+                          className={`timeline-line ${stepClass(1, currentStep, isDone) === "complete" ? "complete" : ""}`}
+                        />
+                        <div
+                          className={`timeline-step ${stepClass(2, currentStep, isDone)}`}
+                        >
+                          <div className="timeline-dot">
+                            {stepClass(2, currentStep, isDone) ===
+                            "complete" ? (
+                              <Check size={14} />
+                            ) : (
+                              <Package size={12} />
+                            )}
+                          </div>
+                          <span className="timeline-label">Processing</span>
+                        </div>
+                        <div
+                          className={`timeline-line ${stepClass(2, currentStep, isDone) === "complete" ? "complete" : ""}`}
+                        />
+                        <div
+                          className={`timeline-step ${stepClass(3, currentStep, isDone)}`}
+                        >
+                          <div className="timeline-dot">
+                            {stepClass(3, currentStep, isDone) ===
+                            "complete" ? (
+                              <Check size={14} />
+                            ) : (
+                              <Truck size={12} />
+                            )}
+                          </div>
+                          <span className="timeline-label">Ready</span>
+                        </div>
+                        <div
+                          className={`timeline-line ${stepClass(3, currentStep, isDone) === "complete" ? "complete" : ""}`}
+                        />
+                        <div
+                          className={`timeline-step ${stepClass(4, currentStep, isDone)}`}
+                        >
+                          <div className="timeline-dot">
+                            <Check size={14} />
+                          </div>
+                          <span className="timeline-label">Done</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="order-action">
+                      <div className="order-total">
+                        ₱{group.total_price.toLocaleString()}
+                      </div>
+                      {isCancelled ? (
                         <span className="cancelled-text">Cancelled</span>
+                      ) : group.status === "Completed" ? (
+                        <span className="status-badge badge-completed">
+                          Completed
+                        </span>
                       ) : (
-                        <span className="processed-text">Scanned</span>
+                        <span className="processed-text">
+                          {group.status === "Pending"
+                            ? "Awaiting payment"
+                            : `Status: ${group.status}`}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -458,7 +509,7 @@ const TrackOrders = () => {
                 Group #GRP-{String(selectedQR).padStart(3, "0")}
               </p>
               <img
-                src={`http://192.168.254.111:8000/generate-qr?order_id=${selectedQR}`}
+                src={`http://172.20.10.4:8000/generate-qr?order_id=${selectedQR}`}
                 alt={`QR for Group ${selectedQR}`}
                 style={{ width: "180px", height: "180px" }}
               />

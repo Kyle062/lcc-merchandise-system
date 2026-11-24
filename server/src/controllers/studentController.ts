@@ -34,11 +34,18 @@ export const getStudentStats = async (req: Request, res: Response) => {
       [studentId],
     );
 
+    // Full name comes from the users table, never from the client.
+    const [userRows]: any = await db.query(
+      "SELECT full_name, username FROM users WHERE id = ?",
+      [studentId],
+    );
+
     res.json({
       totalOrders: Number(totalOrdersResult[0].total),
       activeOrders: Number(activeOrdersResult[0].total),
       completedOrders: Number(completedOrdersResult[0].total),
       totalSpent: Number(totalSpentResult[0].total),
+      full_name: userRows[0]?.full_name || userRows[0]?.username || "Student",
     });
   } catch (error: any) {
     console.error("❌ Student stats error:", error.message);

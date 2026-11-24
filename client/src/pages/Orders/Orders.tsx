@@ -100,7 +100,7 @@ const Orders = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://192.168.254.111:5000/api/orders", {
+      const res = await fetch("http://172.20.10.4:5000/api/orders", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -164,7 +164,7 @@ const Orders = () => {
       setVerification((prev) => ({ ...prev, loading: true }));
       try {
         const res = await fetch(
-          "http://192.168.254.111:5000/api/orders/verify-receipt",
+          "http://172.20.10.4:5000/api/orders/verify-receipt",
           {
             method: "POST",
             headers: {
@@ -261,7 +261,7 @@ const Orders = () => {
 
     try {
       const res = await fetch(
-        `http://192.168.254.111:5000/api/orders/${groupId}/status`,
+        `http://172.20.10.4:5000/api/orders/${groupId}/status`,
         {
           method: "PUT",
           headers: {

@@ -13,6 +13,7 @@ import {
   Trash2,
   X,
   AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
@@ -26,7 +27,8 @@ const Scanner = () => {
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [tamperDiffs, setTamperDiffs] = useState<any[]>([]);
-  const [signedSnapshot, setSignedSnapshot] = useState<any>(null); // ✅ NEW: store snapshot
+  const [signedSnapshot, setSignedSnapshot] = useState<any>(null);
+  const [successData, setSuccessData] = useState<any>(null);
 
   const [previewData, setPreviewData] = useState<any>(null);
   const [editedItems, setEditedItems] = useState<any[]>([]);
@@ -83,12 +85,12 @@ const Scanner = () => {
     setLoading(true);
     setScanError(null);
     setTamperDiffs([]);
-    setSignedSnapshot(null); // Reset snapshot
+    setSignedSnapshot(null);
 
     try {
-      // ✅ STEP 1: Verify the Digital Signature
+      // STEP 1: Verify Signature
       const verifyRes = await fetch(
-        "http://192.168.254.111:5000/api/orders/verify-receipt",
+        "http://172.20.10.4:5000/api/orders/verify-receipt",
         {
           method: "POST",
           headers: {
@@ -107,21 +109,21 @@ const Scanner = () => {
             "TAMPERED RECEIPT DETECTED! This receipt is forged.",
         );
         setTamperDiffs(verifyData.diffs || []);
-        setSignedSnapshot(verifyData.signed_snapshot || null); // ✅ Save the snapshot for diff rendering
+        setSignedSnapshot(verifyData.signed_snapshot || null);
         showToast("error", "SECURITY ALERT", "Digital signature mismatch.");
         setTimeout(() => {
           isProcessingRef.current = false;
           setScanError(null);
           setTamperDiffs([]);
           setSignedSnapshot(null);
-        }, 15000); // Give admin 15 seconds to read the diff
+        }, 10000);
         setLoading(false);
-        return; // Stop processing immediately
+        return;
       }
 
-      // ✅ STEP 2: If valid, load the preview
+      // STEP 2: Load Preview
       const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/scan-preview",
+        "http://172.20.10.4:5000/api/orders/scan-preview",
         {
           method: "POST",
           headers: {
@@ -147,7 +149,7 @@ const Scanner = () => {
         showToast(
           "success",
           "Receipt Verified!",
-          `Signature valid. Loaded receipt for ${data.user?.full_name || "Student"}`,
+          `Loaded receipt for ${data.user?.full_name || "Student"}`,
         );
       }
     } catch (error: any) {
@@ -189,30 +191,76 @@ const Scanner = () => {
     if (editedItems.length === 0)
       return showToast("error", "Empty Receipt", "Add at least one item.");
 
+    const groupId = Number(previewData?.id);
+    if (!Number.isInteger(groupId))
+      return showToast("error", "Invalid Receipt", "Order group is missing.");
+
+    const items = editedItems.map((item) => ({
+      id: Number(item.id),
+      product_id: Number(item.product_id),
+      quantity: Number(item.quantity),
+      total_price: Number(item.total_price),
+    }));
+
+    const hasInvalidItem = items.some(
+      (item) =>
+        !Number.isInteger(item.id) ||
+        item.id < 1 ||
+        !Number.isInteger(item.product_id) ||
+        item.product_id < 1 ||
+        !Number.isInteger(item.quantity) ||
+        item.quantity < 1 ||
+        !Number.isFinite(item.total_price),
+    );
+    if (hasInvalidItem)
+      return showToast(
+        "error",
+        "Invalid Receipt",
+        "One or more items have invalid details.",
+      );
+
+    setLoading(true);
+
     try {
       const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/confirm-scan",
+        "http://172.20.10.4:5000/api/orders/confirm-scan",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            group_id: previewData.id,
-            items: editedItems,
-          }),
+          body: JSON.stringify({ group_id: groupId, items }),
         },
       );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
-      showToast("success", "Payment Confirmed", "Order is now Processing.");
+      // ✅ Show Green Success Screen
+      setSuccessData({
+        groupId,
+        student: previewData.user_id,
+        total: items.reduce((sum, item) => sum + item.total_price, 0),
+      });
+
+      showToast(
+        "success",
+        "Payment Confirmed",
+        "Order is now Processing. Stock deducted.",
+      );
+
       setPreviewData(null);
-      isProcessingRef.current = false;
+
+      setTimeout(() => {
+        setSuccessData(null);
+        isProcessingRef.current = false;
+      }, 4000);
     } catch (error: any) {
       showToast("error", "Confirmation Failed", error.message);
+      isProcessingRef.current = false;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -225,17 +273,14 @@ const Scanner = () => {
     return editedItems.reduce((sum, item) => sum + Number(item.total_price), 0);
   };
 
-  // ✅ UPDATED Helper to format the diff rows using the product name
   const renderDiffRow = (d: any, i: number) => {
     let displayField = d.field;
 
-    // If the field is an item-level change (e.g. items.0.quantity)
     if (d.field.startsWith("items.")) {
       const parts = d.field.split(".");
       const itemIndex = parseInt(parts[1]);
       const property = parts[2];
 
-      // Try to get the actual product name from the signed snapshot
       let productName = `Item #${itemIndex + 1}`;
       if (
         signedSnapshot &&
@@ -289,7 +334,6 @@ const Scanner = () => {
         ))}
       </div>
 
-      {/* SIDEBAR */}
       <div className="orders-sidebar">
         <div className="orders-sidebar-header">
           <img src={logo} alt="LCC Logo" className="orders-sidebar-logo" />
@@ -344,7 +388,6 @@ const Scanner = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="orders-main-content">
         <div className="orders-header">
           <div>
@@ -364,7 +407,7 @@ const Scanner = () => {
             <div className="camera-container">
               <div id="reader"></div>
 
-              {!previewData && !scanError && !loading && (
+              {!previewData && !scanError && !loading && !successData && (
                 <div className="scanner-overlay">
                   <div className="dimmed-background" />
                   <div className="scan-box">
@@ -377,7 +420,6 @@ const Scanner = () => {
                 </div>
               )}
 
-              {/* ✅ SECURITY ALERT WITH DIFF TABLE */}
               {scanError && (
                 <div
                   className="overlay-error"
@@ -434,13 +476,42 @@ const Scanner = () => {
                 </div>
               )}
 
-              {loading && !scanError && (
+              {loading && !scanError && !successData && (
                 <div className="overlay-loading">
                   <RefreshCw
                     size={60}
                     style={{ animation: "spin 1s linear infinite" }}
                   />
-                  <h3>Verifying Signature...</h3>
+                  <h3>Processing...</h3>
+                </div>
+              )}
+
+              {successData && (
+                <div
+                  className="overlay-success"
+                  style={{
+                    background: "rgba(16, 185, 129, 0.98)",
+                    padding: "30px",
+                    textAlign: "center",
+                  }}
+                >
+                  <CheckCircle size={80} style={{ marginBottom: "15px" }} />
+                  <h3 style={{ margin: "0 0 10px 0" }}>PAYMENT CONFIRMED!</h3>
+                  <p style={{ fontSize: "16px", fontWeight: "bold" }}>
+                    Order #GRP-{String(successData.groupId).padStart(3, "0")}
+                  </p>
+                  <p style={{ fontSize: "14px" }}>
+                    Total: ₱{successData.total.toLocaleString()}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      marginTop: "10px",
+                      opacity: 0.9,
+                    }}
+                  >
+                    Order is now Processing. Stock deducted.
+                  </p>
                 </div>
               )}
             </div>
@@ -451,7 +522,6 @@ const Scanner = () => {
         </div>
       </div>
 
-      {/* PREVIEW MODAL */}
       {previewData && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="receipt-modal" onClick={(e) => e.stopPropagation()}>
@@ -544,8 +614,12 @@ const Scanner = () => {
               <button className="btn-close" onClick={closeModal}>
                 Cancel
               </button>
-              <button className="btn-print" onClick={handleConfirmPayment}>
-                Confirm Payment
+              <button
+                className="btn-print"
+                onClick={handleConfirmPayment}
+                disabled={loading}
+              >
+                {loading ? "Processing..." : "Confirm Payment"}
               </button>
             </div>
           </div>

@@ -43,7 +43,7 @@ const TailorQueue = () => {
   const fetchAssignedOrders = async () => {
     try {
       const res = await fetch(
-        "http://192.168.254.111:5000/api/tailor/assigned",
+        "http://172.20.10.4:5000/api/tailor/assigned",
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -85,7 +85,7 @@ const TailorQueue = () => {
     setSelectedOrder(order);
     try {
       const res = await fetch(
-        `http://192.168.254.111:5000/api/tailor/details/${order.group_id}`,
+        `http://172.20.10.4:5000/api/tailor/details/${order.group_id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -100,7 +100,7 @@ const TailorQueue = () => {
   const handleUpdateProgress = async (groupId: number, newStatus: string) => {
     try {
       const res = await fetch(
-        `http://192.168.254.111:5000/api/tailor/progress/${groupId}`,
+        `http://172.20.10.4:5000/api/tailor/progress/${groupId}`,
         {
           method: "PUT",
           headers: {

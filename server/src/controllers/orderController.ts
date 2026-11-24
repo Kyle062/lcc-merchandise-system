@@ -73,9 +73,9 @@ export const getMyOrders = async (req: Request, res: Response) => {
     const [rows] = await db.query(
       `
       SELECT 
-        o.id, o.quantity, o.total_price, o.status, o.order_date, o.group_id,
-        p.name AS product_name, p.size AS product_size,
-        g.digital_signature
+        o.id, o.quantity, o.total_price, o.order_date, o.group_id,
+        g.status AS status, g.group_code, g.digital_signature,
+        p.name AS product_name, p.size AS product_size
       FROM orders o
       JOIN products p ON o.product_id = p.id
       JOIN order_groups g ON o.group_id = g.id
@@ -360,7 +360,19 @@ export const getScanPreview = async (req: Request, res: Response) => {
         .status(400)
         .json({ message: `This order is already "${group.status}".` });
 
-    // ✅ Extract items from the signed payload_snapshot, NOT the database.
+    const [dbItems]: any = await db.query(
+      `SELECT o.id, o.product_id, o.quantity, o.total_price, p.name, p.size, p.price
+       FROM orders o JOIN products p ON o.product_id = p.id
+       WHERE o.group_id = ?
+       ORDER BY o.id ASC`,
+      [group_id],
+    );
+
+    const orderByProduct = new Map<number, any>();
+    for (const row of dbItems) {
+      orderByProduct.set(Number(row.product_id), row);
+    }
+
     let items: any[] = [];
 
     if (group.payload_snapshot) {
@@ -370,23 +382,25 @@ export const getScanPreview = async (req: Request, res: Response) => {
           : JSON.stringify(group.payload_snapshot),
       );
 
-      items = snapshot.items.map((i, index) => ({
-        id: index,
-        product_id: i.product_id,
-        name: i.name,
-        size: i.size,
-        quantity: i.quantity,
-        price: i.unit_price,
-        total_price: i.subtotal,
-      }));
+      items = snapshot.items.map((i) => {
+        const orderRow = orderByProduct.get(Number(i.product_id));
+        if (!orderRow) {
+          throw new Error(
+            `Signed product ${i.product_id} is missing from this order group.`,
+          );
+        }
+
+        return {
+          id: orderRow.id,
+          product_id: Number(i.product_id),
+          name: i.name,
+          size: i.size,
+          quantity: i.quantity,
+          price: Number(i.unit_price),
+          total_price: Number(i.subtotal),
+        };
+      });
     } else {
-      // Fallback for legacy orders
-      const [dbItems]: any = await db.query(
-        `SELECT o.id, o.product_id, o.quantity, o.total_price, p.name, p.size, p.price
-         FROM orders o JOIN products p ON o.product_id = p.id
-         WHERE o.group_id = ?`,
-        [group_id],
-      );
       items = dbItems;
     }
 
@@ -407,42 +421,103 @@ export const getScanPreview = async (req: Request, res: Response) => {
   }
 };
 
-// Confirm Scan (Admin clicks Confirm on the Modal)
 export const confirmScanOrder = async (req: Request, res: Response) => {
-  const { group_id, items } = req.body;
+  const groupId = Number(req.body.group_id);
+  const items = req.body.items;
   const conn = await db.getConnection();
 
   try {
+    if (!Number.isInteger(groupId) || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        message: "A valid group_id and at least one item are required.",
+      });
+    }
+
     await conn.beginTransaction();
 
+    const [groupRows]: any = await conn.query(
+      "SELECT id, status FROM order_groups WHERE id = ? FOR UPDATE",
+      [groupId],
+    );
+    if (groupRows.length === 0) throw new Error("Order group not found.");
+    if (groupRows[0].status !== "Pending")
+      throw new Error(`This order is already "${groupRows[0].status}".`);
+
+    const [orderRows]: any = await conn.query(
+      `SELECT o.id, o.product_id, o.quantity, p.name, p.price
+       FROM orders o
+       JOIN products p ON o.product_id = p.id
+       WHERE o.group_id = ?
+       ORDER BY o.id ASC`,
+      [groupId],
+    );
+    if (orderRows.length === 0)
+      throw new Error("No order items found for this group.");
+
+    const ordersById = new Map<number, any>();
+    for (const row of orderRows) {
+      ordersById.set(Number(row.id), row);
+    }
+
+    const processedIds = new Set<number>();
+
     for (const item of items) {
+      const orderId = Number(item.id);
+      const productId = Number(item.product_id);
+      const quantity = Number(item.quantity);
+      const orderRow = ordersById.get(orderId);
+
+      if (!orderRow)
+        throw new Error(`Item ${orderId} does not belong to this order group.`);
+      if (Number(orderRow.product_id) !== productId)
+        throw new Error(`Item ${orderId} has a product mismatch.`);
+      if (!Number.isInteger(quantity) || quantity < 1)
+        throw new Error("Invalid item quantity.");
+      if (processedIds.has(orderId))
+        throw new Error("Duplicate item in confirmation.");
+      processedIds.add(orderId);
+
       const [productRows]: any = await conn.query(
-        "SELECT stock_quantity, name FROM products WHERE id = ?",
-        [item.product_id],
+        "SELECT stock_quantity, name FROM products WHERE id = ? FOR UPDATE",
+        [productId],
       );
-      if (productRows.length === 0) throw new Error(`Product not found.`);
-      if (productRows[0].stock_quantity < item.quantity)
+      if (productRows.length === 0) throw new Error("Product not found.");
+      if (productRows[0].stock_quantity < quantity)
         throw new Error(`Not enough stock for ${productRows[0].name}.`);
+
+      const totalPrice = Number.isFinite(Number(item.total_price))
+        ? Number(item.total_price)
+        : Number((Number(orderRow.price) * quantity).toFixed(2));
 
       await conn.query(
         "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?",
-        [item.quantity, item.product_id],
+        [quantity, productId],
       );
       await conn.query(
-        "UPDATE orders SET quantity = ?, total_price = ?, status = 'Processing' WHERE id = ?",
-        [item.quantity, item.total_price, item.id],
+        "UPDATE orders SET quantity = ?, total_price = ?, status = 'Processing' WHERE id = ? AND group_id = ?",
+        [quantity, totalPrice, orderId, groupId],
       );
     }
 
     await conn.query(
-      'UPDATE order_groups SET status = "Processing" WHERE id = ?',
-      [group_id],
+      "UPDATE orders SET status = 'Processing' WHERE group_id = ?",
+      [groupId],
+    );
+    await conn.query(
+      "UPDATE order_groups SET status = 'Processing' WHERE id = ?",
+      [groupId],
     );
 
     await conn.commit();
-    res.json({ message: "Order processed and stock updated successfully." });
+    res.json({
+      message: "Order processed and stock updated successfully.",
+      groupId,
+      status: "Processing",
+      updatedItems: processedIds.size,
+    });
   } catch (error: any) {
     await conn.rollback();
+    console.error("confirmScanOrder error:", error.message);
     res
       .status(500)
       .json({ message: error.message || "Server error during confirmation" });

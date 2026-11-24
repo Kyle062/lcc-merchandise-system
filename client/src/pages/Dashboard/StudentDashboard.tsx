@@ -7,6 +7,9 @@ import {
   Bell,
   ArrowRight,
   ShoppingBag,
+  Clock3,
+  CheckCircle2,
+  Wallet,
 } from "lucide-react";
 import "./StudentDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -21,7 +24,9 @@ const StudentDashboard = () => {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const studentName = localStorage.getItem("username") || "Student";
+  const [fullName, setFullName] = useState(
+    localStorage.getItem("full_name") || "Student",
+  );
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -34,8 +39,8 @@ const StudentDashboard = () => {
     const fetchData = async () => {
       try {
         const [statsRes, ordersRes] = await Promise.all([
-          fetch("http://192.168.254.111:5000/api/student/stats", { headers }),
-          fetch("http://192.168.254.111:5000/api/student/recent-orders", {
+          fetch("http://172.20.10.4:5000/api/student/stats", { headers }),
+          fetch("http://172.20.10.4:5000/api/student/recent-orders", {
             headers,
           }),
         ]);
@@ -49,6 +54,11 @@ const StudentDashboard = () => {
           completedOrders: Number(statsData?.completedOrders) || 0,
           totalSpent: Number(statsData?.totalSpent) || 0,
         });
+
+        if (statsData?.full_name) {
+          setFullName(statsData.full_name);
+          localStorage.setItem("full_name", statsData.full_name);
+        }
 
         setRecentOrders(Array.isArray(ordersData) ? ordersData : []);
         setLoading(false);
@@ -64,6 +74,7 @@ const StudentDashboard = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
+    localStorage.removeItem("full_name");
     navigate("/login");
   };
 
@@ -153,7 +164,7 @@ const StudentDashboard = () => {
           <div className="student-header-right">
             <Bell size={20} color="#6b7280" />
             <div className="student-avatar">
-              {studentName.charAt(0).toUpperCase()}
+              {fullName.charAt(0).toUpperCase()}
             </div>
             <button className="mobile-logout-btn" onClick={handleLogout}>
               <LogOut size={20} color="#dc2626" />
@@ -164,7 +175,7 @@ const StudentDashboard = () => {
         <div className="student-dashboard-content">
           <div className="student-welcome-banner">
             <div>
-              <h2>Welcome, {studentName}!</h2>
+              <h2>Welcome back, {fullName}!</h2>
               <p>Track your orders and shop for LCC merchandise.</p>
             </div>
             <button className="shop-btn" onClick={() => navigate("/shop")}>
@@ -174,26 +185,108 @@ const StudentDashboard = () => {
 
           <div className="student-stats-grid">
             <div className="student-stat-card">
-              <p className="student-stat-label">Total Orders</p>
+              <p className="student-stat-label">
+                <ShoppingBag size={16} /> Total Orders
+              </p>
               <h3 className="student-stat-value">{stats.totalOrders}</h3>
             </div>
             <div className="student-stat-card">
-              <p className="student-stat-label">Active Orders</p>
+              <p className="student-stat-label">
+                <Clock3 size={16} /> Active Orders
+              </p>
               <h3 className="student-stat-value" style={{ color: "#f59e0b" }}>
                 {stats.activeOrders}
               </h3>
             </div>
             <div className="student-stat-card">
-              <p className="student-stat-label">Completed</p>
-              <h3 className="student-stat-value" style={{ color: "#00874e" }}>
+              <p className="student-stat-label">
+                <CheckCircle2 size={16} /> Completed
+              </p>
+              <h3 className="student-stat-value" style={{ color: "#15803d" }}>
                 {stats.completedOrders}
               </h3>
             </div>
             <div className="student-stat-card">
-              <p className="student-stat-label">Total Spent</p>
+              <p className="student-stat-label">
+                <Wallet size={16} /> Total Spent
+              </p>
               <h3 className="student-stat-value">
                 ₱{stats.totalSpent.toLocaleString()}
               </h3>
+            </div>
+          </div>
+
+          <div className="student-content-grid">
+            <div className="student-panel">
+              <div className="student-panel-header">
+                <h3 className="student-panel-title">Quick actions</h3>
+                <p className="student-panel-subtitle">
+                  Common tasks, one click away.
+                </p>
+              </div>
+              <div className="quick-action-list">
+                <button
+                  className="quick-action"
+                  onClick={() => navigate("/shop")}
+                >
+                  <span className="quick-action-icon">
+                    <ShoppingBag size={18} />
+                  </span>
+                  <span className="quick-action-text">
+                    <strong>Shop merchandise</strong>
+                    <small>Browse uniforms, caps and IDs</small>
+                  </span>
+                  <ArrowRight size={16} />
+                </button>
+                <button
+                  className="quick-action"
+                  onClick={() => navigate("/track-orders")}
+                >
+                  <span className="quick-action-icon">
+                    <Package size={18} />
+                  </span>
+                  <span className="quick-action-text">
+                    <strong>Track your orders</strong>
+                    <small>Check status and pickup details</small>
+                  </span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="student-panel">
+              <div className="student-panel-header">
+                <h3 className="student-panel-title">How ordering works</h3>
+                <p className="student-panel-subtitle">
+                  Three simple steps to pickup.
+                </p>
+              </div>
+              <div className="student-guide-steps">
+                <div className="guide-step">
+                  <span className="guide-step-index">1</span>
+                  <div className="guide-step-body">
+                    <strong>Choose merchandise</strong>
+                    <p>Pick your item and available size.</p>
+                  </div>
+                </div>
+                <div className="guide-step">
+                  <span className="guide-step-index">2</span>
+                  <div className="guide-step-body">
+                    <strong>Place your order</strong>
+                    <p>Review your cart and confirm checkout.</p>
+                  </div>
+                </div>
+                <div className="guide-step">
+                  <span className="guide-step-index">3</span>
+                  <div className="guide-step-body">
+                    <strong>Scan your QR</strong>
+                    <p>Show it at the counter when your order is ready.</p>
+                  </div>
+                </div>
+              </div>
+              <p className="student-panel-note">
+                Need help? Ask the merchandise counter.
+              </p>
             </div>
           </div>
 

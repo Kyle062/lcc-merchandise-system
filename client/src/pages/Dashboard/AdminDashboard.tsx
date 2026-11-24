@@ -24,12 +24,14 @@ import {
   Search,
   Bell,
   QrCode,
+  DollarSign,
+  Clock3,
 } from "lucide-react";
 import "./AdminDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
 
 const COLORS = [
-  "#00874e",
+  "#15803d",
   "#3b82f6",
   "#f59e0b",
   "#ef4444",
@@ -55,6 +57,9 @@ const AdminDashboard = () => {
   const [salesData, setSalesData] = useState<any[]>([]);
   const [inventoryData, setInventoryData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState(
+    localStorage.getItem("full_name") || "Administrator",
+  );
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -66,7 +71,7 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         // Fetch from Python Service
-        const res = await fetch("http://192.168.254.111:8001/admin-dashboard");
+        const res = await fetch("http://172.20.10.4:8001/admin-dashboard");
 
         if (!res.ok) throw new Error("Failed to fetch data");
 
@@ -86,6 +91,11 @@ const AdminDashboard = () => {
         setInventoryData(
           Array.isArray(data?.inventoryData) ? data.inventoryData : [],
         );
+
+        if (data?.full_name) {
+          setFullName(data.full_name);
+          localStorage.setItem("full_name", data.full_name);
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -100,6 +110,7 @@ const AdminDashboard = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
+    localStorage.removeItem("full_name");
     navigate("/login");
   };
 
@@ -236,27 +247,54 @@ const AdminDashboard = () => {
         </div>
 
         <div className="admin-dashboard-content">
+          <div className="admin-welcome-banner">
+            <div>
+              <h2>Welcome back, {fullName}!</h2>
+              <p>Here is what is happening with LCC merchandise today.</p>
+            </div>
+          </div>
+
           {/* Stats Cards */}
           <div className="admin-stats-grid">
             <div className="admin-stat-card">
-              <p className="admin-stat-label">Total Sales</p>
+              <p className="admin-stat-label">
+                <span className="admin-stat-icon">
+                  <DollarSign size={16} />
+                </span>
+                Total Sales
+              </p>
               <h3 className="admin-stat-value">
                 ₱{Number(stats.totalSales).toLocaleString()}
               </h3>
               <p className="admin-stat-change-positive">All-time revenue</p>
             </div>
             <div className="admin-stat-card">
-              <p className="admin-stat-label">Total Orders</p>
+              <p className="admin-stat-label">
+                <span className="admin-stat-icon">
+                  <ShoppingCart size={16} />
+                </span>
+                Total Orders
+              </p>
               <h3 className="admin-stat-value">{stats.totalOrders}</h3>
               <p className="admin-stat-change-positive">Orders placed</p>
             </div>
             <div className="admin-stat-card">
-              <p className="admin-stat-label">Pending Orders</p>
+              <p className="admin-stat-label">
+                <span className="admin-stat-icon">
+                  <Clock3 size={16} />
+                </span>
+                Pending Orders
+              </p>
               <h3 className="admin-stat-value">{stats.pendingOrders}</h3>
               <p className="admin-stat-change-negative">Needs action</p>
             </div>
             <div className="admin-stat-card">
-              <p className="admin-stat-label">Low Stock Items</p>
+              <p className="admin-stat-label">
+                <span className="admin-stat-icon">
+                  <Package size={16} />
+                </span>
+                Low Stock Items
+              </p>
               <h3 className="admin-stat-value">{stats.lowStock}</h3>
               <p className="admin-stat-change-negative">Below 10 units</p>
             </div>
@@ -275,7 +313,7 @@ const AdminDashboard = () => {
                   <Legend />
                   <Bar
                     dataKey="sales"
-                    fill="#00874e"
+                    fill="#15803d"
                     radius={[4, 4, 0, 0]}
                     name="Sales (₱)"
                   />

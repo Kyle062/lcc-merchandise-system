@@ -45,8 +45,8 @@ const TailorDashboard = () => {
     const fetchData = async () => {
       try {
         const [statsRes, queueRes] = await Promise.all([
-          fetch("http://192.168.254.111:5000/api/tailor/stats", { headers }),
-          fetch("http://192.168.254.111:5000/api/tailor/assigned", { headers }),
+          fetch("http://172.20.10.4:5000/api/tailor/stats", { headers }),
+          fetch("http://172.20.10.4:5000/api/tailor/assigned", { headers }),
         ]);
 
         const statsData = await statsRes.json();

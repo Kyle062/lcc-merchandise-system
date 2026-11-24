@@ -54,7 +54,7 @@ const Login = () => {
 
     try {
       const response = await fetch(
-        "http://192.168.254.111:5000/api/auth/login",
+        "http://172.20.10.4:5000/api/auth/login",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -97,6 +97,7 @@ const Login = () => {
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("username", data.username);
+      localStorage.setItem("full_name", data.full_name || data.username);
 
       if (data.role === "admin") navigate("/admin-dashboard");
       else if (data.role === "staff") navigate("/orders");

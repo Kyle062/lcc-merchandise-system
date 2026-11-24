@@ -13,6 +13,7 @@ import {
   X,
   ShieldCheck,
   Search,
+  CheckCircle2,
 } from "lucide-react";
 import "./Shop.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -48,7 +49,9 @@ const Shop = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedSizeId, setSelectedSizeId] = useState<number | null>(null);
   const [isSizeModalOpen, setIsSizeModalOpen] = useState(false);
+  const [addedItem, setAddedItem] = useState<any>(null);
 
   useEffect(() => {
     localStorage.setItem("student_cart", JSON.stringify(cart));
@@ -124,7 +127,7 @@ const Shop = () => {
     }
     const fetchData = async () => {
       try {
-        const res = await fetch("http://192.168.254.111:5000/api/products");
+        const res = await fetch("http://172.20.10.4:5000/api/products");
         const data = await res.json();
         const available = data.filter((p: any) => p.stock_quantity > 0);
 
@@ -182,23 +185,33 @@ const Shop = () => {
 
   const handleOpenSizeModal = (product: any) => {
     setSelectedProduct(product);
+    setSelectedSizeId(null);
     setIsSizeModalOpen(true);
   };
 
   const handleAddToCart = (sizeItem: any) => {
     if (!selectedProduct) return;
 
+    const existing = cart.find((item) => item.id === sizeItem.id);
+    if (existing && existing.cartQuantity >= sizeItem.stock_quantity) {
+      showToast(
+        "warning",
+        "Stock Limit Reached",
+        `Only ${sizeItem.stock_quantity} available.`,
+      );
+      return;
+    }
+
+    const hasSizeInName =
+      sizeItem.size && selectedProduct.name.includes(`(${sizeItem.size})`);
+    const displayName =
+      hasSizeInName || !sizeItem.size
+        ? selectedProduct.name
+        : `${selectedProduct.name} (${sizeItem.size})`;
+    const nextQuantity = existing ? existing.cartQuantity + 1 : 1;
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === sizeItem.id);
-      if (existing) {
-        if (existing.cartQuantity >= sizeItem.stock_quantity) {
-          showToast(
-            "warning",
-            "Stock Limit Reached",
-            `Only ${sizeItem.stock_quantity} available.`,
-          );
-          return prev;
-        }
+      if (prev.some((item) => item.id === sizeItem.id)) {
         return prev.map((item) =>
           item.id === sizeItem.id
             ? { ...item, cartQuantity: item.cartQuantity + 1 }
@@ -206,19 +219,12 @@ const Shop = () => {
         );
       }
 
-      const hasSizeInName =
-        sizeItem.size && selectedProduct.name.includes(`(${sizeItem.size})`);
-      const displayName =
-        hasSizeInName || !sizeItem.size
-          ? selectedProduct.name
-          : `${selectedProduct.name} (${sizeItem.size})`;
-
       return [
         ...prev,
         {
           id: sizeItem.id,
           name: selectedProduct.name,
-          displayName: displayName,
+          displayName,
           price: selectedProduct.price,
           size: sizeItem.size,
           stock_quantity: sizeItem.stock_quantity,
@@ -228,9 +234,18 @@ const Shop = () => {
       ];
     });
 
-    showToast("success", "Added to Cart", `${selectedProduct.name} added.`);
+    setAddedItem({
+      id: sizeItem.id,
+      displayName,
+      price: selectedProduct.price,
+      size: sizeItem.size,
+      cartQuantity: nextQuantity,
+      image: getProductImage(selectedProduct.name),
+    });
+
     setIsSizeModalOpen(false);
     setSelectedProduct(null);
+    setSelectedSizeId(null);
   };
 
   const updateCartQty = (id: number, delta: number) => {
@@ -302,7 +317,7 @@ const Shop = () => {
             })),
           };
 
-          const res = await fetch("http://192.168.254.111:5000/api/orders", {
+          const res = await fetch("http://172.20.10.4:5000/api/orders", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -339,7 +354,7 @@ const Shop = () => {
             setIsCartOpen(false);
 
             const updatedRes = await fetch(
-              "http://192.168.254.111:5000/api/products",
+              "http://172.20.10.4:5000/api/products",
             );
             const updatedData = await updatedRes.json();
             const available = updatedData.filter(
@@ -559,49 +574,145 @@ const Shop = () => {
       {isSizeModalOpen && selectedProduct && (
         <div
           className="modal-overlay"
-          onClick={() => setIsSizeModalOpen(false)}
+          onClick={() => {
+            setIsSizeModalOpen(false);
+            setSelectedSizeId(null);
+          }}
         >
           <div
             className="cart-modal size-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="cart-modal-header">
-              <h2 className="cart-modal-title">{selectedProduct.name}</h2>
-              <button
-                className="close-btn"
-                onClick={() => setIsSizeModalOpen(false)}
-              >
-                <X size={24} color="#6b7280" />
-              </button>
+            <button
+              className="close-btn size-modal-close"
+              aria-label="Close size selector"
+              onClick={() => {
+                setIsSizeModalOpen(false);
+                setSelectedSizeId(null);
+              }}
+            >
+              <X size={20} color="#6b7280" />
+            </button>
+
+            <div className="size-product-image">
+              <img
+                src={getProductImage(selectedProduct.name)}
+                alt={selectedProduct.name}
+              />
             </div>
-            <p className="size-modal-desc">
-              {selectedProduct.description || "No description available."}
-            </p>
-            <h3 className="size-modal-label">Select Size</h3>
-            <div className="size-options-grid">
-              {selectedProduct.sizes.map((sizeItem: any) => (
+
+            <div className="size-product-body">
+              <h2 className="size-product-name">{selectedProduct.name}</h2>
+              <p className="size-product-price">
+                ₱{Number(selectedProduct.price).toLocaleString()}
+              </p>
+
+              <h3 className="size-modal-label">Select Size</h3>
+              <div className="size-options-grid">
+                {selectedProduct.sizes.map((sizeItem: any) => (
+                  <button
+                    key={sizeItem.id}
+                    onClick={() => setSelectedSizeId(sizeItem.id)}
+                    disabled={sizeItem.stock_quantity <= 0}
+                    className={`size-option-btn ${
+                      sizeItem.stock_quantity <= 0 ? "disabled" : ""
+                    } ${selectedSizeId === sizeItem.id ? "selected" : ""}`}
+                  >
+                    <span className="size-name">
+                      {sizeItem.size || "Standard"}
+                    </span>
+                    <span className="size-stock">
+                      {sizeItem.stock_quantity} left
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="size-modal-footer">
                 <button
-                  key={sizeItem.id}
-                  onClick={() => handleAddToCart(sizeItem)}
-                  disabled={sizeItem.stock_quantity <= 0}
-                  className={`size-option-btn ${sizeItem.stock_quantity <= 0 ? "disabled" : ""}`}
+                  className="size-confirm-btn"
+                  disabled={selectedSizeId === null}
+                  onClick={() => {
+                    const sizeItem = selectedProduct.sizes.find(
+                      (item: any) => item.id === selectedSizeId,
+                    );
+                    if (sizeItem) handleAddToCart(sizeItem);
+                  }}
                 >
-                  <span className="size-name">
-                    {sizeItem.size || "Standard"}
-                  </span>
-                  <span className="size-stock">
-                    {sizeItem.stock_quantity} left
-                  </span>
+                  Add to Cart
                 </button>
-              ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addedItem && (
+        <div className="modal-overlay" onClick={() => setAddedItem(null)}>
+          <div
+            className="cart-modal added-modal"
+            role="dialog"
+            aria-label="Added to cart"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="close-btn added-modal-close"
+              aria-label="Close confirmation"
+              onClick={() => setAddedItem(null)}
+            >
+              <X size={18} color="#6b7280" />
+            </button>
+
+            <div className="added-icon">
+              <CheckCircle2 size={30} />
+            </div>
+            <h2 className="added-title">Added to Cart</h2>
+            <p className="added-subtitle">
+              Your item is ready for checkout.
+            </p>
+
+            <div className="added-product">
+              <img src={addedItem.image} alt={addedItem.displayName} />
+              <div className="added-product-info">
+                <h3>{addedItem.displayName}</h3>
+                <p>
+                  Size: {addedItem.size || "Standard"} · Qty{" "}
+                  {addedItem.cartQuantity}
+                </p>
+              </div>
+              <strong>₱{Number(addedItem.price).toLocaleString()}</strong>
+            </div>
+
+            <div className="added-actions">
+              <button
+                className="added-secondary-btn"
+                onClick={() => setAddedItem(null)}
+              >
+                Continue Shopping
+              </button>
+              <button
+                className="added-primary-btn"
+                onClick={() => {
+                  setAddedItem(null);
+                  setIsCartOpen(true);
+                }}
+              >
+                View Cart
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {isCartOpen && (
-        <div className="modal-overlay" onClick={() => setIsCartOpen(false)}>
-          <div className="cart-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay cart-overlay"
+          onClick={() => setIsCartOpen(false)}
+        >
+          <div
+            className="cart-modal cart-drawer"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="cart-modal-header">
               <h2 className="cart-modal-title">Your Cart</h2>
               <button
@@ -654,19 +765,21 @@ const Shop = () => {
                       </div>
                     </div>
                     <div className="cart-item-actions">
-                      <button
-                        className="qty-btn"
-                        onClick={() => updateCartQty(item.id, -1)}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="cart-qty">{item.cartQuantity}</span>
-                      <button
-                        className="qty-btn"
-                        onClick={() => updateCartQty(item.id, 1)}
-                      >
-                        <Plus size={14} />
-                      </button>
+                      <div className="qty-pill">
+                        <button
+                          className="qty-btn"
+                          onClick={() => updateCartQty(item.id, -1)}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="cart-qty">{item.cartQuantity}</span>
+                        <button
+                          className="qty-btn"
+                          onClick={() => updateCartQty(item.id, 1)}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
                       <button
                         className="remove-btn"
                         onClick={() => removeFromCart(item.id)}
@@ -687,7 +800,6 @@ const Shop = () => {
                 className="checkout-submit-btn"
                 onClick={handleCheckout}
                 disabled={selectedCartItems.length === 0}
-                style={{ opacity: selectedCartItems.length === 0 ? 0.5 : 1 }}
               >
                 Checkout {selectedCartItems.length} Item(s)
               </button>
@@ -761,7 +873,7 @@ const Shop = () => {
                 Group #GRP-{String(receiptData.groupId).padStart(3, "0")}
               </div>
               <img
-                src={`http://192.168.254.111:8000/generate-qr?order_id=${receiptData.groupId}`}
+                src={`http://172.20.10.4:8000/generate-qr?order_id=${receiptData.groupId}`}
                 alt={`QR for Group ${receiptData.groupId}`}
                 className="receipt-qr-img"
               />

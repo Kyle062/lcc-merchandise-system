@@ -2,15 +2,16 @@
 .track-container {
   display: flex;
   height: 100vh;
-  background-color: #f3f4f6;
+  background-color: var(--color-bg);
   font-family: "Inter", sans-serif;
   overflow: hidden;
+  animation: fadeIn 0.25s ease-out both;
 }
 
 .track-sidebar {
   width: 260px;
   background-color: #ffffff;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   padding: 20px 0;
@@ -18,7 +19,7 @@
 }
 .track-sidebar-header {
   padding: 0 24px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -31,11 +32,11 @@
 .track-sidebar-title {
   font-size: 16px;
   font-weight: 800;
-  color: #00874e;
+  color: var(--color-primary);
 }
 .track-sidebar-subtitle {
   font-size: 10px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 .track-sidebar-nav {
   flex: 1;
@@ -57,13 +58,13 @@
 }
 .track-nav-item:hover,
 .track-nav-item.active {
-  background-color: #ecfdf5;
-  color: #00874e;
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
   font-weight: 600;
 }
 .track-sidebar-footer {
   padding: 20px 24px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -81,7 +82,7 @@
 .track-header {
   height: 70px;
   background-color: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -91,13 +92,13 @@
 .track-header-title {
   font-size: 20px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text);
 }
 .track-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #00874e;
+  background: var(--color-primary);
   color: white;
   display: flex;
   align-items: center;
@@ -130,20 +131,25 @@
   display: none;
 }
 .track-filter-btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid #d1d5db;
-  background: white;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
   font-weight: 600;
   font-size: 12px;
-  color: #4b5563;
+  color: var(--color-text-secondary);
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.track-filter-btn:hover:not(.active) {
+  background: var(--color-border);
+  color: var(--color-text);
 }
 .track-filter-btn.active {
-  background: #00874e;
-  color: white;
-  border-color: #00874e;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  border-color: var(--color-primary);
 }
 
 /* Cancelled Filter Tab */
@@ -174,7 +180,7 @@
   outline: none;
   width: 100%;
   font-size: 14px;
-  color: #1f2937;
+  color: var(--color-text);
 }
 .track-sort {
   display: flex;
@@ -190,7 +196,7 @@
   outline: none;
   font-size: 13px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text);
   background: transparent;
   cursor: pointer;
 }
@@ -199,7 +205,7 @@
 .empty-orders {
   text-align: center;
   padding: 50px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   background: white;
   border-radius: 12px;
 }
@@ -209,13 +215,24 @@
   gap: 15px;
 }
 .order-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 20px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   gap: 20px;
+  transition: var(--transition);
+}
+.order-card:hover {
+  box-shadow: 0 6px 14px -6px rgba(15, 23, 42, 0.12);
+  border-color: #bbf7d0;
+}
+.order-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
 }
 .order-info {
   display: flex;
@@ -225,11 +242,11 @@
 .order-id {
   font-size: 14px;
   font-weight: 700;
-  color: #00874e;
+  color: var(--color-primary);
 }
 .order-date {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 .order-items-list {
   margin-top: 8px;
@@ -240,10 +257,10 @@
 .order-product {
   font-size: 14px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text);
 }
 .order-product span {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
@@ -252,7 +269,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px;
+  padding: 16px 10px 0;
+  border-top: 1px solid var(--color-border);
 }
 .timeline-step {
   display: flex;
@@ -261,19 +279,21 @@
   gap: 6px;
   position: relative;
   z-index: 2;
+  min-width: 56px;
 }
 .timeline-dot {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: #e5e7eb;
+  background: var(--color-border);
   color: #9ca3af;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  border: 3px solid white;
-  box-shadow: 0 0 0 1px #e5e7eb;
+  border: 3px solid var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-border);
+  transition: var(--transition);
 }
 .timeline-label {
   font-size: 10px;
@@ -281,23 +301,35 @@
   color: #9ca3af;
   text-align: center;
 }
-.timeline-step.active .timeline-dot {
-  background: #00874e;
-  color: white;
-  box-shadow: 0 0 0 1px #00874e;
+.timeline-step.complete .timeline-dot {
+  background: var(--color-primary);
+  color: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
-.timeline-step.active .timeline-label {
-  color: #00874e;
+.timeline-step.complete .timeline-label {
+  color: var(--color-primary);
+}
+.timeline-step.current .timeline-dot {
+  background: var(--color-primary);
+  color: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-primary);
+  animation: pulse 2.4s ease-out infinite;
+}
+.timeline-step.current .timeline-label {
+  color: var(--color-primary);
+  font-weight: 700;
 }
 .timeline-line {
   flex: 1;
   height: 3px;
-  background: #e5e7eb;
+  background: var(--color-border);
   z-index: 1;
   margin-top: -16px;
+  border-radius: 999px;
+  transition: background 0.3s ease-in-out;
 }
-.timeline-line.active {
-  background: #00874e;
+.timeline-line.complete {
+  background: var(--color-primary);
 }
 
 /* Action Area */
@@ -305,13 +337,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--color-border);
   padding-top: 15px;
 }
 .order-total {
   font-size: 18px;
   font-weight: 800;
-  color: #1f2937;
+  color: var(--color-text);
 }
 .order-buttons {
   display: flex;
@@ -322,26 +354,38 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: #ecfdf5;
-  color: #00874e;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   border: 1px solid #a7f3d0;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-weight: 600;
   font-size: 12px;
+  transition: var(--transition);
+}
+.qr-btn:hover {
+  background: var(--color-primary);
+  color: var(--color-surface);
+  box-shadow: 0 4px 10px -4px rgba(21, 128, 61, 0.35);
 }
 .delete-btn {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
   border: 1px solid #fecaca;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-weight: 600;
   font-size: 12px;
+  transition: var(--transition);
+}
+.delete-btn:hover {
+  background: var(--color-danger);
+  color: var(--color-surface);
+  box-shadow: 0 4px 10px -4px rgba(220, 38, 38, 0.35);
 }
 .processed-text {
   font-size: 12px;
@@ -382,15 +426,18 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.45);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
   padding: 15px;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out both;
 }
 .cart-modal {
-  background: white;
+  background: var(--color-surface);
+  animation: modalFade 0.2s ease-out both;
   border-radius: 16px;
   padding: 20px;
   width: 100%;
@@ -408,12 +455,12 @@
 .cart-modal-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text);
 }
 .checkout-submit-btn {
   width: 100%;
   padding: 14px;
-  background: #00874e;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -444,7 +491,7 @@
     height: 65px;
     padding: 0;
     border-right: none;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
     flex-direction: row;
     order: 2;
     position: fixed;

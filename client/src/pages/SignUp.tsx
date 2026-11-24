@@ -55,7 +55,7 @@ const getHost = () => {
   const host = window.location.hostname;
   return host === "localhost" || host === "127.0.0.1"
     ? "localhost"
-    : "192.168.254.111";
+    : "172.20.10.4";
 };
 
 const SignUp = () => {
