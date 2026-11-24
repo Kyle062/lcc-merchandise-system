@@ -52,7 +52,7 @@ const TailorReports = () => {
       try {
         // 1. Fetch Raw List from Node.js (for the table)
         const resList = await fetch(
-          "http://192.168.254.111:5000/api/tailor/assigned",
+          "http://10.34.0.141:5000/api/tailor/assigned",
           { headers: { Authorization: `Bearer ${token}` } },
         );
         const dataList = await resList.json();
@@ -66,7 +66,7 @@ const TailorReports = () => {
 
         // 2. Fetch Analytics Charts from Python Service (Port 8001)
         const resAnalytics = await fetch(
-          `http://192.168.254.111:8001/tailor-analytics?timeframe=${timeframe}`,
+          `http://10.34.0.141:8001/tailor-analytics?timeframe=${timeframe}`,
         );
         const dataAnalytics = await resAnalytics.json();
 

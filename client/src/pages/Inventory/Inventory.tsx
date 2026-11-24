@@ -82,7 +82,7 @@ const Inventory = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch("http://192.168.254.111:5000/api/products");
+      const res = await fetch("http://10.34.0.141:5000/api/products");
       const data = await res.json();
       setProducts(data);
       setLoading(false);
@@ -223,8 +223,8 @@ const Inventory = () => {
     setErrorMessage("");
 
     const url = editingProduct
-      ? `http://192.168.254.111:5000/api/products/${editingProduct.id}`
-      : "http://192.168.254.111:5000/api/products";
+      ? `http://10.34.0.141:5000/api/products/${editingProduct.id}`
+      : "http://10.34.0.141:5000/api/products";
     const method = editingProduct ? "PUT" : "POST";
 
     try {
@@ -260,7 +260,7 @@ const Inventory = () => {
 
     try {
       const res = await fetch(
-        `http://192.168.254.111:5000/api/products/${id}`,
+        `http://10.34.0.141:5000/api/products/${id}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },

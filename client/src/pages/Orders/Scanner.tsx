@@ -88,7 +88,7 @@ const Scanner = () => {
     try {
       // ✅ STEP 1: Verify the Digital Signature
       const verifyRes = await fetch(
-        "http://192.168.254.111:5000/api/orders/verify-receipt",
+        "http://10.34.0.141:5000/api/orders/verify-receipt",
         {
           method: "POST",
           headers: {
@@ -121,7 +121,7 @@ const Scanner = () => {
 
       // ✅ STEP 2: If valid, load the preview
       const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/scan-preview",
+        "http://10.34.0.141:5000/api/orders/scan-preview",
         {
           method: "POST",
           headers: {
@@ -191,7 +191,7 @@ const Scanner = () => {
 
     try {
       const res = await fetch(
-        "http://192.168.254.111:5000/api/orders/confirm-scan",
+        "http://10.34.0.141:5000/api/orders/confirm-scan",
         {
           method: "POST",
           headers: {

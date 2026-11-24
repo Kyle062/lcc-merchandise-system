@@ -112,7 +112,7 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       // ✅ FIXED: Using your local IP instead of localhost
-      const res = await fetch("http://192.168.254.111:5000/api/users", {
+      const res = await fetch("http://10.34.0.141:5000/api/users", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -185,7 +185,7 @@ const Users = () => {
       onConfirm: async () => {
         try {
           const res = await fetch(
-            `http://192.168.254.111:5000/api/users/${user.id}`,
+            `http://10.34.0.141:5000/api/users/${user.id}`,
             {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` },
@@ -212,7 +212,7 @@ const Users = () => {
   const handleRoleChange = async (userId: number, newRole: string) => {
     try {
       const res = await fetch(
-        `http://192.168.254.111:5000/api/users/${userId}/role`,
+        `http://10.34.0.141:5000/api/users/${userId}/role`,
         {
           method: "PUT",
           headers: {
@@ -240,7 +240,7 @@ const Users = () => {
     setErrorMessage("");
 
     try {
-      const res = await fetch("http://192.168.254.111:5000/api/users", {
+      const res = await fetch("http://10.34.0.141:5000/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

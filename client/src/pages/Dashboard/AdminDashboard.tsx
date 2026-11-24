@@ -66,7 +66,7 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         // Fetch from Python Service
-        const res = await fetch("http://192.168.254.111:8001/admin-dashboard");
+        const res = await fetch("http://10.34.0.141:8001/admin-dashboard");
 
         if (!res.ok) throw new Error("Failed to fetch data");
 

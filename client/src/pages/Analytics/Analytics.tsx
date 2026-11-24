@@ -48,7 +48,7 @@ const Analytics = () => {
 
     const fetchAnalytics = async () => {
       try {
-        const res = await fetch("http://192.168.254.111:8001/analytics", {
+        const res = await fetch("http://10.34.0.141:8001/analytics", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const result = await res.json();

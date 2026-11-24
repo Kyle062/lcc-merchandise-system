@@ -124,7 +124,7 @@ const Shop = () => {
     }
     const fetchData = async () => {
       try {
-        const res = await fetch("http://192.168.254.111:5000/api/products");
+        const res = await fetch("http://10.34.0.141:5000/api/products");
         const data = await res.json();
         const available = data.filter((p: any) => p.stock_quantity > 0);
 
@@ -302,7 +302,7 @@ const Shop = () => {
             })),
           };
 
-          const res = await fetch("http://192.168.254.111:5000/api/orders", {
+          const res = await fetch("http://10.34.0.141:5000/api/orders", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -339,7 +339,7 @@ const Shop = () => {
             setIsCartOpen(false);
 
             const updatedRes = await fetch(
-              "http://192.168.254.111:5000/api/products",
+              "http://10.34.0.141:5000/api/products",
             );
             const updatedData = await updatedRes.json();
             const available = updatedData.filter(
@@ -761,7 +761,7 @@ const Shop = () => {
                 Group #GRP-{String(receiptData.groupId).padStart(3, "0")}
               </div>
               <img
-                src={`http://192.168.254.111:8000/generate-qr?order_id=${receiptData.groupId}`}
+                src={`http://10.34.0.141:8000/generate-qr?order_id=${receiptData.groupId}`}
                 alt={`QR for Group ${receiptData.groupId}`}
                 className="receipt-qr-img"
               />
