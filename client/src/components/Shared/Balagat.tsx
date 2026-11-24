@@ -16,8 +16,11 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         </div>
         <Bell size={22} className="header-icon" />
         <div className="avatar">A</div>
+
+             <div className="avatar">A</div>     <div className="avatar">A</div>     <div className="avatar">A</div>     <div className="avatar">A</div>     <div className="avatar">A</div>
       </div>
     </div>
+    
   );
 };
 
