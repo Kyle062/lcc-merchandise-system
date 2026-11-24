@@ -76,21 +76,52 @@ export const getOrderDetails = async (req: Request, res: Response) => {
 export const updateWorkProgress = async (req: Request, res: Response) => {
   const { group_id } = req.params;
   const { status } = req.body;
+  const conn = await db.getConnection();
 
   try {
-    await db.query("UPDATE order_groups SET status = ? WHERE id = ?", [
+    if (status === "Refunded") {
+      return res.status(400).json({
+        message: "Use the refund action to mark an order as Refunded.",
+      });
+    }
+
+    await conn.beginTransaction();
+
+    const [groupRows]: any = await conn.query(
+      "SELECT status FROM order_groups WHERE id = ? FOR UPDATE",
+      [group_id],
+    );
+
+    if (groupRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Order group not found." });
+    }
+
+    if (groupRows[0].status === "Refunded") {
+      await conn.rollback();
+      return res
+        .status(400)
+        .json({ message: "Refunded orders cannot be modified." });
+    }
+
+    await conn.query("UPDATE order_groups SET status = ? WHERE id = ?", [
       status,
       group_id,
     ]);
-    await db.query("UPDATE orders SET status = ? WHERE group_id = ?", [
+    await conn.query("UPDATE orders SET status = ? WHERE group_id = ?", [
       status,
       group_id,
     ]);
+
+    await conn.commit();
     res.json({ message: `Order progress updated to ${status}` });
   } catch (error: any) {
+    await conn.rollback();
     res
       .status(500)
       .json({ message: "Error updating progress", details: error.message });
+  } finally {
+    conn.release();
   }
 };
 

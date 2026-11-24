@@ -155,6 +155,10 @@
   gap: 24px;
 }
 
+.analytics-content > * {
+  flex-shrink: 0;
+}
+
 /* Animation */
 .fade-in {
   animation: fadeIn 0.6s ease-in-out;
@@ -234,25 +238,37 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
 }
 
 .chart-frame {
   width: 100%;
   height: 300px;
+  min-height: 300px;
+  flex: 0 0 300px;
 }
 
 .analytics-card-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   margin-bottom: 24px;
+  flex-shrink: 0;
+}
+
+.analytics-card-header svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 .analytics-card-title {
+  min-width: 0;
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.35;
   color: #1f2937;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Tables */

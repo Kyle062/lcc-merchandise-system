@@ -14,12 +14,18 @@ import {
   Search,
   ArrowUpDown,
   XCircle,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import "./TrackOrders.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 import ConfirmDialog from "../../components/Toast/ConfirmDialog";
+import {
+  getPendingRefunds,
+  savePendingRefund,
+} from "../../utils/refundRequests";
 
 const TrackOrders = () => {
   const navigate = useNavigate();
@@ -27,6 +33,10 @@ const TrackOrders = () => {
   const [loading, setLoading] = useState(true);
   const [selectedQR, setSelectedQR] = useState<number | null>(null);
   const [filter, setFilter] = useState("All");
+  const [refundOrder, setRefundOrder] = useState<any | null>(null);
+  const [refundReason, setRefundReason] = useState("");
+  const [refunding, setRefunding] = useState(false);
+  const [pendingRefunds, setPendingRefunds] = useState(() => getPendingRefunds());
 
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
@@ -66,6 +76,9 @@ const TrackOrders = () => {
               order_date: item.order_date,
               total_price: 0,
               items: [],
+              refund_reason: item.refund_reason,
+              refunded_at: item.refunded_at,
+              refund_amount: item.refund_amount,
             };
           }
           acc[gid].total_price += Number(item.total_price);
@@ -77,6 +90,7 @@ const TrackOrders = () => {
           return acc;
         }, {});
         setGroupedOrders(Object.values(grouped));
+        setPendingRefunds(getPendingRefunds());
       }
       setLoading(false);
     } catch (error) {
@@ -98,7 +112,9 @@ const TrackOrders = () => {
     }, 5000);
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") fetchOrders();
+      if (document.visibilityState === "visible") {
+        fetchOrders();
+      }
     };
 
     window.addEventListener("focus", refreshWhenVisible);
@@ -110,6 +126,13 @@ const TrackOrders = () => {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [token, navigate]);
+
+  // Keep the approval badge in sync when the admin tab accepts or rejects.
+  useEffect(() => {
+    const syncPending = () => setPendingRefunds(getPendingRefunds());
+    window.addEventListener("storage", syncPending);
+    return () => window.removeEventListener("storage", syncPending);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -179,6 +202,76 @@ const TrackOrders = () => {
     setConfirmDelete({ isOpen: false, groupId: null });
   };
 
+  const REFUNDABLE_STATUSES = ["Processing", "Ready for Pickup"];
+
+  const handleSubmitRefund = async () => {
+    if (!refundOrder) return;
+
+    const reason = refundReason.trim();
+    if (!reason) {
+      showToast("error", "Reason Required", "Enter a reason for this refund.");
+      return;
+    }
+
+    // Ready-for-pickup orders need admin approval before money is returned.
+    if (refundOrder.status === "Ready for Pickup") {
+      savePendingRefund({
+        id: `${Date.now()}`,
+        group_id: refundOrder.group_id,
+        group_code: `#GRP-${String(refundOrder.group_id).padStart(3, "0")}`,
+        user_id: Number(localStorage.getItem("user_id")) || 0,
+        student_name:
+          localStorage.getItem("full_name") ||
+          localStorage.getItem("username") ||
+          "Student",
+        reason,
+        amount: Number(refundOrder.total_price) || 0,
+        requested_at: new Date().toISOString(),
+        status: "pending",
+      });
+      setPendingRefunds(getPendingRefunds());
+      showToast(
+        "success",
+        "Refund Requested",
+        "Sent to the admin for approval. Your order stays active until then.",
+      );
+      setRefundOrder(null);
+      setRefundReason("");
+      return;
+    }
+
+    setRefunding(true);
+
+    try {
+      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          group_id: refundOrder.group_id,
+          reason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not request refund.");
+
+      showToast(
+        "success",
+        "Refund Requested",
+        `Order #GRP-${refundOrder.group_id} has been refunded.`,
+      );
+      setRefundOrder(null);
+      setRefundReason("");
+      fetchOrders();
+    } catch (error: any) {
+      showToast("error", "Refund Failed", error.message);
+    } finally {
+      setRefunding(false);
+    }
+  };
+
   const processedOrders = useMemo(() => {
     let result = groupedOrders.filter(
       (o) => filter === "All" || o.status === filter,
@@ -209,6 +302,7 @@ const TrackOrders = () => {
     "Ready for Pickup",
     "Completed",
     "Cancelled",
+    "Refunded",
   ];
 
   return (
@@ -288,7 +382,7 @@ const TrackOrders = () => {
               {FILTERS.map((f) => (
                 <button
                   key={f}
-                  className={`track-filter-btn ${filter === f ? "active" : ""} ${f === "Cancelled" ? "filter-cancelled" : ""}`}
+                  className={`track-filter-btn ${filter === f ? "active" : ""} ${f === "Cancelled" ? "filter-cancelled" : ""} ${f === "Refunded" ? "filter-refunded" : ""}`}
                   onClick={() => setFilter(f)}
                 >
                   {f}
@@ -330,12 +424,16 @@ const TrackOrders = () => {
             <div className="order-list">
               {processedOrders.map((group) => {
                 const isCancelled = group.status === "Cancelled";
+                const isRefunded = group.status === "Refunded";
+                const pendingRefund = pendingRefunds.find(
+                  (request) => Number(request.group_id) === group.group_id,
+                );
                 const currentStep = getStep(group.status);
                 const isDone = group.status === "Completed";
                 return (
                   <div
                     key={group.group_id}
-                    className={`order-card ${isCancelled ? "cancelled-card" : ""}`}
+                    className={`order-card ${isCancelled ? "cancelled-card" : ""} ${isRefunded ? "refunded-card" : ""}`}
                   >
                     <div className="order-card-top">
                       <div className="order-info">
@@ -375,12 +473,52 @@ const TrackOrders = () => {
                           </button>
                         </div>
                       )}
+
+                      {REFUNDABLE_STATUSES.includes(group.status) &&
+                        !pendingRefund && (
+                          <div className="order-buttons">
+                            <button
+                              className="request-refund-btn"
+                              onClick={() => {
+                                setRefundOrder(group);
+                                setRefundReason("");
+                              }}
+                            >
+                              <RotateCcw size={14} /> Request Refund
+                            </button>
+                          </div>
+                        )}
+
+                      {pendingRefund && (
+                        <span className="pending-refund-badge">
+                          Refund pending admin approval
+                        </span>
+                      )}
                     </div>
 
                     {isCancelled ? (
                       <div className="cancelled-banner">
                         <XCircle size={20} />
                         <span>This order has been cancelled</span>
+                      </div>
+                    ) : isRefunded ? (
+                      <div className="refunded-banner">
+                        <RotateCcw size={20} />
+                        <div>
+                          <strong>This order has been refunded</strong>
+                          {group.refund_reason && (
+                            <>
+                              <p>Reason: {group.refund_reason}</p>
+                              <span>
+                                ₱
+                                {Number(
+                                  group.refund_amount || group.total_price,
+                                ).toLocaleString()}{" "}
+                                refunded on {formatDate(group.refunded_at)}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="order-timeline">
@@ -438,7 +576,9 @@ const TrackOrders = () => {
                           <div className="timeline-dot">
                             <Check size={14} />
                           </div>
-                          <span className="timeline-label">Done</span>
+                          <span className="timeline-label">
+                            Ready to Pick-up
+                          </span>
                         </div>
                       </div>
                     )}
@@ -449,6 +589,10 @@ const TrackOrders = () => {
                       </div>
                       {isCancelled ? (
                         <span className="cancelled-text">Cancelled</span>
+                      ) : isRefunded ? (
+                        <span className="status-badge badge-refunded">
+                          REFUNDED
+                        </span>
                       ) : group.status === "Completed" ? (
                         <span className="status-badge badge-completed">
                           Completed
@@ -521,6 +665,75 @@ const TrackOrders = () => {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {refundOrder && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            if (!refunding) setRefundOrder(null);
+          }}
+        >
+          <div
+            className="cart-modal refund-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              onClick={() => setRefundOrder(null)}
+              disabled={refunding}
+            >
+              <X size={20} />
+            </button>
+            <h2 className="cart-modal-title">Request Refund</h2>
+            <p className="refund-modal-description">
+              {refundOrder.status === "Ready for Pickup"
+                ? `Your request for order #GRP-${String(refundOrder.group_id).padStart(3, "0")} will be sent to the admin for approval. The order continues until approved.`
+                : `This will restore stock and permanently mark order #GRP-${String(refundOrder.group_id).padStart(3, "0")} as Refunded.`}
+            </p>
+
+            <div className="refund-summary">
+              <span>
+                Order <strong>#GRP-{String(refundOrder.group_id).padStart(3, "0")}</strong>
+              </span>
+              <span>
+                Amount <strong>₱{Number(refundOrder.total_price).toLocaleString()}</strong>
+              </span>
+            </div>
+
+            <label htmlFor="refund-reason">Reason for refund</label>
+            <textarea
+              id="refund-reason"
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              placeholder="e.g. Item is damaged / changed my mind"
+              disabled={refunding}
+              autoFocus
+            />
+
+            <div className="refund-actions">
+              <button
+                className="btn-refund-confirm"
+                onClick={handleSubmitRefund}
+                disabled={!refundReason.trim() || refunding}
+              >
+                <RotateCcw size={16} />
+                {refunding
+                  ? "Processing..."
+                  : refundOrder.status === "Ready for Pickup"
+                    ? "Send for Approval"
+                    : "Confirm Refund"}
+              </button>
+              <button
+                className="btn-close"
+                onClick={() => setRefundOrder(null)}
+                disabled={refunding}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

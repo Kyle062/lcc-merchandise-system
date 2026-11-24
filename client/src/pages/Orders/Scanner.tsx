@@ -14,6 +14,7 @@ import {
   X,
   AlertTriangle,
   CheckCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import "../Orders/Orders.css";
@@ -21,6 +22,10 @@ import "./Scanner.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
+import {
+  blockOrderGroup,
+  isGroupBlocked,
+} from "../../utils/blockedOrders";
 
 const Scanner = () => {
   const navigate = useNavigate();
@@ -91,6 +96,19 @@ const Scanner = () => {
     if (!groupIdMatch) return;
 
     const groupId = groupIdMatch[1];
+
+    if (isGroupBlocked(Number(groupId))) {
+      setScanError(
+        "This receipt was previously flagged as tampered. It is blocked and will not be recorded in Order Management.",
+      );
+      showToast(
+        "error",
+        "Blocked Receipt",
+        "Tampered receipts cannot be processed.",
+      );
+      return;
+    }
+
     if (isProcessingRef.current || previewData) return;
     isProcessingRef.current = true;
 
@@ -117,10 +135,10 @@ const Scanner = () => {
 
       if (!verifyData.isValid) {
         setScanError(
-          verifyData.message ||
-            "TAMPERED RECEIPT DETECTED! This receipt is forged.",
+          `${verifyData.message || "TAMPERED RECEIPT DETECTED! This receipt is forged."} This order is blocked and will not be recorded in Order Management.`,
         );
         setTamperDiffs(verifyData.diffs || []);
+        blockOrderGroup(Number(groupId));
         setSignedSnapshot(verifyData.signed_snapshot || null);
         showToast("error", "SECURITY ALERT", "Digital signature mismatch.");
         setTimeout(() => {
@@ -206,6 +224,15 @@ const Scanner = () => {
     const groupId = Number(previewData?.id);
     if (!Number.isInteger(groupId))
       return showToast("error", "Invalid Receipt", "Order group is missing.");
+
+    if (isGroupBlocked(groupId)) {
+      closeModal();
+      return showToast(
+        "error",
+        "Receipt Blocked",
+        "Tampered orders cannot be recorded in Order Management.",
+      );
+    }
 
     const items = editedItems.map((item) => ({
       id: Number(item.id),
@@ -561,8 +588,16 @@ const Scanner = () => {
                 </div>
                 <div className="receipt-info-row">
                   <span>Signature:</span>
-                  <strong style={{ color: "#059669", fontSize: "11px" }}>
-                    ✅ VERIFIED
+                  <strong
+                    style={{
+                      color: "#059669",
+                      fontSize: "11px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    <ShieldCheck size={14} /> VERIFIED
                   </strong>
                 </div>
               </div>

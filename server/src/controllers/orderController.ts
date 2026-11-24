@@ -75,10 +75,13 @@ export const getMyOrders = async (req: Request, res: Response) => {
       SELECT 
         o.id, o.quantity, o.total_price, o.order_date, o.group_id,
         g.status AS status, g.group_code, g.digital_signature,
-        p.name AS product_name, p.size AS product_size
+        p.name AS product_name, p.size AS product_size,
+        r.reason AS refund_reason, r.refunded_at AS refunded_at,
+        r.amount AS refund_amount
       FROM orders o
       JOIN products p ON o.product_id = p.id
       JOIN order_groups g ON o.group_id = g.id
+      LEFT JOIN refunds r ON r.group_id = g.id
       WHERE o.user_id = ?
       ORDER BY o.order_date DESC
     `,
@@ -349,6 +352,11 @@ export const getScanPreview = async (req: Request, res: Response) => {
 
     const group = groupRows[0];
 
+    if (group.status === "Refunded")
+      return res
+        .status(400)
+        .json({ message: "This order has been refunded and cannot be scanned." });
+
     if (!group.digital_signature) {
       return res
         .status(400)
@@ -440,6 +448,13 @@ export const confirmScanOrder = async (req: Request, res: Response) => {
       [groupId],
     );
     if (groupRows.length === 0) throw new Error("Order group not found.");
+    if (groupRows[0].status === "Refunded") {
+      const error: any = new Error(
+        "This order has been refunded and cannot be scanned.",
+      );
+      error.status = 400;
+      throw error;
+    }
     if (groupRows[0].status !== "Pending")
       throw new Error(`This order is already "${groupRows[0].status}".`);
 
@@ -519,7 +534,7 @@ export const confirmScanOrder = async (req: Request, res: Response) => {
     await conn.rollback();
     console.error("confirmScanOrder error:", error.message);
     res
-      .status(500)
+      .status(error.status || 500)
       .json({ message: error.message || "Server error during confirmation" });
   } finally {
     conn.release();
@@ -530,30 +545,87 @@ export const confirmScanOrder = async (req: Request, res: Response) => {
 export const updateOrderStatus = async (req: Request, res: Response) => {
   const { status } = req.body;
   const { id } = req.params;
+  const conn = await db.getConnection();
+
   try {
-    await db.query("UPDATE order_groups SET status = ? WHERE id = ?", [
+    if (status === "Refunded") {
+      return res.status(400).json({
+        message: "Use the refund action to mark an order as Refunded.",
+      });
+    }
+
+    await conn.beginTransaction();
+
+    const [groupRows]: any = await conn.query(
+      "SELECT status FROM order_groups WHERE id = ? FOR UPDATE",
+      [id],
+    );
+
+    if (groupRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Order group not found." });
+    }
+
+    if (groupRows[0].status === "Refunded") {
+      await conn.rollback();
+      return res
+        .status(400)
+        .json({ message: "Refunded orders cannot be modified." });
+    }
+
+    await conn.query("UPDATE order_groups SET status = ? WHERE id = ?", [
       status,
       id,
     ]);
-    await db.query("UPDATE orders SET status = ? WHERE group_id = ?", [
+    await conn.query("UPDATE orders SET status = ? WHERE group_id = ?", [
       status,
       id,
     ]);
+
+    await conn.commit();
     res.json({ message: "Status updated" });
   } catch (error: any) {
+    await conn.rollback();
     console.error("❌ updateOrderStatus error:", error.message);
     res.status(500).json({ message: "Error updating status" });
+  } finally {
+    conn.release();
   }
 };
 
 // Delete whole Group (Admin)
 export const deleteOrder = async (req: Request, res: Response) => {
+  const conn = await db.getConnection();
+
   try {
-    await db.query("DELETE FROM order_groups WHERE id = ?", [req.params.id]);
+    await conn.beginTransaction();
+
+    const [groupRows]: any = await conn.query(
+      "SELECT status FROM order_groups WHERE id = ? FOR UPDATE",
+      [req.params.id],
+    );
+
+    if (groupRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Order group not found." });
+    }
+
+    if (groupRows[0].status === "Refunded") {
+      await conn.rollback();
+      return res
+        .status(400)
+        .json({ message: "Refunded orders cannot be deleted." });
+    }
+
+    await conn.query("DELETE FROM order_groups WHERE id = ?", [req.params.id]);
+    await conn.commit();
     res.json({ message: "Order group deleted" });
   } catch (error: any) {
+    await conn.rollback();
     console.error("❌ deleteOrder error:", error.message);
     res.status(500).json({ message: "Error deleting order" });
+  } finally {
+    conn.release();
   }
 };
 
