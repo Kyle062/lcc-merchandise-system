@@ -1,8 +1,11 @@
 .refund-receipt-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(520px, calc(100vw - 32px));
   max-height: calc(100vh - 40px);
-  overflow-y: auto;
+  max-height: calc(100dvh - 40px);
+  overflow: hidden;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
@@ -10,6 +13,11 @@
 }
 
 .refund-receipt-print {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 28px 30px 20px;
 }
 
@@ -136,9 +144,12 @@
 }
 
 .refund-receipt-actions {
+  flex-shrink: 0;
   display: flex;
   gap: 10px;
-  padding: 0 30px 24px;
+  padding: 16px 30px 20px;
+  background: #ffffff;
+  border-top: 1px solid #f3f4f6;
 }
 
 .refund-receipt-actions button {
@@ -167,22 +178,85 @@
   box-shadow: 0 4px 10px -4px rgba(21, 128, 61, 0.45);
 }
 
-@media (max-width: 480px) {
-  .refund-receipt-print {
-    padding: 24px 18px 16px;
+@media (max-width: 600px) {
+  .refund-receipt-card {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 12px;
   }
 
-  .refund-receipt-actions {
-    padding: 0 18px 20px;
+  .refund-receipt-print {
+    padding: 18px 16px 12px;
+  }
+
+  .refund-receipt-header {
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .refund-receipt-logo {
+    width: 38px;
+    height: 38px;
+  }
+
+  .refund-receipt-header h2 {
+    font-size: 12px;
+  }
+
+  .refund-receipt-header p {
+    font-size: 11px;
+  }
+
+  .refund-success-banner {
+    gap: 10px;
+    margin: 14px 0;
+    padding: 10px 12px;
+  }
+
+  .refund-success-banner strong {
+    font-size: 12px;
+  }
+
+  .refund-success-banner span {
+    font-size: 11px;
   }
 
   .refund-receipt-row {
-    flex-direction: column;
-    gap: 3px;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
   }
 
   .refund-receipt-row strong {
-    text-align: left;
+    max-width: 62%;
+    text-align: right;
+  }
+
+  .refund-receipt-amount {
+    margin-top: 12px;
+    padding: 12px;
+  }
+
+  .refund-receipt-amount strong {
+    font-size: 18px;
+  }
+
+  .refund-receipt-note {
+    margin-top: 12px;
+    font-size: 10px;
+  }
+
+  .refund-receipt-actions {
+    gap: 8px;
+    padding: 12px 16px 14px;
+  }
+
+  .refund-receipt-actions button {
+    gap: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
   }
 }
 

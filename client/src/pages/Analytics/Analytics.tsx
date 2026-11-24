@@ -33,6 +33,12 @@ import jsPDF from "jspdf";
 import "./Analytics.css";
 import logo from "../../assets/images/LCClogo1.png";
 
+const formatDayTick = (value: string) => {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
 const Analytics = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
@@ -351,6 +357,7 @@ const Analytics = () => {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fontSize: 11 }}
+                      tickFormatter={formatDayTick}
                     />
                     <YAxis axisLine={false} tickLine={false} />
                     <Tooltip
