@@ -12,6 +12,7 @@ import {
   Trash2,
   X,
   ShieldCheck,
+  Search,
 } from "lucide-react";
 import "./Shop.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -31,6 +32,7 @@ const Shop = () => {
   const [groupedProducts, setGroupedProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
   const [cart, setCart] = useState<any[]>(() => {
@@ -66,26 +68,18 @@ const Shop = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
-  // ✅ STRICT IMAGE MAPPING
   const getProductImage = (name: string) => {
     const lowerName = name.toLowerCase();
 
-    // 1. BSIT Cap ONLY
     if (lowerName === "bsit cap") {
       return capImage;
     }
-
-    // 2. ID / Lanyard ONLY
     if (lowerName.includes("id") || lowerName.includes("lanyard")) {
       return idImage;
     }
-
-    // 3. Slacks / Pants ONLY
     if (lowerName.includes("slack") || lowerName.includes("pants")) {
       return slackImage;
     }
-
-    // 4. Department Uniform / Polo ONLY
     if (
       lowerName.includes("department") ||
       (lowerName.includes("uniform") &&
@@ -94,9 +88,6 @@ const Shop = () => {
     ) {
       return uniformImage;
     }
-
-    // 5. If it's a PE Uniform or anything else, fallback to a placeholder for now
-    // (You can upload specific PE images later and add them here)
     return "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=400";
   };
 
@@ -143,15 +134,26 @@ const Shop = () => {
     fetchData();
   }, [token, navigate]);
 
+  // ✅ Combined Search & Course Filter Logic
   useEffect(() => {
-    if (selectedCourse === "All") {
-      setFilteredProducts(groupedProducts);
-    } else {
-      setFilteredProducts(
-        groupedProducts.filter((p) => p.course === selectedCourse),
+    let result = groupedProducts;
+
+    if (selectedCourse !== "All") {
+      result = result.filter((p) => p.course === selectedCourse);
+    }
+
+    if (searchQuery.trim() !== "") {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lowerQuery) ||
+          (p.description && p.description.toLowerCase().includes(lowerQuery)) ||
+          (p.course && p.course.toLowerCase().includes(lowerQuery)),
       );
     }
-  }, [selectedCourse, groupedProducts]);
+
+    setFilteredProducts(result);
+  }, [selectedCourse, groupedProducts, searchQuery]);
 
   const handleOpenSizeModal = (product: any) => {
     setSelectedProduct(product);
@@ -455,23 +457,44 @@ const Shop = () => {
         </div>
 
         <div className="shop-content">
-          <div className="shop-filters">
-            {COURSES.map((course) => (
-              <button
-                key={course}
-                className={`filter-tab ${selectedCourse === course ? "active" : ""}`}
-                onClick={() => setSelectedCourse(course)}
-              >
-                {course === "All" ? "All" : course}
-              </button>
-            ))}
+          <div className="shop-controls">
+            <div className="shop-search-container">
+              <Search size={18} className="shop-search-icon" />
+              <input
+                type="text"
+                placeholder="Search merchandise..."
+                className="shop-search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  className="shop-search-clear"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="shop-filters">
+              {COURSES.map((course) => (
+                <button
+                  key={course}
+                  className={`filter-tab ${selectedCourse === course ? "active" : ""}`}
+                  onClick={() => setSelectedCourse(course)}
+                >
+                  {course === "All" ? "All" : course}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
             <div className="loading-state">Loading products...</div>
           ) : filteredProducts.length === 0 ? (
             <div className="empty-state">
-              No products available for {selectedCourse}.
+              No products found matching your search.
             </div>
           ) : (
             <div className="product-grid">
