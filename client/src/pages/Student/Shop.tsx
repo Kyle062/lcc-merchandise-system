@@ -22,6 +22,11 @@ import uniformImage from "../../assets/images/AllDeptUniform.jpg";
 import capImage from "../../assets/images/ITcap.jpg";
 import slackImage from "../../assets/images/AllDeptSlacks.jpg";
 
+// ✅ NEW IMPORTS for the newly added merchandise
+import bscHatImage from "../../assets/images/BSCriminologyHat.jpg";
+import bscPoloImage from "../../assets/images/BSCriminologyPolo.jpg";
+import bsitShirtImage from "../../assets/images/BSITT-SHIRT.jpg";
+
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 import ConfirmDialog from "../../components/Toast/ConfirmDialog";
@@ -68,9 +73,28 @@ const Shop = () => {
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
 
+  // ✅ UPDATED STRICT IMAGE MAPPING
   const getProductImage = (name: string) => {
     const lowerName = name.toLowerCase();
 
+    // New merchandise based on exact names
+    if (lowerName.includes("criminology") && lowerName.includes("hat")) {
+      return bscHatImage;
+    }
+    if (
+      lowerName.includes("criminology") &&
+      (lowerName.includes("polo") || lowerName.includes("uniform"))
+    ) {
+      return bscPoloImage;
+    }
+    if (
+      lowerName.includes("bsit") &&
+      (lowerName.includes("shirt") || lowerName.includes("t-shirt"))
+    ) {
+      return bsitShirtImage;
+    }
+
+    // Existing merchandise
     if (lowerName === "bsit cap") {
       return capImage;
     }
@@ -84,10 +108,12 @@ const Shop = () => {
       lowerName.includes("department") ||
       (lowerName.includes("uniform") &&
         !lowerName.includes("pe") &&
-        !lowerName.includes("cap"))
+        !lowerName.includes("cap") &&
+        !lowerName.includes("criminology"))
     ) {
       return uniformImage;
     }
+
     return "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=400";
   };
 
@@ -134,7 +160,6 @@ const Shop = () => {
     fetchData();
   }, [token, navigate]);
 
-  // ✅ Combined Search & Course Filter Logic
   useEffect(() => {
     let result = groupedProducts;
 
