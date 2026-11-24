@@ -424,6 +424,56 @@
   font-size: 12px;
   font-weight: 600;
 }
+
+.view-receipt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid #a7f3d0;
+  border-radius: var(--radius);
+  background: #ecfdf5;
+  color: #065f46;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.view-receipt-btn:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.staff-refund-instruction {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 4px 0 16px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.staff-refund-instruction svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.staff-refund-instruction strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.staff-refund-instruction p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #1e3a8a;
+}
 .processed-text {
   font-size: 12px;
   color: #9ca3af;

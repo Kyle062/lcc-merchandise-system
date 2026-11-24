@@ -16,16 +16,18 @@ import {
   XCircle,
   X,
   RotateCcw,
+  Store,
+  Info,
+  ReceiptText,
 } from "lucide-react";
 import "./TrackOrders.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 import ConfirmDialog from "../../components/Toast/ConfirmDialog";
-import {
-  getPendingRefunds,
-  savePendingRefund,
-} from "../../utils/refundRequests";
+import RefundReceipt, {
+  type RefundReceiptData,
+} from "../../components/RefundReceipt/RefundReceipt";
 
 const TrackOrders = () => {
   const navigate = useNavigate();
@@ -36,7 +38,10 @@ const TrackOrders = () => {
   const [refundOrder, setRefundOrder] = useState<any | null>(null);
   const [refundReason, setRefundReason] = useState("");
   const [refunding, setRefunding] = useState(false);
-  const [pendingRefunds, setPendingRefunds] = useState(() => getPendingRefunds());
+  const [refunds, setRefunds] = useState<any[]>([]);
+  const [receiptRefund, setReceiptRefund] = useState<RefundReceiptData | null>(
+    null,
+  );
 
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
@@ -58,6 +63,18 @@ const TrackOrders = () => {
 
   const token = localStorage.getItem("token");
   const studentName = localStorage.getItem("username") || "Student";
+
+  const fetchRefunds = async () => {
+    try {
+      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) setRefunds(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -90,7 +107,7 @@ const TrackOrders = () => {
           return acc;
         }, {});
         setGroupedOrders(Object.values(grouped));
-        setPendingRefunds(getPendingRefunds());
+        fetchRefunds();
       }
       setLoading(false);
     } catch (error) {
@@ -126,13 +143,6 @@ const TrackOrders = () => {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [token, navigate]);
-
-  // Keep the approval badge in sync when the admin tab accepts or rejects.
-  useEffect(() => {
-    const syncPending = () => setPendingRefunds(getPendingRefunds());
-    window.addEventListener("storage", syncPending);
-    return () => window.removeEventListener("storage", syncPending);
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -203,40 +213,29 @@ const TrackOrders = () => {
   };
 
   const REFUNDABLE_STATUSES = ["Processing", "Ready for Pickup"];
+  const STAFF_REFUND_STATUSES = ["Completed"];
+
+  const openRefundReceipt = async (refundId: number) => {
+    try {
+      const res = await fetch(
+        `http://172.20.10.4:5000/api/refunds/${refundId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json();
+      if (res.ok) setReceiptRefund(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const handleSubmitRefund = async () => {
-    if (!refundOrder) return;
+    if (!refundOrder || STAFF_REFUND_STATUSES.includes(refundOrder.status)) {
+      return;
+    }
 
     const reason = refundReason.trim();
     if (!reason) {
       showToast("error", "Reason Required", "Enter a reason for this refund.");
-      return;
-    }
-
-    // Ready-for-pickup orders need admin approval before money is returned.
-    if (refundOrder.status === "Ready for Pickup") {
-      savePendingRefund({
-        id: `${Date.now()}`,
-        group_id: refundOrder.group_id,
-        group_code: `#GRP-${String(refundOrder.group_id).padStart(3, "0")}`,
-        user_id: Number(localStorage.getItem("user_id")) || 0,
-        student_name:
-          localStorage.getItem("full_name") ||
-          localStorage.getItem("username") ||
-          "Student",
-        reason,
-        amount: Number(refundOrder.total_price) || 0,
-        requested_at: new Date().toISOString(),
-        status: "pending",
-      });
-      setPendingRefunds(getPendingRefunds());
-      showToast(
-        "success",
-        "Refund Requested",
-        "Sent to the admin for approval. Your order stays active until then.",
-      );
-      setRefundOrder(null);
-      setRefundReason("");
       return;
     }
 
@@ -257,13 +256,24 @@ const TrackOrders = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Could not request refund.");
 
-      showToast(
-        "success",
-        "Refund Requested",
-        `Order #GRP-${refundOrder.group_id} has been refunded.`,
-      );
       setRefundOrder(null);
       setRefundReason("");
+
+      if (data.status === "pending") {
+        showToast(
+          "success",
+          "Refund Requested",
+          "Sent to the admin for approval. Your order stays active until then.",
+        );
+      } else {
+        showToast(
+          "success",
+          "Refund Successful",
+          `Order #GRP-${String(refundOrder.group_id).padStart(3, "0")} has been refunded.`,
+        );
+        await openRefundReceipt(data.refundId);
+      }
+
       fetchOrders();
     } catch (error: any) {
       showToast("error", "Refund Failed", error.message);
@@ -425,8 +435,15 @@ const TrackOrders = () => {
               {processedOrders.map((group) => {
                 const isCancelled = group.status === "Cancelled";
                 const isRefunded = group.status === "Refunded";
-                const pendingRefund = pendingRefunds.find(
-                  (request) => Number(request.group_id) === group.group_id,
+                const pendingRefund = refunds.find(
+                  (refund) =>
+                    Number(refund.group_id) === group.group_id &&
+                    refund.status === "pending",
+                );
+                const approvedRefund = refunds.find(
+                  (refund) =>
+                    Number(refund.group_id) === group.group_id &&
+                    refund.status === "approved",
                 );
                 const currentStep = getStep(group.status);
                 const isDone = group.status === "Completed";
@@ -474,7 +491,8 @@ const TrackOrders = () => {
                         </div>
                       )}
 
-                      {REFUNDABLE_STATUSES.includes(group.status) &&
+                      {(REFUNDABLE_STATUSES.includes(group.status) ||
+                        STAFF_REFUND_STATUSES.includes(group.status)) &&
                         !pendingRefund && (
                           <div className="order-buttons">
                             <button
@@ -493,6 +511,15 @@ const TrackOrders = () => {
                         <span className="pending-refund-badge">
                           Refund pending admin approval
                         </span>
+                      )}
+
+                      {isRefunded && approvedRefund && (
+                        <button
+                          className="view-receipt-btn"
+                          onClick={() => setReceiptRefund(approvedRefund)}
+                        >
+                          <ReceiptText size={14} /> Refund Receipt
+                        </button>
                       )}
                     </div>
 
@@ -576,9 +603,7 @@ const TrackOrders = () => {
                           <div className="timeline-dot">
                             <Check size={14} />
                           </div>
-                          <span className="timeline-label">
-                            Ready to Pick-up
-                          </span>
+                          <span className="timeline-label">Complete</span>
                         </div>
                       </div>
                     )}
@@ -687,55 +712,115 @@ const TrackOrders = () => {
             >
               <X size={20} />
             </button>
-            <h2 className="cart-modal-title">Request Refund</h2>
-            <p className="refund-modal-description">
-              {refundOrder.status === "Ready for Pickup"
-                ? `Your request for order #GRP-${String(refundOrder.group_id).padStart(3, "0")} will be sent to the admin for approval. The order continues until approved.`
-                : `This will restore stock and permanently mark order #GRP-${String(refundOrder.group_id).padStart(3, "0")} as Refunded.`}
-            </p>
+            <h2 className="cart-modal-title">
+              {refundOrder.status === "Completed"
+                ? "Refund Assistance"
+                : "Request Refund"}
+            </h2>
 
-            <div className="refund-summary">
-              <span>
-                Order <strong>#GRP-{String(refundOrder.group_id).padStart(3, "0")}</strong>
-              </span>
-              <span>
-                Amount <strong>₱{Number(refundOrder.total_price).toLocaleString()}</strong>
-              </span>
-            </div>
+            {refundOrder.status === "Completed" ? (
+              <>
+                <div className="staff-refund-instruction">
+                  <Store size={22} />
+                  <div>
+                    <strong>Please see LCC staff</strong>
+                    <p>
+                      Completed orders are refunded in person. Bring your order
+                      ID (#GRP-
+                      {String(refundOrder.group_id).padStart(3, "0")}) and a
+                      valid ID to the LCC merchandise staff counter to request
+                      your refund.
+                    </p>
+                  </div>
+                </div>
+                <div className="refund-summary">
+                  <span>
+                    Order{" "}
+                    <strong>
+                      #GRP-{String(refundOrder.group_id).padStart(3, "0")}
+                    </strong>
+                  </span>
+                  <span>
+                    Amount{" "}
+                    <strong>
+                      ₱{Number(refundOrder.total_price).toLocaleString()}
+                    </strong>
+                  </span>
+                </div>
+                <div className="refund-actions">
+                  <button
+                    className="btn-refund-confirm"
+                    onClick={() => setRefundOrder(null)}
+                  >
+                    <Info size={16} /> Understood
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="refund-modal-description">
+                  {refundOrder.status === "Ready for Pickup"
+                    ? `Your request for order #GRP-${String(refundOrder.group_id).padStart(3, "0")} will be sent to the admin for approval. The order continues until approved. You may also approach LCC staff to request a refund in person.`
+                    : `This will restore stock and permanently mark order #GRP-${String(refundOrder.group_id).padStart(3, "0")} as Refunded.`}
+                </p>
 
-            <label htmlFor="refund-reason">Reason for refund</label>
-            <textarea
-              id="refund-reason"
-              value={refundReason}
-              onChange={(e) => setRefundReason(e.target.value)}
-              placeholder="e.g. Item is damaged / changed my mind"
-              disabled={refunding}
-              autoFocus
-            />
+                <div className="refund-summary">
+                  <span>
+                    Order{" "}
+                    <strong>
+                      #GRP-{String(refundOrder.group_id).padStart(3, "0")}
+                    </strong>
+                  </span>
+                  <span>
+                    Amount{" "}
+                    <strong>
+                      ₱{Number(refundOrder.total_price).toLocaleString()}
+                    </strong>
+                  </span>
+                </div>
 
-            <div className="refund-actions">
-              <button
-                className="btn-refund-confirm"
-                onClick={handleSubmitRefund}
-                disabled={!refundReason.trim() || refunding}
-              >
-                <RotateCcw size={16} />
-                {refunding
-                  ? "Processing..."
-                  : refundOrder.status === "Ready for Pickup"
-                    ? "Send for Approval"
-                    : "Confirm Refund"}
-              </button>
-              <button
-                className="btn-close"
-                onClick={() => setRefundOrder(null)}
-                disabled={refunding}
-              >
-                Cancel
-              </button>
-            </div>
+                <label htmlFor="refund-reason">Reason for refund</label>
+                <textarea
+                  id="refund-reason"
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  placeholder="e.g. Item is damaged / changed my mind"
+                  disabled={refunding}
+                  autoFocus
+                />
+
+                <div className="refund-actions">
+                  <button
+                    className="btn-refund-confirm"
+                    onClick={handleSubmitRefund}
+                    disabled={!refundReason.trim() || refunding}
+                  >
+                    <RotateCcw size={16} />
+                    {refunding
+                      ? "Processing..."
+                      : refundOrder.status === "Ready for Pickup"
+                        ? "Send for Approval"
+                        : "Confirm Refund"}
+                  </button>
+                  <button
+                    className="btn-close"
+                    onClick={() => setRefundOrder(null)}
+                    disabled={refunding}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
+      )}
+
+      {receiptRefund && (
+        <RefundReceipt
+          refund={receiptRefund}
+          onClose={() => setReceiptRefund(null)}
+        />
       )}
     </div>
   );

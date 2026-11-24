@@ -701,7 +701,8 @@ table {
   .added-actions button,
   .modal-actions button,
   .confirm-actions button,
-  .order-buttons button {
+  .order-buttons button,
+  .view-receipt-btn {
     width: 100%;
   }
 

@@ -34,11 +34,16 @@ CREATE TABLE IF NOT EXISTS `refunds` (
   `admin_id` INT NULL COMMENT 'NULL when a student requests the refund',
   `amount` DECIMAL(10,2) NOT NULL,
   `reason` TEXT NOT NULL,
+  `status` ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'approved',
+  `reviewed_by` INT NULL COMMENT 'Admin who accepted or rejected a pending request',
+  `reviewed_at` DATETIME NULL,
+  `rejection_reason` VARCHAR(255) NULL,
   `refunded_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_refunds_group_id` (`group_id`),
   KEY `idx_refunds_user_id` (`user_id`),
   KEY `idx_refunds_admin_id` (`admin_id`),
+  KEY `idx_refunds_status` (`status`),
   CONSTRAINT `fk_refunds_group_id`
     FOREIGN KEY (`group_id`) REFERENCES `order_groups` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_refunds_user_id`

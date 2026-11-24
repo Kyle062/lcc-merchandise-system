@@ -76,12 +76,13 @@ export const getMyOrders = async (req: Request, res: Response) => {
         o.id, o.quantity, o.total_price, o.order_date, o.group_id,
         g.status AS status, g.group_code, g.digital_signature,
         p.name AS product_name, p.size AS product_size,
+        r.id AS refund_id, r.status AS refund_status,
         r.reason AS refund_reason, r.refunded_at AS refunded_at,
         r.amount AS refund_amount
       FROM orders o
       JOIN products p ON o.product_id = p.id
       JOIN order_groups g ON o.group_id = g.id
-      LEFT JOIN refunds r ON r.group_id = g.id
+      LEFT JOIN refunds r ON r.group_id = g.id AND r.status = 'approved'
       WHERE o.user_id = ?
       ORDER BY o.order_date DESC
     `,

@@ -1,0 +1,212 @@
+.refund-receipt-card {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  font-family: "Inter", sans-serif;
+}
+
+.refund-receipt-print {
+  padding: 28px 30px 20px;
+}
+
+.refund-receipt-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.refund-receipt-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.refund-receipt-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #111827;
+}
+
+.refund-receipt-header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.refund-success-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.refund-success-banner strong {
+  display: block;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.refund-success-banner span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #047857;
+}
+
+.refund-receipt-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.refund-receipt-rows {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.refund-receipt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.refund-receipt-row:last-child {
+  border-bottom: none;
+}
+
+.refund-receipt-row span {
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.refund-receipt-row strong {
+  color: #1f2937;
+  text-align: right;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.refund-receipt-amount {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.refund-receipt-amount span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.refund-receipt-amount strong {
+  font-size: 22px;
+  color: #065f46;
+}
+
+.refund-receipt-note {
+  margin: 16px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.refund-receipt-actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 30px 24px;
+}
+
+.refund-receipt-actions button {
+  flex: 1;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: 9px;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.refund-receipt-actions .btn-print {
+  border: none;
+  background: #15803d;
+  color: #ffffff;
+}
+
+.refund-receipt-actions .btn-print:hover {
+  background: #166534;
+  box-shadow: 0 4px 10px -4px rgba(21, 128, 61, 0.45);
+}
+
+@media (max-width: 480px) {
+  .refund-receipt-print {
+    padding: 24px 18px 16px;
+  }
+
+  .refund-receipt-actions {
+    padding: 0 18px 20px;
+  }
+
+  .refund-receipt-row {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .refund-receipt-row strong {
+    text-align: left;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .refund-receipt-print,
+  .refund-receipt-print * {
+    visibility: visible !important;
+  }
+
+  .refund-receipt-print {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-height: none;
+    padding: 24px;
+    background: #ffffff;
+  }
+
+  .refund-receipt-actions,
+  .refund-receipt-card > .modal-close {
+    display: none !important;
+  }
+}

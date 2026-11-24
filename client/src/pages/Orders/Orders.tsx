@@ -24,16 +24,15 @@ import {
   Check,
   Ban,
   Inbox,
+  ReceiptText,
 } from "lucide-react";
 import "./Orders.css";
 import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
-import {
-  getPendingRefunds,
-  removePendingRefund,
-  type PendingRefundRequest,
-} from "../../utils/refundRequests";
+import RefundReceipt, {
+  type RefundReceiptData,
+} from "../../components/RefundReceipt/RefundReceipt";
 import { getBlockedGroupIds } from "../../utils/blockedOrders";
 
 interface OrderGroup {
@@ -93,10 +92,10 @@ const Orders = () => {
   const [refundReason, setRefundReason] = useState("");
   const [refunding, setRefunding] = useState(false);
   const [refundInfo, setRefundInfo] = useState<any>(null);
-  const [pendingRefunds, setPendingRefunds] = useState<PendingRefundRequest[]>(
-    () => getPendingRefunds(),
-  );
-  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [refunds, setRefunds] = useState<any[]>([]);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const [receiptRefund, setReceiptRefund] =
+    useState<RefundReceiptData | null>(null);
   const [sortRules, setSortRules] = useState<SortRule[]>([
     { key: "order_date", order: "desc" },
   ]);
@@ -119,6 +118,20 @@ const Orders = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const token = localStorage.getItem("token");
+
+  const fetchRefunds = async () => {
+    try {
+      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) setRefunds(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const pendingRefunds = refunds.filter((refund) => refund.status === "pending");
 
   const fetchOrders = async () => {
     try {
@@ -153,7 +166,7 @@ const Orders = () => {
           (group: any) => !blocked.includes(Number(group.group_id)),
         );
         setOrders(visibleGroups);
-        setPendingRefunds(getPendingRefunds());
+        fetchRefunds();
         setLastUpdated(new Date());
       }
       setLoading(false);
@@ -172,17 +185,22 @@ const Orders = () => {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(fetchOrders, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchOrders, 10000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") fetchOrders();
+    };
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, [autoRefresh, token]);
 
-  // Student requests and scanner tamper blocks live in the same browser
-  // storage, so react to cross-tab changes immediately.
+  // Scanner tamper blocks live in browser storage; react to cross-tab changes.
   useEffect(() => {
-    const sync = () => {
-      setPendingRefunds(getPendingRefunds());
-      fetchOrders();
-    };
+    const sync = () => fetchOrders();
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
   }, [token]);
@@ -239,24 +257,14 @@ const Orders = () => {
       return;
     }
 
-    const fetchRefundInfo = async () => {
-      try {
-        const res = await fetch("http://172.20.10.4:5000/api/refunds", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok || !Array.isArray(data)) return;
-        setRefundInfo(
-          data.find((refund: any) => refund.group_id === selectedOrder.group_id) ||
-            null,
-        );
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    fetchRefundInfo();
-  }, [selectedOrder, token]);
+    setRefundInfo(
+      refunds.find(
+        (refund) =>
+          refund.group_id === selectedOrder.group_id &&
+          refund.status === "approved",
+      ) || null,
+    );
+  }, [selectedOrder, refunds]);
 
   const handleSort = (key: SortKey) => {
     setSortRules((prev) => {
@@ -359,6 +367,19 @@ const Orders = () => {
     }
   };
 
+  const openRefundReceipt = async (refundId: number) => {
+    try {
+      const res = await fetch(
+        `http://172.20.10.4:5000/api/refunds/${refundId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json();
+      if (res.ok) setReceiptRefund(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleSubmitRefund = async () => {
     if (!refundOrder) return;
 
@@ -388,11 +409,12 @@ const Orders = () => {
       showToast(
         "success",
         "Refund Issued",
-        `Order #GRP-${refundOrder.group_id} refunded. Stock has been restored.`,
+        `Order #GRP-${String(refundOrder.group_id).padStart(3, "0")} refunded. Stock has been restored.`,
       );
       setRefundOrder(null);
       setRefundReason("");
       setSelectedOrder(null);
+      await openRefundReceipt(data.refundId);
       fetchOrders();
     } catch (error: any) {
       showToast("error", "Refund Failed", error.message);
@@ -401,30 +423,25 @@ const Orders = () => {
     }
   };
 
-  const handleAcceptRefund = async (request: PendingRefundRequest) => {
-    setReviewingId(request.id);
+  const handleAcceptRefund = async (request: any) => {
+    setReviewingId(Number(request.id));
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `http://172.20.10.4:5000/api/refunds/${request.id}/approve`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
         },
-        body: JSON.stringify({
-          group_id: request.group_id,
-          reason: request.reason,
-        }),
-      });
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Could not approve refund.");
 
-      removePendingRefund(request.id);
-      setPendingRefunds(getPendingRefunds());
       showToast(
         "success",
         "Refund Approved",
         `Order #GRP-${String(request.group_id).padStart(3, "0")} refunded. Stock has been restored.`,
       );
+      await openRefundReceipt(data.refundId);
       fetchOrders();
     } catch (error: any) {
       showToast("error", "Approval Failed", error.message);
@@ -433,14 +450,30 @@ const Orders = () => {
     }
   };
 
-  const handleRejectRefund = (request: PendingRefundRequest) => {
-    removePendingRefund(request.id);
-    setPendingRefunds(getPendingRefunds());
-    showToast(
-      "success",
-      "Refund Rejected",
-      `Order #GRP-${String(request.group_id).padStart(3, "0")} continues as Ready for Pickup.`,
-    );
+  const handleRejectRefund = async (request: any) => {
+    setReviewingId(Number(request.id));
+    try {
+      const res = await fetch(
+        `http://172.20.10.4:5000/api/refunds/${request.id}/reject`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not reject refund.");
+
+      showToast(
+        "success",
+        "Refund Rejected",
+        `Order #GRP-${String(request.group_id).padStart(3, "0")} continues as Ready for Pickup.`,
+      );
+      fetchOrders();
+    } catch (error: any) {
+      showToast("error", "Rejection Failed", error.message);
+    } finally {
+      setReviewingId(null);
+    }
   };
 
   const getStatusClass = (status: string) => {
@@ -624,7 +657,7 @@ const Orders = () => {
                         </span>
                         <span>•</span>
                         <span>
-                          Requested {formatDateTime(request.requested_at)}
+                          Requested {formatDateTime(request.refunded_at)}
                         </span>
                       </div>
                     </div>
@@ -975,6 +1008,14 @@ const Orders = () => {
               <button className="btn-print" onClick={() => window.print()}>
                 <Printer size={16} /> Print Receipt
               </button>
+              {selectedOrder.status === "Refunded" && refundInfo && (
+                <button
+                  className="view-receipt-btn"
+                  onClick={() => setReceiptRefund(refundInfo)}
+                >
+                  <ReceiptText size={16} /> Refund Receipt
+                </button>
+              )}
               {REFUNDABLE_STATUSES.includes(selectedOrder.status) && (
                 <button
                   className="btn-refund"
@@ -1062,6 +1103,13 @@ const Orders = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {receiptRefund && (
+        <RefundReceipt
+          refund={receiptRefund}
+          onClose={() => setReceiptRefund(null)}
+        />
       )}
     </div>
   );
