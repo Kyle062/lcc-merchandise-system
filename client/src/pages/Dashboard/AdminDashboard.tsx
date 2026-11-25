@@ -8,6 +8,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -43,31 +44,6 @@ const COLORS = [
   "#84cc16",
 ];
 
-type ChartLegendItem = {
-  label: string;
-  color: string;
-  value?: string;
-};
-
-const ChartLegend = ({ items }: { items: ChartLegendItem[] }) => (
-  <div className="chart-legend">
-    {items.map((item, index) => (
-      <div className="chart-legend-item" key={`${item.label}-${index}`}>
-        <span
-          className="chart-legend-swatch"
-          style={{ backgroundColor: item.color }}
-        />
-        <span className="chart-legend-label" title={item.label}>
-          {item.label}
-        </span>
-        {item.value && (
-          <span className="chart-legend-value">{item.value}</span>
-        )}
-      </div>
-    ))}
-  </div>
-);
-
 const AdminDashboard = () => {
   const navigate = useNavigate();
 
@@ -83,11 +59,6 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState(
     localStorage.getItem("full_name") || "Administrator",
-  );
-
-  const inventoryTotal = inventoryData.reduce(
-    (sum, item) => sum + (Number(item?.value) || 0),
-    0,
   );
 
   useEffect(() => {
@@ -339,6 +310,7 @@ const AdminDashboard = () => {
                   <XAxis dataKey="month" axisLine={false} tickLine={false} />
                   <YAxis axisLine={false} tickLine={false} />
                   <Tooltip />
+                  <Legend />
                   <Bar
                     dataKey="sales"
                     fill="#15803d"
@@ -353,12 +325,6 @@ const AdminDashboard = () => {
                   />
                 </BarChart>
               </ResponsiveContainer>
-              <ChartLegend
-                items={[
-                  { label: "Sales (₱)", color: "#15803d" },
-                  { label: "Orders", color: "#10b981" },
-                ]}
-              />
             </div>
 
             <div className="admin-chart-card">
@@ -378,6 +344,10 @@ const AdminDashboard = () => {
                     dataKey="value"
                     nameKey="name"
                     isAnimationActive={false}
+                    label={({ name, percent }) =>
+                      `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
+                    }
+                    labelLine={{ stroke: "#9ca3af", strokeWidth: 1 }}
                   >
                     {inventoryData.map((entry, index) => (
                       <Cell
@@ -397,17 +367,14 @@ const AdminDashboard = () => {
                       fontSize: 12,
                     }}
                   />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={60}
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
-              <ChartLegend
-                items={inventoryData.map((entry, index) => ({
-                  label: entry.name,
-                  color: COLORS[index % COLORS.length],
-                  value: inventoryTotal
-                    ? `${Math.round(((Number(entry.value) || 0) / inventoryTotal) * 100)}%`
-                    : "0%",
-                }))}
-              />
             </div>
           </div>
 
