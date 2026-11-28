@@ -1,3 +1,4 @@
+import { API_BASE } from "../config/api";
 import React, { useState, useEffect } from "react";
 import { EyeOff, Eye, AlertCircle, ShieldAlert } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -54,7 +55,7 @@ const Login = () => {
 
     try {
       const response = await fetch(
-        "http://172.20.10.4:5000/api/auth/login",
+        `${API_BASE}/api/auth/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

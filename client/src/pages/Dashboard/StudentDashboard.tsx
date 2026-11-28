@@ -1,3 +1,4 @@
+import { API_BASE } from "../../config/api";
 import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -10,6 +11,7 @@ import {
   Clock3,
   CheckCircle2,
   Wallet,
+  UserRound,
 } from "lucide-react";
 import "./StudentDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -27,6 +29,9 @@ const StudentDashboard = () => {
   const [fullName, setFullName] = useState(
     localStorage.getItem("full_name") || "Student",
   );
+  const [profilePicture, setProfilePicture] = useState(
+    localStorage.getItem("profile_picture") || "",
+  );
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -39,8 +44,8 @@ const StudentDashboard = () => {
     const fetchData = async () => {
       try {
         const [statsRes, ordersRes] = await Promise.all([
-          fetch("http://172.20.10.4:5000/api/student/stats", { headers }),
-          fetch("http://172.20.10.4:5000/api/student/recent-orders", {
+          fetch(`${API_BASE}/api/student/stats`, { headers }),
+          fetch(`${API_BASE}/api/student/recent-orders`, {
             headers,
           }),
         ]);
@@ -75,6 +80,8 @@ const StudentDashboard = () => {
     localStorage.removeItem("role");
     localStorage.removeItem("username");
     localStorage.removeItem("full_name");
+    localStorage.removeItem("course");
+    localStorage.removeItem("profile_picture");
     navigate("/login");
   };
 
@@ -152,6 +159,14 @@ const StudentDashboard = () => {
           >
             <Package size={20} /> <span>Track Orders</span>
           </NavLink>
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              isActive ? "student-nav-item active" : "student-nav-item"
+            }
+          >
+            <UserRound size={20} /> <span>My Profile</span>
+          </NavLink>
         </nav>
         <div className="student-sidebar-footer" onClick={handleLogout}>
           <LogOut size={20} /> <span>Logout</span>
@@ -163,9 +178,19 @@ const StudentDashboard = () => {
           <h1 className="student-header-title">My Dashboard</h1>
           <div className="student-header-right">
             <Bell size={20} color="#6b7280" />
-            <div className="student-avatar">
-              {fullName.charAt(0).toUpperCase()}
-            </div>
+            <NavLink to="/profile" className="avatar-link" aria-label="My profile">
+              {profilePicture ? (
+                <img
+                  src={profilePicture}
+                  alt="Profile"
+                  className="header-avatar"
+                />
+              ) : (
+                <div className="student-avatar">
+                  {fullName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </NavLink>
             <button className="mobile-logout-btn" onClick={handleLogout}>
               <LogOut size={20} color="#dc2626" />
             </button>

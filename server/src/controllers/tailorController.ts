@@ -1,5 +1,26 @@
 import { Request, Response } from "express";
 import db from "../config/db";
+import {
+  buildDateClause,
+  parseList,
+  parsePositiveInt,
+  parseSort,
+  resolvePeriod,
+} from "../utils/queryUtils";
+
+const TAILOR_STATUSES = [
+  "Processing",
+  "In Tailoring",
+  "Ready for Pickup",
+  "Completed",
+] as const;
+
+const TAILOR_TRANSITIONS: Record<string, string[]> = {
+  Processing: ["In Tailoring", "Ready for Pickup", "Completed"],
+  "In Tailoring": ["Processing", "Ready for Pickup", "Completed"],
+  "Ready for Pickup": ["Processing", "Completed"],
+  Completed: [],
+};
 
 export const getTailorStats = async (req: Request, res: Response) => {
   try {
@@ -28,28 +49,108 @@ export const getTailorStats = async (req: Request, res: Response) => {
 
 export const getAssignedOrders = async (req: Request, res: Response) => {
   try {
-    const [rows]: any = await db.query(`
-      SELECT 
-        g.id AS group_id,
-        g.status,
-        g.created_at AS order_date,
-        u.full_name AS student_name,
-        COUNT(o.id) AS item_count
+    const search = String(req.query.search || "").trim();
+    const requestedStatuses = parseList(req.query.status).filter((status) =>
+      (TAILOR_STATUSES as readonly string[]).includes(status),
+    );
+    const courses = parseList(req.query.course);
+    const period = resolvePeriod(req.query as Record<string, any>);
+    const sort = parseSort(
+      req.query.sort,
+      ["group_id", "student_name", "status", "order_date", "item_count"],
+      "order_date",
+      "asc",
+    );
+    const page = parsePositiveInt(req.query.page, 1, 1, 100000);
+    const limit = parsePositiveInt(req.query.limit, 10, 1, 100);
+
+    const params: any[] = [];
+    const statuses =
+      requestedStatuses.length > 0 ? requestedStatuses : [...TAILOR_STATUSES];
+
+    let baseWhere = `WHERE g.status IN (${statuses.map(() => "?").join(",")})`;
+    params.push(...statuses);
+
+    if (search) {
+      baseWhere += ` AND (
+        g.group_code LIKE ? OR CAST(g.id AS CHAR) LIKE ? OR u.full_name LIKE ?
+      )`;
+      const like = `%${search}%`;
+      params.push(like, like, like);
+    }
+
+    baseWhere += buildDateClause("g.created_at", period, params);
+
+    const statusParams = [...params];
+    let statusWhere = baseWhere;
+    if (courses.length > 0) {
+      const courseClause = ` AND COALESCE(NULLIF(u.course, ''), '') IN (${courses
+        .map(() => "?")
+        .join(",")})`;
+      baseWhere += courseClause;
+      statusWhere += courseClause;
+      params.push(...courses);
+      statusParams.push(...courses);
+    }
+
+    const from = `
       FROM order_groups g
       JOIN users u ON g.user_id = u.id
       JOIN orders o ON g.id = o.group_id
-      WHERE g.status IN ('Processing', 'In Tailoring', 'Ready for Pickup', 'Completed')
-      GROUP BY g.id
-      ORDER BY g.created_at ASC
-    `);
-    res.json(rows);
+      ${baseWhere}
+    `;
+
+    const [countRows]: any = await db.query(
+      `SELECT COUNT(DISTINCT g.id) AS total ${from}`,
+      params,
+    );
+    const total = Number(countRows[0]?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * limit;
+
+    const [rows]: any = await db.query(
+      `SELECT
+         g.id AS group_id, g.group_code, g.status, g.created_at AS order_date,
+         u.full_name AS student_name, COALESCE(u.course, '') AS course,
+         COUNT(o.id) AS item_count
+       ${from}
+       GROUP BY g.id, g.group_code, g.status, g.created_at, u.full_name, u.course
+       ORDER BY ${sort.key === "group_id" ? "g.id" : sort.key === "student_name" ? "u.full_name" : sort.key === "status" ? "g.status" : sort.key === "item_count" ? "COUNT(o.id)" : "g.created_at"} ${sort.dir.toUpperCase()}
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+
+    const [statusRows]: any = await db.query(
+      `SELECT g.status AS status, COUNT(DISTINCT g.id) AS total
+       FROM order_groups g
+       JOIN users u ON g.user_id = u.id
+       JOIN orders o ON g.id = o.group_id
+       ${statusWhere}
+       GROUP BY g.status`,
+      statusParams,
+    );
+    const statusCounts: Record<string, number> = { All: 0 };
+    for (const status of TAILOR_STATUSES) statusCounts[status] = 0;
+    for (const row of statusRows) {
+      statusCounts[row.status] = Number(row.total);
+      statusCounts.All += Number(row.total);
+    }
+
+    res.json({
+      rows,
+      total,
+      page: safePage,
+      limit,
+      totalPages,
+      statusCounts,
+      period,
+    });
   } catch (error: any) {
-    res
-      .status(500)
-      .json({
-        message: "Error fetching assigned orders",
-        details: error.message,
-      });
+    res.status(500).json({
+      message: "Error fetching assigned orders",
+      details: error.message,
+    });
   }
 };
 
@@ -75,7 +176,7 @@ export const getOrderDetails = async (req: Request, res: Response) => {
 
 export const updateWorkProgress = async (req: Request, res: Response) => {
   const { group_id } = req.params;
-  const { status } = req.body;
+  const { status, expected_status } = req.body;
   const conn = await db.getConnection();
 
   try {
@@ -83,6 +184,9 @@ export const updateWorkProgress = async (req: Request, res: Response) => {
       return res.status(400).json({
         message: "Use the refund action to mark an order as Refunded.",
       });
+    }
+    if (!(TAILOR_TRANSITIONS[status] || status === "Processing")) {
+      return res.status(400).json({ message: "Invalid tailoring status." });
     }
 
     await conn.beginTransaction();
@@ -97,11 +201,29 @@ export const updateWorkProgress = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Order group not found." });
     }
 
-    if (groupRows[0].status === "Refunded") {
+    const currentStatus = groupRows[0].status;
+    if (currentStatus === "Refunded" || currentStatus === "Cancelled") {
       await conn.rollback();
-      return res
-        .status(400)
-        .json({ message: "Refunded orders cannot be modified." });
+      return res.status(400).json({
+        message: `${currentStatus} orders cannot be modified.`,
+      });
+    }
+
+    if (expected_status && expected_status !== currentStatus) {
+      await conn.rollback();
+      return res.status(409).json({
+        message: `Status changed from ${expected_status} to ${currentStatus} by another user. Refresh the queue before retrying.`,
+        currentStatus,
+      });
+    }
+
+    const allowed = TAILOR_TRANSITIONS[currentStatus] || [];
+    if (status !== currentStatus && !allowed.includes(status)) {
+      await conn.rollback();
+      return res.status(400).json({
+        message: `Cannot change status from ${currentStatus} to ${status}.`,
+        currentStatus,
+      });
     }
 
     await conn.query("UPDATE order_groups SET status = ? WHERE id = ?", [
@@ -114,12 +236,17 @@ export const updateWorkProgress = async (req: Request, res: Response) => {
     ]);
 
     await conn.commit();
-    res.json({ message: `Order progress updated to ${status}` });
+    res.json({
+      message: `Order progress updated to ${status}`,
+      status,
+      currentStatus,
+    });
   } catch (error: any) {
     await conn.rollback();
-    res
-      .status(500)
-      .json({ message: "Error updating progress", details: error.message });
+    res.status(500).json({
+      message: "Error updating progress",
+      details: error.message,
+    });
   } finally {
     conn.release();
   }
@@ -127,56 +254,53 @@ export const updateWorkProgress = async (req: Request, res: Response) => {
 
 // ✅ THIS IS THE MISSING FUNCTION THAT WAS CAUSING THE ERROR
 export const getTailorReportAnalytics = async (req: Request, res: Response) => {
-  const { timeframe } = req.query; // 'day', 'week', 'month'
-
-  let dateFilter = "";
-  if (timeframe === "day") dateFilter = "DATE(g.created_at) = CURDATE()";
-  else if (timeframe === "week")
-    dateFilter = "YEARWEEK(g.created_at, 1) = YEARWEEK(CURDATE(), 1)";
-  else if (timeframe === "month")
-    dateFilter =
-      "MONTH(g.created_at) = MONTH(CURDATE()) AND YEAR(g.created_at) = YEAR(CURDATE())";
-  else dateFilter = "1=1";
-
   try {
+    const period = resolvePeriod(req.query as Record<string, any>);
+    const dateParams: any[] = [];
+    const dateFilter = buildDateClause("g.created_at", period, dateParams);
+
     // 1. Revenue per day
-    const [revenueData]: any = await db.query(`
-      SELECT 
-        DATE_FORMAT(g.created_at, '%b %d') AS label,
-        SUM(o.total_price) AS revenue
-      FROM order_groups g
-      JOIN orders o ON g.id = o.group_id
-      WHERE g.status IN ('Ready for Pickup', 'Completed') AND ${dateFilter}
-      GROUP BY DATE_FORMAT(g.created_at, '%b %d')
-      ORDER BY MIN(g.created_at) ASC
-    `);
+    const [revenueData]: any = await db.query(
+      `SELECT
+         DATE_FORMAT(g.created_at, '%b %d') AS label,
+         SUM(o.total_price) AS revenue
+       FROM order_groups g
+       JOIN orders o ON g.id = o.group_id
+       WHERE g.status IN ('Ready for Pickup', 'Completed') ${dateFilter}
+       GROUP BY DATE_FORMAT(g.created_at, '%b %d'), DATE(g.created_at)
+       ORDER BY DATE(g.created_at) ASC`,
+      dateParams,
+    );
 
     // 2. Most Requested Merchandise
-    const [topItems]: any = await db.query(`
-      SELECT 
-        p.name AS item_name,
-        SUM(o.quantity) AS total_qty
-      FROM orders o
-      JOIN order_groups g ON o.group_id = g.id
-      JOIN products p ON o.product_id = p.id
-      WHERE g.status IN ('Ready for Pickup', 'Completed') AND ${dateFilter}
-      GROUP BY p.name
-      ORDER BY total_qty DESC
-      LIMIT 5
-    `);
+    const [topItems]: any = await db.query(
+      `SELECT
+         p.name AS item_name,
+         SUM(o.quantity) AS total_qty
+       FROM orders o
+       JOIN order_groups g ON o.group_id = g.id
+       JOIN products p ON o.product_id = p.id
+       WHERE g.status IN ('Ready for Pickup', 'Completed') ${dateFilter}
+       GROUP BY p.name
+       ORDER BY total_qty DESC
+       LIMIT 5`,
+      dateParams,
+    );
 
     // 3. Total Revenue
-    const [totalRev]: any = await db.query(`
-      SELECT COALESCE(SUM(o.total_price), 0) AS total
-      FROM order_groups g
-      JOIN orders o ON g.id = o.group_id
-      WHERE g.status IN ('Ready for Pickup', 'Completed') AND ${dateFilter}
-    `);
+    const [totalRev]: any = await db.query(
+      `SELECT COALESCE(SUM(o.total_price), 0) AS total
+       FROM order_groups g
+       JOIN orders o ON g.id = o.group_id
+       WHERE g.status IN ('Ready for Pickup', 'Completed') ${dateFilter}`,
+      dateParams,
+    );
 
     res.json({
       revenueChart: revenueData,
       topItemsChart: topItems,
       totalRevenue: totalRev[0].total,
+      period: period.label,
     });
   } catch (error: any) {
     console.error("Analytics error:", error);

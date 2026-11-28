@@ -6,6 +6,8 @@ import {
   resetOrderCounter,
   getSystemInfo,
   exportOrdersCSV,
+  exportInventory,
+  exportSales,
 } from '../controllers/settingsController';
 import { protect, authorize } from '../middleware/authMiddleware';
 
@@ -20,5 +22,7 @@ router.get('/system-info', getSystemInfo);
 router.delete('/clear-cancelled', clearCancelledOrders);
 router.post('/reset-order-counter', resetOrderCounter);
 router.get('/export-orders', exportOrdersCSV);
+router.get('/export-inventory', exportInventory);
+router.get('/export-sales', exportSales);
 
 export default router;

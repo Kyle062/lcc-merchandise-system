@@ -15,6 +15,7 @@ import Analytics from "./pages/Analytics/Analytics";
 import StudentDashboard from "./pages/Dashboard/StudentDashboard";
 import Shop from "./pages/Student/Shop";
 import TrackOrders from "./pages/Student/TrackOrders";
+import Profile from "./pages/Profile";
 
 // Tailor Pages
 import TailorDashboard from "./pages/Tailor/TailorDashboard";
@@ -44,6 +45,7 @@ function App() {
       <Route path="/student-dashboard" element={<StudentDashboard />} />
       <Route path="/shop" element={<Shop />} />
       <Route path="/track-orders" element={<TrackOrders />} />
+      <Route path="/profile" element={<Profile />} />
 
       {/* Tailor Staff Routes */}
       <Route path="/tailor-dashboard" element={<TailorDashboard />} />

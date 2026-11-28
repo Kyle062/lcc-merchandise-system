@@ -179,6 +179,28 @@ select:focus-visible,
   animation: slideDown 0.25s ease-out both;
 }
 
+.avatar-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.avatar-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(21, 128, 61, 0.2);
+}
+
+.header-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #d1fae5;
+}
+
 .status-badge,
 .admin-badge {
   display: inline-block;
@@ -186,7 +208,7 @@ select:focus-visible,
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .badge-pending,
@@ -243,8 +265,43 @@ select:focus-visible,
   align-items: center;
   z-index: 1000;
   padding: 15px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease-out both;
+}
+
+/* Every modal must stay inside the viewport, at every breakpoint. */
+.modal-content,
+.cart-modal,
+.cart-drawer,
+.receipt-modal,
+.size-modal,
+.added-modal,
+.confirm-dialog,
+.tailor-modal,
+.camera-modal,
+.refund-modal,
+.refund-receipt-card {
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100svh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cart-modal,
+.cart-drawer,
+.tailor-modal,
+.refund-receipt-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cart-items-list,
+.tailor-modal-items {
+  min-height: 0;
 }
 
 .modal-overlay > .cart-modal,

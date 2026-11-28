@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { API_BASE, ANALYTICS_SERVICE_BASE } from "../../config/api";
+import React, { useCallback, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { BarChart3 } from "lucide-react";
 import {
@@ -26,6 +27,10 @@ import {
   QrCode,
   DollarSign,
   Clock3,
+  AlertCircle,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import "./AdminDashboard.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -44,6 +49,29 @@ const COLORS = [
   "#84cc16",
 ];
 
+const STAGE_THRESHOLD_HOURS: Record<string, number> = {
+  Pending: 24,
+  Processing: 48,
+  "In Tailoring": 72,
+};
+
+const getOverdueHours = (status: string, ageHours: number) =>
+  Math.max(0, ageHours - (STAGE_THRESHOLD_HOURS[status] ?? 0));
+
+const getStockSeverity = (stock: number, threshold: number) => {
+  if (stock <= 0) return "critical";
+  if (stock <= threshold / 2) return "warning";
+  return "watch";
+};
+
+const velocityRank: Record<string, number> = {
+  fast: 0,
+  steady: 1,
+  slow: 2,
+};
+
+const LOW_STOCK_PAGE_SIZE = 6;
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
 
@@ -56,10 +84,39 @@ const AdminDashboard = () => {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [salesData, setSalesData] = useState<any[]>([]);
   const [inventoryData, setInventoryData] = useState<any[]>([]);
+  const [diagnostics, setDiagnostics] = useState<any>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(true);
+  const [lowStockPage, setLowStockPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState(
     localStorage.getItem("full_name") || "Administrator",
   );
+  const [isCompactChart, setIsCompactChart] = useState(
+    () => window.innerWidth <= 768,
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsCompactChart(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const fetchDiagnostics = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    setDiagnosticsLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/dashboard/diagnostics?threshold=10`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) throw new Error("Failed to fetch diagnostics");
+      setDiagnostics(await res.json());
+    } catch (error) {
+      console.error("Error fetching diagnostics:", error);
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -68,10 +125,10 @@ const AdminDashboard = () => {
       return;
     }
 
-    const fetchData = async () => {
+    const fetchDashboard = async () => {
       try {
         // Fetch from Python Service
-        const res = await fetch("http://172.20.10.4:8001/admin-dashboard");
+        const res = await fetch(`${ANALYTICS_SERVICE_BASE}/admin-dashboard`);
 
         if (!res.ok) throw new Error("Failed to fetch data");
 
@@ -98,13 +155,13 @@ const AdminDashboard = () => {
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false); // Stop loading regardless of success or failure
       }
     };
 
-    fetchData();
-  }, [navigate]);
+    Promise.all([fetchDashboard(), fetchDiagnostics()]).finally(() =>
+      setLoading(false),
+    );
+  }, [navigate, fetchDiagnostics]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -124,6 +181,10 @@ const AdminDashboard = () => {
         return "admin-badge admin-badge-processing";
       case "Ready for Pickup":
         return "admin-badge admin-badge-ready";
+      case "In Tailoring":
+        return "admin-badge admin-badge-processing";
+      case "Refunded":
+        return "admin-badge admin-badge-cancelled";
       case "Cancelled":
         return "admin-badge admin-badge-cancelled";
       default:
@@ -138,6 +199,32 @@ const AdminDashboard = () => {
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
+
+  const lowStockItems = [...(diagnostics?.lowStock || [])].sort(
+    (a: any, b: any) => {
+      const stockDiff = Number(a.stock) - Number(b.stock);
+      if (stockDiff !== 0) return stockDiff;
+      const velocityDiff =
+        (velocityRank[a.velocity] ?? 3) - (velocityRank[b.velocity] ?? 3);
+      if (velocityDiff !== 0) return velocityDiff;
+      const soldDiff = Number(b.unitsSold30d ?? 0) - Number(a.unitsSold30d ?? 0);
+      if (soldDiff !== 0) return soldDiff;
+      return String(a.name).localeCompare(String(b.name));
+    },
+  );
+  const lowStockPageCount = Math.max(
+    1,
+    Math.ceil(lowStockItems.length / LOW_STOCK_PAGE_SIZE),
+  );
+  const safeLowStockPage = Math.min(lowStockPage, lowStockPageCount - 1);
+  const lowStockStart = safeLowStockPage * LOW_STOCK_PAGE_SIZE;
+  const visibleLowStock = lowStockItems.slice(
+    lowStockStart,
+    lowStockStart + LOW_STOCK_PAGE_SIZE,
+  );
+  const bottleneckItems = [...(diagnostics?.bottlenecks || [])].sort(
+    (a: any, b: any) => Number(b.ageHours) - Number(a.ageHours),
+  );
 
   if (loading) {
     return (
@@ -300,6 +387,245 @@ const AdminDashboard = () => {
             </div>
           </div>
 
+          {/* Stock and queue diagnostics */}
+          <div className="admin-diagnostics-card">
+            <div className="admin-diagnostics-heading">
+              <AlertCircle size={18} />
+              <h3>Stock & Queue Diagnostics</h3>
+              <span>Reorder at &lt; {diagnostics?.reorderThreshold ?? 10} units</span>
+              <button
+                type="button"
+                className={`admin-diagnostics-refresh ${diagnosticsLoading ? "refreshing" : ""}`}
+                onClick={fetchDiagnostics}
+                disabled={diagnosticsLoading}
+                title="Refresh diagnostics"
+              >
+                <RefreshCw size={14} />
+                {diagnosticsLoading ? "Refreshing" : "Refresh"}
+              </button>
+            </div>
+
+            {diagnosticsLoading && !diagnostics ? (
+              <div className="admin-diagnostics-skeleton" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+            ) : (
+              <>
+                <div className="admin-diagnostics-section">
+                  <div className="admin-diagnostics-section-head">
+                    <strong>Queue health</strong>
+                    <span>Workflow order · current active load</span>
+                  </div>
+                  <div className="admin-diagnostics-grid">
+                    <div className="admin-diagnostics-metric">
+                      <span className="admin-diagnostics-metric-icon">
+                        <Clock3 size={16} />
+                      </span>
+                      <span>
+                        <span className="admin-diagnostics-metric-label">
+                          Pending past 24h
+                        </span>
+                        <strong className="admin-diagnostics-metric-value">
+                          {diagnostics?.aging?.pendingStuck ?? 0}
+                        </strong>
+                      </span>
+                    </div>
+                    <div className="admin-diagnostics-metric">
+                      <span className="admin-diagnostics-metric-icon">
+                        <ShoppingCart size={16} />
+                      </span>
+                      <span>
+                        <span className="admin-diagnostics-metric-label">
+                          Processing past 48h
+                        </span>
+                        <strong className="admin-diagnostics-metric-value">
+                          {diagnostics?.aging?.processingStuck ?? 0}
+                        </strong>
+                      </span>
+                    </div>
+                    <div className="admin-diagnostics-metric">
+                      <span className="admin-diagnostics-metric-icon">
+                        <Package size={16} />
+                      </span>
+                      <span>
+                        <span className="admin-diagnostics-metric-label">
+                          In Tailoring past 72h
+                        </span>
+                        <strong className="admin-diagnostics-metric-value">
+                          {diagnostics?.aging?.tailoringStuck ?? 0}
+                        </strong>
+                      </span>
+                    </div>
+                    <div className="admin-diagnostics-metric">
+                      <span className="admin-diagnostics-metric-icon">
+                        <BarChart3 size={16} />
+                      </span>
+                      <span>
+                        <span className="admin-diagnostics-metric-label">
+                          Avg. Fulfillment Time
+                        </span>
+                        <strong className="admin-diagnostics-metric-value">
+                          {diagnostics?.avgFulfillmentHours ?? 0}{" "}
+                          <small>hrs</small>
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="admin-diagnostics-section">
+                  <div className="admin-diagnostics-section-head">
+                    <strong>Queue bottlenecks</strong>
+                    <span>Oldest active orders first</span>
+                  </div>
+                  {bottleneckItems.length > 0 ? (
+                    <div className="admin-bottleneck-list">
+                      {bottleneckItems.map((item: any, index: number) => {
+                        const overdue = getOverdueHours(
+                          item.status,
+                          Number(item.ageHours),
+                        );
+                        return (
+                          <div
+                            className="admin-bottleneck-row"
+                            key={item.groupId ?? item.groupCode ?? `bottleneck-${index}`}
+                          >
+                            <span className="admin-bottleneck-code">
+                              {item.groupCode || `#GRP-${item.groupId}`}
+                            </span>
+                            <span className={getBadgeClass(item.status)}>
+                              {item.status}
+                            </span>
+                            <span className="admin-bottleneck-age">
+                              {Number(item.ageHours)}h
+                            </span>
+                            <span
+                              className={`admin-diagnostic-badge ${overdue > 0 ? "overdue" : "on-track"}`}
+                            >
+                              {overdue > 0 ? `${overdue}h over` : "on track"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="admin-diagnostics-empty">
+                      No active orders are waiting in the queue.
+                    </p>
+                  )}
+                </div>
+
+                <div className="admin-diagnostics-section">
+                  <div className="admin-diagnostics-section-head">
+                    <strong>Stock risk</strong>
+                    <span>
+                      {lowStockItems.length === 0
+                        ? "No items below threshold"
+                        : `${lowStockStart + 1}–${
+                            lowStockStart + visibleLowStock.length
+                          } of ${lowStockItems.length} below threshold`}
+                    </span>
+                  </div>
+                  {lowStockItems.length > 0 ? (
+                    <>
+                      <div className="admin-low-stock-list">
+                        {visibleLowStock.map((item: any, index: number) => {
+                          const stock = Number(item.stock);
+                          const threshold = Number(
+                            item.reorderThreshold ??
+                              diagnostics?.reorderThreshold ??
+                              10,
+                          );
+                          const fill = Math.min(
+                            100,
+                            Math.round((stock / Math.max(threshold, 1)) * 100),
+                          );
+                          const severity = getStockSeverity(stock, threshold);
+                          return (
+                            <div
+                              className="admin-low-stock-row"
+                              key={item.id ?? item.name ?? `stock-${index}`}
+                            >
+                              <div>
+                                <span className="admin-low-stock-name">
+                                  {item.name}
+                                </span>
+                                <span className="admin-low-stock-course">
+                                  {item.course}
+                                </span>
+                              </div>
+                              <div
+                                className="admin-stock-track"
+                                aria-label={`${stock} of ${threshold} units`}
+                              >
+                                <span
+                                  className={`admin-stock-fill ${severity}`}
+                                  style={{ width: `${fill}%` }}
+                                />
+                              </div>
+                              <div className="admin-low-stock-meta">
+                                <span
+                                  className={`admin-stock-count ${severity}`}
+                                >
+                                  {stock} / {threshold} units
+                                </span>
+                                <span>
+                                  {Number(item.unitsSold30d ?? 0)} sold (30d)
+                                </span>
+                                <span
+                                  className={`admin-velocity-badge admin-velocity-${item.velocity || "slow"}`}
+                                >
+                                  {item.velocity || "slow"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {lowStockItems.length > LOW_STOCK_PAGE_SIZE && (
+                        <div className="admin-diagnostics-pager">
+                          <button
+                            type="button"
+                            className="admin-pager-btn"
+                            aria-label="Previous low stock items"
+                            disabled={safeLowStockPage === 0}
+                            onClick={() =>
+                              setLowStockPage((page) => Math.max(0, page - 1))
+                            }
+                          >
+                            <ChevronLeft size={16} />
+                          </button>
+                          <span className="admin-pager-label">
+                            Page {safeLowStockPage + 1} of {lowStockPageCount}
+                          </span>
+                          <button
+                            type="button"
+                            className="admin-pager-btn"
+                            aria-label="Next low stock items"
+                            disabled={safeLowStockPage >= lowStockPageCount - 1}
+                            onClick={() =>
+                              setLowStockPage((page) =>
+                                Math.min(lowStockPageCount - 1, page + 1),
+                              )
+                            }
+                          >
+                            <ChevronRight size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="admin-diagnostics-empty">
+                      No products below the reorder threshold.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Charts Row */}
           <div className="admin-charts-grid">
             <div className="admin-chart-card">
@@ -337,15 +663,18 @@ const AdminDashboard = () => {
                     data={inventoryData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={120}
+                    innerRadius={isCompactChart ? 44 : 60}
+                    outerRadius={isCompactChart ? 76 : 120}
                     fill="#8884d8"
                     paddingAngle={2}
                     dataKey="value"
                     nameKey="name"
                     isAnimationActive={false}
-                    label={({ name, percent }) =>
-                      `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
+                    label={
+                      isCompactChart
+                        ? undefined
+                        : ({ name, percent }) =>
+                            `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
                     }
                     labelLine={{ stroke: "#9ca3af", strokeWidth: 1 }}
                   >
@@ -369,7 +698,7 @@ const AdminDashboard = () => {
                   />
                   <Legend
                     verticalAlign="bottom"
-                    height={60}
+                    height={isCompactChart ? 40 : 60}
                     iconType="circle"
                     wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }}
                   />
@@ -406,8 +735,8 @@ const AdminDashboard = () => {
                     </td>
                   </tr>
                 ) : (
-                  recentOrders.map((order) => (
-                    <tr key={order.id}>
+                  recentOrders.map((order, index) => (
+                    <tr key={order.id ?? `recent-order-${index}`}>
                       <td>#GRP-{String(order.id).padStart(3, "0")}</td>
                       <td>{order.full_name || order.username}</td>
                       <td>{order.product_name}</td>

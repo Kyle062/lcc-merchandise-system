@@ -1,3 +1,4 @@
+import { API_BASE } from "../../config/api";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BarChart3 } from "lucide-react";
@@ -90,7 +91,7 @@ const Settings = () => {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await fetch(`${API_BASE}/api/settings`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -107,7 +108,7 @@ const Settings = () => {
   const fetchSystemInfo = async () => {
     try {
       const res = await fetch(
-        "http://localhost:5000/api/settings/system-info",
+        `${API_BASE}/api/settings/system-info`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -134,7 +135,7 @@ const Settings = () => {
 
   const saveSetting = async (payload: Settings) => {
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await fetch(`${API_BASE}/api/settings`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -191,7 +192,7 @@ const Settings = () => {
       onConfirm: async () => {
         try {
           const res = await fetch(
-            "http://localhost:5000/api/settings/clear-cancelled",
+            `${API_BASE}/api/settings/clear-cancelled`,
             {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` },
@@ -227,7 +228,7 @@ const Settings = () => {
       onConfirm: async () => {
         try {
           const res = await fetch(
-            "http://localhost:5000/api/settings/reset-order-counter",
+            `${API_BASE}/api/settings/reset-order-counter`,
             {
               method: "POST",
               headers: { Authorization: `Bearer ${token}` },
@@ -253,7 +254,7 @@ const Settings = () => {
   const handleExport = async () => {
     try {
       const res = await fetch(
-        "http://localhost:5000/api/settings/export-orders",
+        `${API_BASE}/api/settings/export-orders`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },

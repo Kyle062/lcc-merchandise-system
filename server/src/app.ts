@@ -14,7 +14,9 @@ import refundRoutes from './routes/refundRoutes';
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// Profile pictures are sent as base64 data URLs, so the default 100kb body
+// limit is too small.
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/', (req, res) => {
   res.json({ message: 'LCC Merchandise API is running' });

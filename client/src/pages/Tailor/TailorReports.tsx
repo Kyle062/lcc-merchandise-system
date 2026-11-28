@@ -1,3 +1,4 @@
+import { API_BASE } from "../../config/api";
 import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -26,6 +27,8 @@ import "./TailorDashboard.css";
 import "./TailorReports.css";
 import logo from "../../assets/images/LCClogo1.png";
 
+type ReportPeriod = "all" | "today" | "week" | "month" | "custom";
+
 const TailorReports = () => {
   const navigate = useNavigate();
   const [reports, setReports] = useState<any[]>([]);
@@ -37,9 +40,27 @@ const TailorReports = () => {
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [timeframe, setTimeframe] = useState<"day" | "week" | "month">("week");
+  const [period, setPeriod] = useState<ReportPeriod>("week");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const token = localStorage.getItem("token");
+
+  const buildPeriodParams = () => {
+    const params = new URLSearchParams();
+    if (period !== "all") params.append("period", period);
+    if (period === "custom") {
+      if (dateFrom) params.append("date_from", dateFrom);
+      if (dateTo) params.append("date_to", dateTo);
+    }
+    return params;
+  };
+
+  const periodFileLabel = () =>
+    String(analytics.period || "all-dates")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase();
 
   useEffect(() => {
     if (!token) {
@@ -50,45 +71,31 @@ const TailorReports = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1. Fetch Raw List from Node.js (for the table)
+        const headers = { Authorization: `Bearer ${token}` };
+        const periodParams = buildPeriodParams();
+
+        // 1. Date-scoped completed work for the table
+        const listParams = new URLSearchParams(periodParams);
+        listParams.append("status", "Ready for Pickup,Completed");
+        listParams.append("limit", "100");
         const resList = await fetch(
-          "http://172.20.10.4:5000/api/tailor/assigned",
-          { headers: { Authorization: `Bearer ${token}` } },
+          `${API_BASE}/api/tailor/assigned?${listParams.toString()}`,
+          { headers },
         );
         const dataList = await resList.json();
-        const finished = Array.isArray(dataList)
-          ? dataList.filter(
-              (o: any) =>
-                o.status === "Ready for Pickup" || o.status === "Completed",
-            )
-          : [];
-        setReports(finished);
+        setReports(Array.isArray(dataList?.rows) ? dataList.rows : []);
 
-        // 2. Fetch Analytics Charts from Python Service (Port 8001)
+        // 2. Date-scoped chart analytics
         const resAnalytics = await fetch(
-          `http://172.20.10.4:8001/tailor-analytics?timeframe=${timeframe}`,
+          `${API_BASE}/api/tailor/analytics?${periodParams.toString()}`,
+          { headers },
         );
         const dataAnalytics = await resAnalytics.json();
-
-        // Optional: Fix the "%b %d" bug if the backend sends it
-        const fixedRevenueChart = dataAnalytics.revenueChart?.map(
-          (item: any) => {
-            if (item.label && item.label.includes("%b")) {
-              return {
-                ...item,
-                label: new Date().toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                }),
-              };
-            }
-            return item;
-          },
-        );
-
         setAnalytics({
+          revenueChart: [],
+          topItemsChart: [],
+          totalRevenue: 0,
           ...dataAnalytics,
-          revenueChart: fixedRevenueChart || [],
         });
 
         setLoading(false);
@@ -98,7 +105,7 @@ const TailorReports = () => {
       }
     };
     fetchData();
-  }, [navigate, token, timeframe]);
+  }, [navigate, token, period, dateFrom, dateTo]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -163,7 +170,7 @@ const TailorReports = () => {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save("LCC-Tailor-Reports.pdf");
+      pdf.save(`LCC-Tailor-Reports-${periodFileLabel()}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
     } finally {
@@ -247,6 +254,9 @@ const TailorReports = () => {
           <div className="print-header-titles">
             <h1 className="print-title">LCC Merchandise System</h1>
             <p className="print-subtitle">Tailoring Reports</p>
+            <p className="print-period">
+              Period: {analytics.period || "All Dates"}
+            </p>
           </div>
           <div className="print-date">
             {new Date().toLocaleDateString("en-US", {
@@ -261,26 +271,57 @@ const TailorReports = () => {
           className="tailor-dashboard-content fade-in"
           id="tailor-report-content"
         >
+          <div className="report-period-label">
+            <span>Reporting Period</span>
+            <strong>{analytics.period || "All Dates"}</strong>
+          </div>
+
           <div className="report-top-bar">
             <div className="timeframe-filters no-print">
               <button
-                className={timeframe === "day" ? "active" : ""}
-                onClick={() => setTimeframe("day")}
+                className={period === "all" ? "active" : ""}
+                onClick={() => setPeriod("all")}
+              >
+                All
+              </button>
+              <button
+                className={period === "today" ? "active" : ""}
+                onClick={() => setPeriod("today")}
               >
                 Today
               </button>
               <button
-                className={timeframe === "week" ? "active" : ""}
-                onClick={() => setTimeframe("week")}
+                className={period === "week" ? "active" : ""}
+                onClick={() => setPeriod("week")}
               >
                 This Week
               </button>
               <button
-                className={timeframe === "month" ? "active" : ""}
-                onClick={() => setTimeframe("month")}
+                className={period === "month" ? "active" : ""}
+                onClick={() => setPeriod("month")}
               >
                 This Month
               </button>
+              <button
+                className={period === "custom" ? "active" : ""}
+                onClick={() => setPeriod("custom")}
+              >
+                Custom
+              </button>
+              {period === "custom" && (
+                <>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
+                </>
+              )}
             </div>
 
             {/* Grouped Revenue Card and Actions on the right side */}

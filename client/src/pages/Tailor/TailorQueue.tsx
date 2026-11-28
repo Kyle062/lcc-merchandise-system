@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { API_BASE } from "../../config/api";
+import React, { useCallback, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,6 +15,8 @@ import {
   Clock,
   CheckSquare,
   Layers,
+  CalendarDays,
+  RefreshCw,
 } from "lucide-react";
 import "./TailorDashboard.css";
 import "./TailorQueue.css";
@@ -21,12 +24,42 @@ import logo from "../../assets/images/LCClogo1.png";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 
+const QUEUE_TABS = [
+  "All",
+  "Processing",
+  "In Tailoring",
+  "Ready for Pickup",
+  "Completed",
+];
+const COURSES = [
+  "All",
+  "BSBA-FM",
+  "BSBA-MM",
+  "BSBA-HRM",
+  "BSC",
+  "BEED",
+  "BSED-ENG",
+  "BSED-SS",
+  "BSED-VE",
+  "BSIT",
+  "BSTM",
+];
+
 const TailorQueue = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
+  const [courseFilter, setCourseFilter] = useState("All");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderDetails, setOrderDetails] = useState<any[]>([]);
@@ -40,39 +73,62 @@ const TailorQueue = () => {
 
   const token = localStorage.getItem("token");
 
-  const fetchAssignedOrders = async () => {
+  const fetchAssignedOrders = useCallback(async () => {
     try {
+      const params = new URLSearchParams({
+        search: searchTerm,
+        page: String(page),
+        limit: String(limit),
+        sort: "order_date:asc",
+      });
+      if (activeTab !== "All") params.append("status", activeTab);
+      if (courseFilter !== "All") params.append("course", courseFilter);
+      if (dateFrom) params.append("date_from", dateFrom);
+      if (dateTo) params.append("date_to", dateTo);
+
       const res = await fetch(
-        "http://172.20.10.4:5000/api/tailor/assigned",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        `${API_BASE}/api/tailor/assigned?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       const data = await res.json();
-
-      // Only show active work (exclude completed/ready for the queue view)
-      const activeOrders = Array.isArray(data)
-        ? data.filter(
-            (o: any) =>
-              o.status === "Processing" || o.status === "In Tailoring",
-          )
-        : [];
-
-      setOrders(activeOrders);
+      setOrders(Array.isArray(data?.rows) ? data.rows : []);
+      setTotalPages(Number(data?.totalPages || 1));
+      setStatusCounts(data?.statusCounts || {});
+      setLastUpdated(new Date());
       setLoading(false);
     } catch (error) {
       console.error(error);
       setLoading(false);
     }
-  };
+  }, [token, searchTerm, activeTab, courseFilter, dateFrom, dateTo, page, limit]);
 
   useEffect(() => {
     if (!token) {
       navigate("/login");
       return;
     }
+    setLoading(true);
     fetchAssignedOrders();
-  }, [token, navigate]);
+  }, [token, navigate, fetchAssignedOrders]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(fetchAssignedOrders, 10000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") fetchAssignedOrders();
+    };
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [autoRefresh, fetchAssignedOrders]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, activeTab, courseFilter, dateFrom, dateTo, limit]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -85,7 +141,7 @@ const TailorQueue = () => {
     setSelectedOrder(order);
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/tailor/details/${order.group_id}`,
+        `${API_BASE}/api/tailor/details/${order.group_id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -97,21 +153,31 @@ const TailorQueue = () => {
     }
   };
 
-  const handleUpdateProgress = async (groupId: number, newStatus: string) => {
+  const handleUpdateProgress = async (
+    groupId: number,
+    newStatus: string,
+    currentStatus: string,
+  ) => {
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/tailor/progress/${groupId}`,
+        `${API_BASE}/api/tailor/progress/${groupId}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify({
+            status: newStatus,
+            expected_status: currentStatus,
+          }),
         },
       );
-
-      if (!res.ok) throw new Error("Failed to update status");
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409) await fetchAssignedOrders();
+        throw new Error(data.message || "Could not update status.");
+      }
 
       showToast(
         "success",
@@ -120,24 +186,23 @@ const TailorQueue = () => {
       );
       fetchAssignedOrders();
       setSelectedOrder(null);
-    } catch (error) {
-      showToast("error", "Update Failed", "Could not update order status.");
+    } catch (error: any) {
+      showToast("error", "Update Failed", error.message);
     }
   };
 
-  // Compute stats
-  const totalPending = orders.filter((o) => o.status === "Processing").length;
-  const totalInProgress = orders.filter(
-    (o) => o.status === "In Tailoring",
-  ).length;
+  const totalPending = Number(statusCounts.Processing || 0);
+  const totalInProgress = Number(statusCounts["In Tailoring"] || 0);
+  const visibleOrders = orders;
 
-  const filteredOrders = orders.filter((o) => {
-    const matchesSearch =
-      o.group_id.toString().includes(searchTerm) ||
-      o.student_name.toLowerCase().includes(searchTerm);
-    const matchesTab = activeTab === "All" || o.status === activeTab;
-    return matchesSearch && matchesTab;
-  });
+  const clearFilters = () => {
+    setSearchTerm("");
+    setActiveTab("All");
+    setCourseFilter("All");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  };
 
   const getBadgeClass = (status: string) => {
     return `tailor-badge status-${status.toLowerCase().replace(/\s+/g, "-")}`;
@@ -192,7 +257,12 @@ const TailorQueue = () => {
 
       <div className="tailor-main-content">
         <div className="tailor-header">
-          <h1 className="tailor-header-title">Work Queue</h1>
+          <div>
+            <h1 className="tailor-header-title">Work Queue</h1>
+            <p className="queue-last-updated">
+              Last updated: {lastUpdated.toLocaleTimeString("en-PH")}
+            </p>
+          </div>
           <div className="tailor-header-right">
             <div className="tailor-search-bar">
               <Search size={16} color="#6b7280" />
@@ -203,6 +273,13 @@ const TailorQueue = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <button
+              className={`queue-refresh-toggle ${autoRefresh ? "on" : "off"}`}
+              onClick={() => setAutoRefresh((value) => !value)}
+              title="Toggle auto refresh"
+            >
+              <RefreshCw size={16} />
+            </button>
             <Bell size={20} className="tailor-header-icon" />
             <div className="tailor-avatar">T</div>
           </div>
@@ -243,34 +320,95 @@ const TailorQueue = () => {
             >
               <h3 className="tailor-table-title">Assigned Orders</h3>
 
-              {/* Tabs */}
-              <div className="queue-tabs">
-                {["All", "Processing", "In Tailoring"].map((tab) => (
-                  <button
-                    key={tab}
-                    className={`queue-tab ${activeTab === tab ? "active" : ""}`}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab}
+              {/* Combined filters */}
+              <div className="queue-filter-bar">
+                <div className="queue-tabs">
+                  {QUEUE_TABS.map((tab) => (
+                    <button
+                      key={tab}
+                      className={`queue-tab ${activeTab === tab ? "active" : ""}`}
+                      onClick={() => setActiveTab(tab)}
+                    >
+                      {tab}
+                      <span className="status-count">
+                        {tab === "All"
+                          ? statusCounts.All || 0
+                          : statusCounts[tab] || 0}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="queue-filter-controls">
+                  <label className="queue-filter-search">
+                    <span>Search</span>
+                    <input
+                      type="search"
+                      placeholder="Group or student..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>Course / Department</span>
+                    <select
+                      value={courseFilter}
+                      onChange={(e) => setCourseFilter(e.target.value)}
+                    >
+                      {COURSES.map((course) => (
+                        <option key={course} value={course}>
+                          {course}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>
+                      <CalendarDays size={13} /> From
+                    </span>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>
+                      <CalendarDays size={13} /> To
+                    </span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>Rows</span>
+                    <select
+                      value={limit}
+                      onChange={(e) => setLimit(Number(e.target.value))}
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </label>
+                  <button className="queue-clear-filters" onClick={clearFilters}>
+                    Clear filters
                   </button>
-                ))}
+                </div>
               </div>
             </div>
 
             {loading ? (
-              <p style={{ textAlign: "center", padding: "20px" }}>
-                Loading queue...
-              </p>
-            ) : filteredOrders.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "40px",
-                  color: "#6b7280",
-                }}
-              >
-                <CheckSquare size={48} style={{ margin: "0 auto 10px" }} />
-                <p>All caught up! No pending orders in this tab.</p>
+              <div className="queue-empty-state">Loading queue...</div>
+            ) : visibleOrders.length === 0 ? (
+              <div className="queue-empty-state">
+                <CheckSquare size={48} />
+                <h3>No matching records</h3>
+                <p>Try a different status, course, or date range.</p>
+                <button className="queue-clear-filters" onClick={clearFilters}>
+                  Clear filters
+                </button>
               </div>
             ) : (
               <table className="tailor-table">
@@ -285,7 +423,7 @@ const TailorQueue = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map((order) => (
+                  {visibleOrders.map((order) => (
                     <tr key={order.group_id}>
                       <td style={{ fontWeight: "600" }}>
                         #GRP-{String(order.group_id).padStart(3, "0")}
@@ -313,6 +451,7 @@ const TailorQueue = () => {
                                 handleUpdateProgress(
                                   order.group_id,
                                   "In Tailoring",
+                                  order.status,
                                 )
                               }
                             >
@@ -326,6 +465,7 @@ const TailorQueue = () => {
                                 handleUpdateProgress(
                                   order.group_id,
                                   "Ready for Pickup",
+                                  order.status,
                                 )
                               }
                             >
@@ -339,6 +479,24 @@ const TailorQueue = () => {
                 </tbody>
               </table>
             )}
+
+            <div className="queue-pagination">
+              <span>Page {page} of {totalPages}</span>
+              <div>
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </button>
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

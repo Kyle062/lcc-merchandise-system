@@ -1,3 +1,4 @@
+import { API_BASE } from "../../config/api";
 import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -45,8 +46,8 @@ const TailorDashboard = () => {
     const fetchData = async () => {
       try {
         const [statsRes, queueRes] = await Promise.all([
-          fetch("http://172.20.10.4:5000/api/tailor/stats", { headers }),
-          fetch("http://172.20.10.4:5000/api/tailor/assigned", { headers }),
+          fetch(`${API_BASE}/api/tailor/stats`, { headers }),
+          fetch(`${API_BASE}/api/tailor/assigned`, { headers }),
         ]);
 
         const statsData = await statsRes.json();
@@ -57,7 +58,9 @@ const TailorDashboard = () => {
           inProgress: Number(statsData?.inProgress) || 0,
           completedToday: Number(statsData?.completedToday) || 0,
         });
-        setQueue(Array.isArray(queueData) ? queueData : []);
+        setQueue(
+          Array.isArray(queueData) ? queueData : Array.isArray(queueData?.rows) ? queueData.rows : [],
+        );
 
         // Mock Chart Data (You can replace this with real data from your API later)
         setChartData([

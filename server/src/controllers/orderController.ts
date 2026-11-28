@@ -8,23 +8,213 @@ import {
   diffSnapshots,
   OrderSnapshot,
 } from "../utils/cryptoUtils";
+import {
+  buildDateClause,
+  parseList,
+  parsePositiveInt,
+  parseSort,
+  resolvePeriod,
+} from "../utils/queryUtils";
 
-// GET all orders (Admin)
+const MANAGEABLE_STATUSES = [
+  "Pending",
+  "Processing",
+  "In Tailoring",
+  "Ready for Pickup",
+  "Completed",
+  "Cancelled",
+  "Refunded",
+] as const;
+
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  Pending: ["Processing", "Cancelled"],
+  Processing: ["In Tailoring", "Ready for Pickup", "Completed", "Cancelled"],
+  "In Tailoring": ["Processing", "Ready for Pickup", "Completed", "Cancelled"],
+  "Ready for Pickup": ["Processing", "Completed", "Cancelled"],
+  Completed: [],
+  Cancelled: [],
+  Refunded: [],
+};
+
+const STOCK_DEDUCTED_STATUSES = new Set([
+  "Processing",
+  "In Tailoring",
+  "Ready for Pickup",
+  "Completed",
+]);
+
+const normalizeItemKey = (items: any[]) =>
+  items
+    .map((item) => `${Number(item.product_id)}:${Number(item.quantity)}`)
+    .sort()
+    .join("|");
+
+const restoreGroupStock = async (conn: any, groupId: string | number) => {
+  const [orderRows]: any = await conn.query(
+    `SELECT o.product_id, o.quantity, p.name
+     FROM orders o
+     JOIN products p ON o.product_id = p.id
+     WHERE o.group_id = ?`,
+    [groupId],
+  );
+
+  const totals = new Map<number, { quantity: number; name: string }>();
+  for (const row of orderRows) {
+    const productId = Number(row.product_id);
+    const quantity = Number(row.quantity);
+    const existing = totals.get(productId);
+    totals.set(productId, {
+      quantity: (existing?.quantity || 0) + quantity,
+      name: row.name,
+    });
+  }
+
+  for (const [productId, { quantity }] of totals) {
+    const [productRows]: any = await conn.query(
+      "SELECT id FROM products WHERE id = ? FOR UPDATE",
+      [productId],
+    );
+    if (productRows.length === 0) continue;
+    await conn.query(
+      "UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?",
+      [quantity, productId],
+    );
+  }
+};
+
+// GET all orders (Admin). Filtering, sorting, and pagination are server-side.
 export const getAllOrders = async (req: Request, res: Response) => {
   try {
-    const [rows] = await db.query(`
-      SELECT 
-        o.id, o.quantity, o.total_price, o.status, o.order_date, o.group_id,
-        p.id AS product_id, p.name AS product_name, p.course AS product_course, p.size AS product_size, p.price AS product_unit_price,
-        u.id AS user_id, u.username, u.full_name, u.email, u.course AS user_course,
-        g.digital_signature, g.payload_snapshot, g.group_code
-      FROM orders o
+    const search = String(req.query.search || "").trim();
+    const statuses = parseList(req.query.status).filter((status) =>
+      (MANAGEABLE_STATUSES as readonly string[]).includes(status),
+    );
+    const courses = parseList(req.query.course);
+    const period = resolvePeriod(req.query as Record<string, any>);
+    const sort = parseSort(
+      req.query.sort,
+      ["group_id", "full_name", "total_price", "status", "order_date", "course"],
+      "order_date",
+      "desc",
+    );
+    const page = parsePositiveInt(req.query.page, 1, 1, 100000);
+    const limit = parsePositiveInt(req.query.limit, 10, 1, 100);
+
+    const params: any[] = [];
+    let baseWhere = "WHERE 1=1";
+
+    if (search) {
+      const like = `%${search}%`;
+      baseWhere += ` AND (
+        g.group_code LIKE ? OR CAST(g.id AS CHAR) LIKE ? OR u.full_name LIKE ?
+        OR u.username LIKE ? OR u.course LIKE ? OR p.name LIKE ?
+      )`;
+      params.push(like, like, like, like, like, like);
+    }
+
+    baseWhere += buildDateClause("g.created_at", period, params);
+
+    const statusParams = [...params];
+    let statusWhere = baseWhere;
+    if (courses.length > 0) {
+      const courseClause = ` AND COALESCE(NULLIF(u.course, ''), p.course) IN (${courses
+        .map(() => "?")
+        .join(",")})`;
+      baseWhere += courseClause;
+      statusWhere += courseClause;
+      params.push(...courses);
+      statusParams.push(...courses);
+    }
+
+    let where = baseWhere;
+    if (statuses.length > 0) {
+      where += ` AND g.status IN (${statuses.map(() => "?").join(",")})`;
+      params.push(...statuses);
+    }
+
+    const from = `
+      FROM order_groups g
+      JOIN users u ON g.user_id = u.id
+      JOIN orders o ON g.id = o.group_id
       JOIN products p ON o.product_id = p.id
-      JOIN users u ON o.user_id = u.id
-      JOIN order_groups g ON o.group_id = g.id
-      ORDER BY o.order_date DESC
-    `);
-    res.json(rows);
+      ${where}
+    `;
+
+    const [countRows]: any = await db.query(
+      `SELECT COUNT(DISTINCT g.id) AS total ${from}`,
+      params,
+    );
+    const total = Number(countRows[0]?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * limit;
+
+    const orderBy = sort.key === "total_price"
+      ? "SUM(o.total_price)"
+      : sort.key === "group_id"
+        ? "g.id"
+        : sort.key === "full_name"
+          ? "u.full_name"
+          : sort.key === "status"
+            ? "g.status"
+            : sort.key === "order_date"
+              ? "g.created_at"
+              : "u.course";
+
+    const [groupPage]: any = await db.query(
+      `SELECT g.id AS group_id
+       ${from}
+       GROUP BY g.id
+       ORDER BY ${orderBy} ${sort.dir.toUpperCase()}
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+    const groupIds = groupPage.map((row: any) => Number(row.group_id));
+    const [rows]: any = groupIds.length
+      ? await db.query(
+          `SELECT
+             o.id, o.quantity, o.total_price, o.status AS item_status, o.order_date, o.group_id,
+             p.id AS product_id, p.name AS product_name, p.course AS product_course, p.size AS product_size, p.price AS product_unit_price,
+             u.id AS user_id, u.username, u.full_name, u.email, u.course AS user_course,
+             g.status AS status, g.created_at AS group_created_at,
+             g.digital_signature, g.payload_snapshot, g.group_code
+           FROM orders o
+           JOIN products p ON o.product_id = p.id
+           JOIN users u ON o.user_id = u.id
+           JOIN order_groups g ON o.group_id = g.id
+           WHERE g.id IN (${groupIds.map(() => "?").join(",")})
+           ORDER BY o.id ASC`,
+          groupIds,
+        )
+      : [];
+
+    const [statusRows]: any = await db.query(
+      `SELECT g.status AS status, COUNT(DISTINCT g.id) AS total
+       FROM order_groups g
+       JOIN users u ON g.user_id = u.id
+       JOIN orders o ON g.id = o.group_id
+       JOIN products p ON o.product_id = p.id
+       ${statusWhere}
+       GROUP BY g.status`,
+      statusParams,
+    );
+    const statusCounts: Record<string, number> = { All: 0 };
+    for (const status of MANAGEABLE_STATUSES) statusCounts[status] = 0;
+    for (const row of statusRows) {
+      statusCounts[row.status] = Number(row.total);
+      statusCounts.All += Number(row.total);
+    }
+
+    res.json({
+      rows,
+      total,
+      page: safePage,
+      limit,
+      totalPages,
+      statusCounts,
+      period,
+      groupOrder: groupIds,
+    });
   } catch (error: any) {
     console.error("❌ getAllOrders error:", error.message);
     res
@@ -97,9 +287,86 @@ export const getMyOrders = async (req: Request, res: Response) => {
   }
 };
 
+// Reconcile signed snapshots with the underlying order rows.
+export const reconcileOrders = async (req: Request, res: Response) => {
+  try {
+    const from = parsePositiveInt(req.query.from, 0, 0, 1000000);
+    const to = parsePositiveInt(req.query.to, from, 0, 1000000);
+    const [groups]: any = await db.query(
+      `SELECT id, group_code, payload_snapshot, digital_signature
+       FROM order_groups
+       WHERE group_code LIKE 'GRP-%'
+       ORDER BY id ASC`,
+    );
+
+    const groupsInRange = groups.filter((group: any) => {
+      const suffix = Number(String(group.group_code).replace(/\D/g, ""));
+      return Number.isFinite(suffix) && suffix >= from && suffix <= to;
+    });
+
+    const results = [];
+    for (const group of groupsInRange) {
+      const [items]: any = await db.query(
+        "SELECT id, product_id, quantity, total_price FROM orders WHERE group_id = ? ORDER BY id ASC",
+        [group.id],
+      );
+      let snapshot: any = null;
+      try {
+        snapshot =
+          typeof group.payload_snapshot === "string"
+            ? JSON.parse(group.payload_snapshot)
+            : group.payload_snapshot;
+      } catch {
+        snapshot = null;
+      }
+
+      const signedItems = Array.isArray(snapshot?.items) ? snapshot.items : [];
+      const signedKey = normalizeItemKey(
+        signedItems.map((item: any) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        })),
+      );
+      const liveKey = normalizeItemKey(items);
+      const signedTotal = Number(snapshot?.total || 0);
+      const liveTotal = items.reduce(
+        (sum: number, item: any) => sum + Number(item.total_price || 0),
+        0,
+      );
+      const matches =
+        Boolean(group.digital_signature) &&
+        signedKey === liveKey &&
+        Math.abs(signedTotal - liveTotal) < 0.01;
+
+      results.push({
+        groupId: group.id,
+        groupCode: group.group_code,
+        matches,
+        signedItems: signedItems.length,
+        liveItems: items.length,
+        signedTotal,
+        liveTotal: Number(liveTotal.toFixed(2)),
+        hasSignature: Boolean(group.digital_signature),
+      });
+    }
+
+    res.json({
+      checked: results.length,
+      mismatches: results.filter((result) => !result.matches),
+      results,
+    });
+  } catch (error: any) {
+    console.error("❌ reconcileOrders error:", error.message);
+    res.status(500).json({
+      message: "Error reconciling orders",
+      details: error.message,
+    });
+  }
+};
+
 // PLACE MULTIPLE ORDERS (With Digital Signature + Snapshot)
 export const placeOrder = async (req: Request, res: Response) => {
-  const { items } = req.body;
+  const { items, allow_duplicate } = req.body;
   const user_id = (req as any).user.id;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -110,6 +377,34 @@ export const placeOrder = async (req: Request, res: Response) => {
 
   try {
     await conn.beginTransaction();
+
+    if (!allow_duplicate) {
+      const requestedKey = normalizeItemKey(items);
+      const [recentGroups]: any = await conn.query(
+        `SELECT id, group_code FROM order_groups
+         WHERE user_id = ? AND status = 'Pending'
+           AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)`,
+        [user_id],
+      );
+      for (const group of recentGroups) {
+        const [existingItems]: any = await conn.query(
+          "SELECT product_id, quantity FROM orders WHERE group_id = ?",
+          [group.id],
+        );
+        if (
+          existingItems.length === items.length &&
+          normalizeItemKey(existingItems) === requestedKey
+        ) {
+          await conn.rollback();
+          return res.status(409).json({
+            message: `An identical pending order (${group.group_code || `#GRP-${group.id}`}) was already placed in the last 10 minutes.`,
+            duplicate: true,
+            existingGroupId: group.id,
+          });
+        }
+      }
+    }
+
     const groupCode = `GRP-${Date.now()}`;
     const [groupResult]: any = await conn.query(
       "INSERT INTO order_groups (user_id, group_code, status) VALUES (?, ?, ?)",
@@ -349,25 +644,32 @@ export const getScanPreview = async (req: Request, res: Response) => {
     );
 
     if (groupRows.length === 0)
-      return res.status(404).json({ message: "Order Group not found." });
+      return res.status(404).json({
+        message: "Invalid order. This QR receipt was not found.",
+        code: "INVALID_ORDER",
+      });
 
     const group = groupRows[0];
 
     if (group.status === "Refunded")
-      return res
-        .status(400)
-        .json({ message: "This order has been refunded and cannot be scanned." });
+      return res.status(400).json({
+        message: "This order has been refunded and cannot be scanned.",
+        code: "REFUNDED_ORDER",
+      });
 
     if (!group.digital_signature) {
-      return res
-        .status(400)
-        .json({ message: "TAMPERED RECEIPT: Missing Digital Signature." });
+      return res.status(400).json({
+        message: "TAMPERED RECEIPT: Missing Digital Signature.",
+        code: "UNSUPPORTED_QR",
+      });
     }
 
     if (group.status !== "Pending")
-      return res
-        .status(400)
-        .json({ message: `This order is already "${group.status}".` });
+      return res.status(409).json({
+        message: `Already claimed: this order is ${group.status} and cannot be scanned again.`,
+        code: "ALREADY_CLAIMED",
+        currentStatus: group.status,
+      });
 
     const [dbItems]: any = await db.query(
       `SELECT o.id, o.product_id, o.quantity, o.total_price, p.name, p.size, p.price
@@ -448,16 +750,41 @@ export const confirmScanOrder = async (req: Request, res: Response) => {
       "SELECT id, status FROM order_groups WHERE id = ? FOR UPDATE",
       [groupId],
     );
-    if (groupRows.length === 0) throw new Error("Order group not found.");
+    if (groupRows.length === 0) {
+      const error: any = new Error("Invalid order. This QR receipt was not found.");
+      error.status = 404;
+      error.code = "INVALID_ORDER";
+      throw error;
+    }
     if (groupRows[0].status === "Refunded") {
       const error: any = new Error(
         "This order has been refunded and cannot be scanned.",
       );
       error.status = 400;
+      error.code = "REFUNDED_ORDER";
       throw error;
     }
-    if (groupRows[0].status !== "Pending")
-      throw new Error(`This order is already "${groupRows[0].status}".`);
+    if (groupRows[0].status !== "Pending") {
+      const error: any = new Error(
+        `Already claimed: this order is ${groupRows[0].status} and cannot be scanned again.`,
+      );
+      error.status = 409;
+      error.code = "ALREADY_CLAIMED";
+      error.currentStatus = groupRows[0].status;
+      throw error;
+    }
+    if (
+      req.body.expected_status &&
+      req.body.expected_status !== groupRows[0].status
+    ) {
+      const error: any = new Error(
+        `This order changed to ${groupRows[0].status} before confirmation. Refresh and scan again.`,
+      );
+      error.status = 409;
+      error.code = "STATUS_CONFLICT";
+      error.currentStatus = groupRows[0].status;
+      throw error;
+    }
 
     const [orderRows]: any = await conn.query(
       `SELECT o.id, o.product_id, o.quantity, p.name, p.price
@@ -534,9 +861,11 @@ export const confirmScanOrder = async (req: Request, res: Response) => {
   } catch (error: any) {
     await conn.rollback();
     console.error("confirmScanOrder error:", error.message);
-    res
-      .status(error.status || 500)
-      .json({ message: error.message || "Server error during confirmation" });
+    res.status(error.status || 500).json({
+      message: error.message || "Server error during confirmation",
+      code: error.code || "CONFIRM_FAILED",
+      currentStatus: error.currentStatus,
+    });
   } finally {
     conn.release();
   }
@@ -544,7 +873,7 @@ export const confirmScanOrder = async (req: Request, res: Response) => {
 
 // Update whole Group Status (Admin dropdown)
 export const updateOrderStatus = async (req: Request, res: Response) => {
-  const { status } = req.body;
+  const { status, expected_status } = req.body;
   const { id } = req.params;
   const conn = await db.getConnection();
 
@@ -554,6 +883,9 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
         message: "Use the refund action to mark an order as Refunded.",
       });
     }
+    if (!(MANAGEABLE_STATUSES as readonly string[]).includes(status)) {
+      return res.status(400).json({ message: "Invalid order status." });
+    }
 
     await conn.beginTransaction();
 
@@ -562,16 +894,34 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       [id],
     );
 
-    if (groupRows.length === 0) {
-      await conn.rollback();
-      return res.status(404).json({ message: "Order group not found." });
+    if (groupRows.length === 0) throw new Error("Order group not found.");
+
+    const currentStatus = groupRows[0].status;
+    if (currentStatus === "Refunded") {
+      throw new Error("Refunded orders cannot be modified.");
     }
 
-    if (groupRows[0].status === "Refunded") {
-      await conn.rollback();
-      return res
-        .status(400)
-        .json({ message: "Refunded orders cannot be modified." });
+    if (expected_status && expected_status !== currentStatus) {
+      const error: any = new Error(
+        `Status changed from ${expected_status} to ${currentStatus} by another user. Refresh before editing.`,
+      );
+      error.status = 409;
+      error.currentStatus = currentStatus;
+      throw error;
+    }
+
+    if (status !== currentStatus) {
+      const allowed = STATUS_TRANSITIONS[currentStatus] || [];
+      if (!allowed.includes(status)) {
+        const error: any = new Error(
+          `Cannot change status from ${currentStatus} to ${status}.`,
+        );
+        error.status = 400;
+        throw error;
+      }
+      if (status === "Cancelled" && STOCK_DEDUCTED_STATUSES.has(currentStatus)) {
+        await restoreGroupStock(conn, id);
+      }
     }
 
     await conn.query("UPDATE order_groups SET status = ? WHERE id = ?", [
@@ -584,17 +934,20 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     ]);
 
     await conn.commit();
-    res.json({ message: "Status updated" });
+    res.json({ message: "Status updated", status, currentStatus });
   } catch (error: any) {
     await conn.rollback();
     console.error("❌ updateOrderStatus error:", error.message);
-    res.status(500).json({ message: "Error updating status" });
+    res.status(error.status || 500).json({
+      message: error.message || "Error updating status",
+      currentStatus: error.currentStatus,
+    });
   } finally {
     conn.release();
   }
 };
 
-// Delete whole Group (Admin)
+// Delete whole Group (Admin). Restores stock when a processed group is removed.
 export const deleteOrder = async (req: Request, res: Response) => {
   const conn = await db.getConnection();
 
@@ -611,16 +964,25 @@ export const deleteOrder = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Order group not found." });
     }
 
-    if (groupRows[0].status === "Refunded") {
+    const status = groupRows[0].status;
+    if (status === "Refunded") {
       await conn.rollback();
       return res
         .status(400)
         .json({ message: "Refunded orders cannot be deleted." });
     }
 
+    if (STOCK_DEDUCTED_STATUSES.has(status)) {
+      await restoreGroupStock(conn, req.params.id);
+    }
+
+    await conn.query("DELETE FROM orders WHERE group_id = ?", [req.params.id]);
     await conn.query("DELETE FROM order_groups WHERE id = ?", [req.params.id]);
     await conn.commit();
-    res.json({ message: "Order group deleted" });
+    res.json({
+      message: "Order group deleted",
+      stockRestored: STOCK_DEDUCTED_STATUSES.has(status),
+    });
   } catch (error: any) {
     await conn.rollback();
     console.error("❌ deleteOrder error:", error.message);

@@ -47,6 +47,8 @@ export const login = async (req: Request, res: Response) => {
       role: user.role,
       username: user.username,
       full_name: user.full_name,
+      course: user.course,
+      profile_picture: user.profile_picture || null,
     });
   } catch (error: any) {
     console.error("Login error:", error.message);

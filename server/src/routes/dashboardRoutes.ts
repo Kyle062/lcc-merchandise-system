@@ -4,6 +4,7 @@ import {
   getRecentOrders,
   getMonthlySales,
   getInventoryDistribution,
+  getDiagnostics,
 } from '../controllers/dashboardController';
 import { protect, authorize } from '../middleware/authMiddleware';
 
@@ -13,5 +14,6 @@ router.get('/stats', protect, authorize(['admin']), getAdminStats);
 router.get('/recent-orders', protect, authorize(['admin']), getRecentOrders);
 router.get('/monthly-sales', protect, authorize(['admin']), getMonthlySales);
 router.get('/inventory-distribution', protect, authorize(['admin']), getInventoryDistribution);
+router.get('/diagnostics', protect, authorize(['admin']), getDiagnostics);
 
 export default router;

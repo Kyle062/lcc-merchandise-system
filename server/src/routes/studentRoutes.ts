@@ -1,5 +1,6 @@
 import express from 'express';
 import { getStudentStats, getStudentRecentOrders } from '../controllers/studentController';
+import { getMyProfile, updateMyProfile } from '../controllers/profileController';
 import { protect, authorize } from '../middleware/authMiddleware';
 
 const router = express.Router();
@@ -9,5 +10,7 @@ router.use(protect, authorize(['student']));
 
 router.get('/stats', getStudentStats);
 router.get('/recent-orders', getStudentRecentOrders);
+router.get('/profile', getMyProfile);
+router.put('/profile', updateMyProfile);
 
 export default router;

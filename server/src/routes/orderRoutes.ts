@@ -10,6 +10,7 @@ import {
   getScanPreview,
   confirmScanOrder,
   verifyReceiptSignature,
+  reconcileOrders,
 } from "../controllers/orderController";
 import { protect, authorize } from "../middleware/authMiddleware";
 
@@ -18,6 +19,12 @@ const router = express.Router();
 // Admin & Staff routes
 router.get("/", protect, authorize(["admin", "staff"]), getAllOrders);
 router.get("/my-orders", protect, authorize(["student"]), getMyOrders);
+router.get(
+  "/reconcile",
+  protect,
+  authorize(["admin", "staff"]),
+  reconcileOrders,
+);
 router.get("/:id", protect, authorize(["admin", "staff"]), getOrderById);
 
 // Student routes

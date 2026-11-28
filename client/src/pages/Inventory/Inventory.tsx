@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { API_BASE } from "../../config/api";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
 import {
   LayoutDashboard,
   Package,
@@ -59,6 +60,11 @@ const Inventory = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [courseFilter, setCourseFilter] = useState("All");
+  const [stockState, setStockState] = useState("all");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -80,89 +86,95 @@ const Inventory = () => {
 
   const token = localStorage.getItem("token");
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/products");
+      const params = new URLSearchParams({
+        search: searchTerm,
+        page: String(page),
+        limit: String(limit),
+        sort: `${sortRules[0].key}:${sortRules[0].order}`,
+      });
+      if (courseFilter !== "All") params.append("course", courseFilter);
+      if (stockState !== "all") params.append("stock_state", stockState);
+
+      const res = await fetch(
+        `${API_BASE}/api/products/paged?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       const data = await res.json();
-      setProducts(data);
+      setProducts(Array.isArray(data?.rows) ? data.rows : []);
+      setTotal(Number(data?.total || 0));
+      setTotalPages(Number(data?.totalPages || 1));
       setLoading(false);
     } catch (error) {
       console.error("Error fetching products:", error);
       setLoading(false);
     }
-  };
+  }, [token, searchTerm, courseFilter, stockState, page, limit, sortRules]);
 
   useEffect(() => {
     if (!token) {
       navigate("/login");
       return;
     }
+    setLoading(true);
     fetchProducts();
-  }, [token, navigate]);
+  }, [token, navigate, fetchProducts]);
 
-  const handleSort = (key: SortKey, isShiftKey: boolean) => {
-    setSortRules((prevRules) => {
-      const existingIndex = prevRules.findIndex((rule) => rule.key === key);
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, courseFilter, stockState, limit]);
 
-      if (isShiftKey) {
-        if (existingIndex !== -1) {
-          const updated = [...prevRules];
-          updated[existingIndex] = {
-            key,
-            order: updated[existingIndex].order === "asc" ? "desc" : "asc",
-          };
-          return updated;
-        } else {
-          return [...prevRules, { key, order: "asc" }];
-        }
-      } else {
-        if (existingIndex === 0 && prevRules.length === 1) {
-          return [
-            { key, order: prevRules[0].order === "asc" ? "desc" : "asc" },
-          ];
-        }
-        return [{ key, order: "asc" }];
-      }
-    });
+  const handleSort = (key: SortKey) => {
+    setSortRules((prevRules) => [
+      {
+        key,
+        order:
+          prevRules[0].key === key && prevRules[0].order === "asc"
+            ? "desc"
+            : "asc",
+      },
+    ]);
+    setPage(1);
   };
 
   const clearSort = () => {
     setSortRules([{ key: "id", order: "asc" }]);
+    setPage(1);
   };
 
-  const sortedAndFilteredProducts = useMemo(() => {
-    const term = searchTerm.toLowerCase();
+  const clearFilters = () => {
+    setSearchTerm("");
+    setCourseFilter("All");
+    setStockState("all");
+    setPage(1);
+  };
 
-    const filtered = products.filter((p) => {
-      const matchesSearch =
-        p.name.toLowerCase().includes(term) ||
-        (p.description && p.description.toLowerCase().includes(term)) ||
-        (p.size && p.size.toLowerCase().includes(term)) ||
-        (p.course && p.course.toLowerCase().includes(term));
+  const handleDownloadExport = async (format: "csv" | "xls") => {
+    const params = new URLSearchParams({ format });
+    if (searchTerm) params.append("search", searchTerm);
+    if (courseFilter !== "All") params.append("course", courseFilter);
+    if (stockState !== "all") params.append("stock_state", stockState);
 
-      const matchesCourse = courseFilter === "All" || p.course === courseFilter;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/settings/export-inventory?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `inventory.${format === "xls" ? "xls" : "csv"}`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
-      return matchesSearch && matchesCourse;
-    });
-
-    const sorted = [...filtered].sort((a, b) => {
-      for (const rule of sortRules) {
-        let aVal: any = a[rule.key];
-        let bVal: any = b[rule.key];
-
-        if (typeof aVal === "string" && typeof bVal === "string") {
-          aVal = aVal.toLowerCase();
-          bVal = bVal.toLowerCase();
-        }
-
-        if (aVal < bVal) return rule.order === "asc" ? -1 : 1;
-        if (aVal > bVal) return rule.order === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
-
-    return sorted;
-  }, [products, searchTerm, courseFilter, sortRules]);
+  const visibleProducts = products;
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -223,8 +235,8 @@ const Inventory = () => {
     setErrorMessage("");
 
     const url = editingProduct
-      ? `http://172.20.10.4:5000/api/products/${editingProduct.id}`
-      : "http://172.20.10.4:5000/api/products";
+      ? `${API_BASE}/api/products/${editingProduct.id}`
+      : `${API_BASE}/api/products`;
     const method = editingProduct ? "PUT" : "POST";
 
     try {
@@ -260,7 +272,7 @@ const Inventory = () => {
 
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/products/${id}`,
+        `${API_BASE}/api/products/${id}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -374,6 +386,20 @@ const Inventory = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <button
+              className="inventory-export-btn"
+              onClick={() => handleDownloadExport("csv")}
+              title="Export inventory as CSV"
+            >
+              <Download size={16} /> CSV
+            </button>
+            <button
+              className="inventory-export-btn"
+              onClick={() => handleDownloadExport("xls")}
+              title="Export inventory for Excel"
+            >
+              <Download size={16} /> Excel
+            </button>
             <Bell size={20} className="inventory-header-icon" />
             <div className="inventory-avatar">A</div>
           </div>
@@ -382,29 +408,13 @@ const Inventory = () => {
         <div className="inventory-content">
           <div className="inventory-toolbar">
             <div>
-              <h2 className="inventory-title">
-                Products ({sortedAndFilteredProducts.length})
-              </h2>
+              <h2 className="inventory-title">Products ({total})</h2>
               <p className="inventory-subtitle">
-                {sortRules.length > 1 ? (
-                  <>
-                    Multi-sort:{" "}
-                    {sortRules.map((r, i) => (
-                      <span key={r.key}>
-                        {i > 0 && " → "}
-                        <strong>{r.key}</strong> ({r.order})
-                      </span>
-                    ))}
-                    <button className="clear-sort-btn" onClick={clearSort}>
-                      Clear
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Sorted by <strong>{sortRules[0].key}</strong> (
-                    {sortRules[0].order})
-                  </>
-                )}
+                Sorted by <strong>{sortRules[0].key}</strong> (
+                {sortRules[0].order}){" "}
+                <button className="clear-sort-btn" onClick={clearSort}>
+                  Clear sort
+                </button>
               </p>
             </div>
             <button className="add-product-btn" onClick={openAddModal}>
@@ -412,26 +422,70 @@ const Inventory = () => {
             </button>
           </div>
 
-          <div className="course-filter-tabs">
-            <span className="filter-label">Filter by Course:</span>
-            {COURSES.map((c) => (
-              <button
-                key={c}
-                className={`course-tab ${courseFilter === c ? "active" : ""}`}
-                onClick={() => setCourseFilter(c)}
+          <div className="inventory-filter-bar">
+            <label className="inventory-filter-search">
+              <span>Search</span>
+              <input
+                type="search"
+                placeholder="Name, description, size, course..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Course / Department</span>
+              <select
+                value={courseFilter}
+                onChange={(e) => setCourseFilter(e.target.value)}
               >
-                {c}
-              </button>
-            ))}
+                {COURSES.map((course) => (
+                  <option key={course} value={course}>
+                    {course}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Stock</span>
+              <select
+                value={stockState}
+                onChange={(e) => setStockState(e.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="low">Low (&lt;10)</option>
+                <option value="out">Out of stock</option>
+                <option value="in">In stock</option>
+              </select>
+            </label>
+            <label>
+              <span>Rows</span>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+            <button className="inventory-clear-filters" onClick={clearFilters}>
+              Clear filters
+            </button>
           </div>
 
           {loading ? (
             <div className="inventory-loading">Loading products...</div>
-          ) : sortedAndFilteredProducts.length === 0 ? (
+          ) : visibleProducts.length === 0 ? (
             <div className="inventory-empty">
               <PackagePlus size={48} color="#9ca3af" />
-              <h3>No products found</h3>
-              <p>Try a different search or filter.</p>
+              <h3>No matching records</h3>
+              <p>Try a different search, course, or stock filter.</p>
+              <button
+                className="inventory-clear-filters"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
             </div>
           ) : (
             <div className="inventory-table-card">
@@ -440,7 +494,7 @@ const Inventory = () => {
                   <tr>
                     <th
                       className="sortable"
-                      onClick={(e) => handleSort("id", e.shiftKey)}
+                      onClick={() => handleSort("id")}
                     >
                       <div className="th-content">
                         ID <SortIcon column="id" />
@@ -448,7 +502,7 @@ const Inventory = () => {
                     </th>
                     <th
                       className="sortable"
-                      onClick={(e) => handleSort("name", e.shiftKey)}
+                      onClick={() => handleSort("name")}
                     >
                       <div className="th-content">
                         Product Name <SortIcon column="name" />
@@ -456,7 +510,7 @@ const Inventory = () => {
                     </th>
                     <th
                       className="sortable"
-                      onClick={(e) => handleSort("course", e.shiftKey)}
+                      onClick={() => handleSort("course")}
                     >
                       <div className="th-content">
                         Course <SortIcon column="course" />
@@ -465,7 +519,7 @@ const Inventory = () => {
                     <th>Description</th>
                     <th
                       className="sortable"
-                      onClick={(e) => handleSort("size", e.shiftKey)}
+                      onClick={() => handleSort("size")}
                     >
                       <div className="th-content">
                         Size <SortIcon column="size" />
@@ -473,7 +527,7 @@ const Inventory = () => {
                     </th>
                     <th
                       className="sortable"
-                      onClick={(e) => handleSort("price", e.shiftKey)}
+                      onClick={() => handleSort("price")}
                     >
                       <div className="th-content">
                         Price <SortIcon column="price" />
@@ -481,7 +535,7 @@ const Inventory = () => {
                     </th>
                     <th
                       className="sortable"
-                      onClick={(e) => handleSort("stock_quantity", e.shiftKey)}
+                      onClick={() => handleSort("stock_quantity")}
                     >
                       <div className="th-content">
                         Stock <SortIcon column="stock_quantity" />
@@ -491,7 +545,7 @@ const Inventory = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedAndFilteredProducts.map((product) => {
+                  {visibleProducts.map((product) => {
                     const badge = getStockBadge(product.stock_quantity);
                     return (
                       <tr key={product.id}>
@@ -537,6 +591,26 @@ const Inventory = () => {
               </table>
             </div>
           )}
+
+          <div className="inventory-pagination">
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <div>
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                Previous
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

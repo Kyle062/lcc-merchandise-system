@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from "react";
+import { API_BASE } from "../../config/api";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -27,10 +28,19 @@ import {
   isGroupBlocked,
 } from "../../utils/blockedOrders";
 
+type ScanDiagnostic = {
+  code: string;
+  title: string;
+  message: string;
+  hint?: string;
+};
+
 const Scanner = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [scanDiagnostic, setScanDiagnostic] =
+    useState<ScanDiagnostic | null>(null);
   const [tamperDiffs, setTamperDiffs] = useState<any[]>([]);
   const [signedSnapshot, setSignedSnapshot] = useState<any>(null);
   const [successData, setSuccessData] = useState<any>(null);
@@ -48,6 +58,7 @@ const Scanner = () => {
   const token = localStorage.getItem("token");
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
+  const previewOpenRef = useRef(false);
 
   const getQrBoxSize = () => {
     const width = typeof window === "undefined" ? 280 : window.innerWidth;
@@ -56,32 +67,173 @@ const Scanner = () => {
     return 280;
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    const startScanner = async () => {
-      try {
-        const html5Qrcode = new Html5Qrcode("reader");
-        const qrBoxSize = getQrBoxSize();
-        scannerRef.current = html5Qrcode;
-        await html5Qrcode.start(
-          { facingMode: "environment" },
-          {
-            fps: 30,
-            qrbox: { width: qrBoxSize, height: qrBoxSize },
-            aspectRatio: 1.0,
-          },
-          (decodedText) => processScan(decodedText),
-          () => {},
-        );
-      } catch (err) {
-        if (isMounted)
-          showToast("error", "Camera Error", "Could not access the webcam.");
+  const showScanDiagnostic = (diagnostic: ScanDiagnostic) => {
+    setScanDiagnostic(diagnostic);
+    setScanError(diagnostic.message);
+  };
+
+  const clearScanDiagnostic = () => {
+    setScanDiagnostic(null);
+    setScanError(null);
+    setTamperDiffs([]);
+    setSignedSnapshot(null);
+  };
+
+  const mapScanError = (code: unknown, message: string): ScanDiagnostic => {
+    switch (code) {
+      case "ALREADY_CLAIMED":
+        return {
+          code: "ALREADY_CLAIMED",
+          title: "Already Claimed",
+          message,
+          hint: "This order has already been processed. Do not scan it again.",
+        };
+      case "INVALID_ORDER":
+        return {
+          code: "INVALID_ORDER",
+          title: "Invalid Order",
+          message,
+          hint: "Confirm the QR belongs to this system and try again.",
+        };
+      case "REFUNDED_ORDER":
+        return {
+          code: "REFUNDED_ORDER",
+          title: "Order Refunded",
+          message,
+          hint: "Refunded receipts cannot be claimed at the counter.",
+        };
+      case "STATUS_CONFLICT":
+        return {
+          code: "STATUS_CONFLICT",
+          title: "Status Changed",
+          message,
+          hint: "Refresh Order Management and scan the latest receipt.",
+        };
+      case "UNSUPPORTED_QR":
+        return {
+          code: "UNSUPPORTED_QR",
+          title: "Unsupported QR",
+          message,
+          hint: "Expected an LCC-ORDER receipt QR code.",
+        };
+      default:
+        return {
+          code: "SCAN_FAILED",
+          title: "Scan Failed",
+          message,
+          hint: "Check the connection and try the scan again.",
+        };
+    }
+  };
+
+  const getCameraPrecheck = async (): Promise<ScanDiagnostic | null> => {
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      return {
+        code: "INSECURE_CONTEXT",
+        title: "Camera Unavailable",
+        message: "Camera access requires HTTPS or localhost.",
+        hint: "Open the app over HTTPS or use localhost, then retry.",
+      };
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return {
+        code: "NO_CAMERA_API",
+        title: "Camera Unavailable",
+        message: "This browser does not expose camera access.",
+        hint: "Use a current Chrome, Edge, or Safari browser.",
+      };
+    }
+    try {
+      const permission = await navigator.permissions?.query?.({
+        name: "camera" as PermissionName,
+      });
+      if (permission?.state === "denied") {
+        return {
+          code: "CAMERA_PERMISSION",
+          title: "Camera Permission Denied",
+          message: "The browser is blocking camera access for this site.",
+          hint: "Allow camera access in the browser address bar, then retry.",
+        };
       }
-    };
+    } catch {
+      // Permission API is optional; the start() error below is more specific.
+    }
+    return null;
+  };
+
+  const startScanner = useCallback(async () => {
+    const precheck = await getCameraPrecheck();
+    if (precheck) {
+      showScanDiagnostic(precheck);
+      return;
+    }
+
+    try {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        await scannerRef.current.stop();
+        await scannerRef.current.clear();
+      }
+      const html5Qrcode = new Html5Qrcode("reader");
+      const qrBoxSize = getQrBoxSize();
+      scannerRef.current = html5Qrcode;
+      clearScanDiagnostic();
+      await html5Qrcode.start(
+        { facingMode: "environment" },
+        {
+          fps: 30,
+          qrbox: { width: qrBoxSize, height: qrBoxSize },
+          aspectRatio: 1.0,
+        },
+        (decodedText) => processScan(decodedText),
+        () => {},
+      );
+    } catch (err: any) {
+      const name = String(err?.name || "");
+      const message = String(err?.message || "Camera could not be started.");
+      let diagnostic: ScanDiagnostic;
+      if (
+        name.includes("NotAllowed") ||
+        name.includes("Permission") ||
+        name.includes("Security")
+      ) {
+        diagnostic = {
+          code: "CAMERA_PERMISSION",
+          title: "Camera Permission Denied",
+          message,
+          hint: "Allow camera access in the browser address bar, then retry.",
+        };
+      } else if (name.includes("NotFound") || name.includes("Devices")) {
+        diagnostic = {
+          code: "NO_CAMERA",
+          title: "No Camera Found",
+          message,
+          hint: "Connect a camera or use a device with a rear camera.",
+        };
+      } else if (name.includes("NotReadable") || name.includes("TrackStart")) {
+        diagnostic = {
+          code: "CAMERA_IN_USE",
+          title: "Camera In Use",
+          message,
+          hint: "Close other apps using the camera, then retry.",
+        };
+      } else {
+        diagnostic = {
+          code: "CAMERA_ERROR",
+          title: "Camera Error",
+          message,
+          hint: "Retry, or reload the page if the problem continues.",
+        };
+      }
+      showScanDiagnostic(diagnostic);
+      showToast("error", diagnostic.title, diagnostic.message);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     startScanner();
 
     return () => {
-      isMounted = false;
       if (scannerRef.current && scannerRef.current.isScanning) {
         scannerRef.current
           .stop()
@@ -89,18 +241,31 @@ const Scanner = () => {
           .catch(console.error);
       }
     };
-  }, []);
+  }, [startScanner]);
 
   const processScan = async (decodedText: string) => {
     const groupIdMatch = decodedText.match(/LCC-ORDER-(\d+)/);
-    if (!groupIdMatch) return;
+    if (!groupIdMatch) {
+      showScanDiagnostic({
+        code: "UNSUPPORTED_QR",
+        title: "Unsupported QR",
+        message: "That code is not an LCC order receipt.",
+        hint: "Scan the QR printed on a student's LCC order receipt.",
+      });
+      showToast("error", "Unsupported QR", "Expected an LCC-ORDER receipt.");
+      return;
+    }
 
     const groupId = groupIdMatch[1];
 
     if (isGroupBlocked(Number(groupId))) {
-      setScanError(
-        "This receipt was previously flagged as tampered. It is blocked and will not be recorded in Order Management.",
-      );
+      showScanDiagnostic({
+        code: "BLOCKED_RECEIPT",
+        title: "Blocked Receipt",
+        message:
+          "This receipt was previously flagged as tampered and is blocked.",
+        hint: "Escalate to an administrator. It will not appear in Order Management.",
+      });
       showToast(
         "error",
         "Blocked Receipt",
@@ -109,18 +274,16 @@ const Scanner = () => {
       return;
     }
 
-    if (isProcessingRef.current || previewData) return;
+    if (isProcessingRef.current || previewOpenRef.current) return;
     isProcessingRef.current = true;
 
     setLoading(true);
-    setScanError(null);
-    setTamperDiffs([]);
-    setSignedSnapshot(null);
+    clearScanDiagnostic();
 
     try {
       // STEP 1: Verify Signature
       const verifyRes = await fetch(
-        "http://172.20.10.4:5000/api/orders/verify-receipt",
+        `${API_BASE}/api/orders/verify-receipt`,
         {
           method: "POST",
           headers: {
@@ -134,26 +297,24 @@ const Scanner = () => {
       const verifyData = await verifyRes.json();
 
       if (!verifyData.isValid) {
-        setScanError(
-          `${verifyData.message || "TAMPERED RECEIPT DETECTED! This receipt is forged."} This order is blocked and will not be recorded in Order Management.`,
-        );
+        showScanDiagnostic({
+          code: "TAMPERED_QR",
+          title: "Security Alert",
+          message: `${verifyData.message || "Digital signature mismatch."} This order is blocked and will not be recorded in Order Management.`,
+          hint: "Escalate to an administrator. Dismiss this message to scan another receipt.",
+        });
         setTamperDiffs(verifyData.diffs || []);
         blockOrderGroup(Number(groupId));
         setSignedSnapshot(verifyData.signed_snapshot || null);
         showToast("error", "SECURITY ALERT", "Digital signature mismatch.");
-        setTimeout(() => {
-          isProcessingRef.current = false;
-          setScanError(null);
-          setTamperDiffs([]);
-          setSignedSnapshot(null);
-        }, 10000);
+        isProcessingRef.current = false;
         setLoading(false);
         return;
       }
 
       // STEP 2: Load Preview
       const res = await fetch(
-        "http://172.20.10.4:5000/api/orders/scan-preview",
+        `${API_BASE}/api/orders/scan-preview`,
         {
           method: "POST",
           headers: {
@@ -167,13 +328,15 @@ const Scanner = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        setScanError(data.message || "Failed to process order.");
-        showToast("error", "Scan Failed", data.message);
-        setTimeout(() => {
-          isProcessingRef.current = false;
-          setScanError(null);
-        }, 3000);
+        const diagnostic = mapScanError(
+          data.code,
+          data.message || "Failed to process order.",
+        );
+        showScanDiagnostic(diagnostic);
+        showToast("error", diagnostic.title, diagnostic.message);
+        isProcessingRef.current = false;
       } else {
+        previewOpenRef.current = true;
         setPreviewData(data.group);
         setEditedItems(data.items);
         showToast(
@@ -183,12 +346,14 @@ const Scanner = () => {
         );
       }
     } catch (error: any) {
-      setScanError("Network Error");
+      showScanDiagnostic({
+        code: "NETWORK_ERROR",
+        title: "Connection Error",
+        message: error?.message || "Could not reach the server.",
+        hint: "Check the network connection and retry the scan.",
+      });
       showToast("error", "Connection Error", "Could not reach server.");
-      setTimeout(() => {
-        isProcessingRef.current = false;
-        setScanError(null);
-      }, 3000);
+      isProcessingRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -262,19 +427,34 @@ const Scanner = () => {
 
     try {
       const res = await fetch(
-        "http://172.20.10.4:5000/api/orders/confirm-scan",
+        `${API_BASE}/api/orders/confirm-scan`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ group_id: groupId, items }),
+          body: JSON.stringify({
+            group_id: groupId,
+            items,
+            expected_status: previewData?.status || "Pending",
+          }),
         },
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        closeModal();
+        const diagnostic = mapScanError(
+          data.code,
+          data.message || "Could not confirm payment.",
+        );
+        showScanDiagnostic(diagnostic);
+        showToast("error", diagnostic.title, diagnostic.message);
+        return;
+      }
+
+      clearScanDiagnostic();
 
       // ✅ Show Green Success Screen
       setSuccessData({
@@ -289,6 +469,7 @@ const Scanner = () => {
         "Order is now Processing. Stock deducted.",
       );
 
+      previewOpenRef.current = false;
       setPreviewData(null);
 
       setTimeout(() => {
@@ -296,6 +477,13 @@ const Scanner = () => {
         isProcessingRef.current = false;
       }, 4000);
     } catch (error: any) {
+      closeModal();
+      showScanDiagnostic({
+        code: "CONFIRM_FAILED",
+        title: "Confirmation Failed",
+        message: error?.message || "Could not confirm payment.",
+        hint: "Retry the scan. No stock was deducted for a failed confirmation.",
+      });
       showToast("error", "Confirmation Failed", error.message);
       isProcessingRef.current = false;
     } finally {
@@ -304,7 +492,9 @@ const Scanner = () => {
   };
 
   const closeModal = () => {
+    previewOpenRef.current = false;
     setPreviewData(null);
+    setEditedItems([]);
     isProcessingRef.current = false;
   };
 
@@ -469,16 +659,21 @@ const Scanner = () => {
                   }}
                 >
                   <AlertTriangle size={60} style={{ marginBottom: "10px" }} />
-                  <h3 style={{ margin: "0 0 10px 0" }}>SECURITY ALERT</h3>
+                  <h3 style={{ margin: "0 0 10px 0" }}>
+                    {scanDiagnostic?.title || "Scanner Issue"}
+                  </h3>
                   <p
                     style={{
                       fontWeight: "bold",
-                      marginBottom: "15px",
+                      marginBottom: "8px",
                       fontSize: "14px",
                     }}
                   >
                     {scanError}
                   </p>
+                  {scanDiagnostic?.hint && (
+                    <p className="scan-diagnostic-hint">{scanDiagnostic.hint}</p>
+                  )}
 
                   {tamperDiffs.length > 0 && (
                     <div style={{ width: "100%", maxWidth: "400px" }}>
@@ -512,6 +707,28 @@ const Scanner = () => {
                       </div>
                     </div>
                   )}
+
+                  <div className="scan-diagnostic-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearScanDiagnostic();
+                        closeModal();
+                        startScanner();
+                      }}
+                    >
+                      <RefreshCw size={14} /> Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearScanDiagnostic();
+                        closeModal();
+                      }}
+                    >
+                      <X size={14} /> Dismiss
+                    </button>
+                  </div>
                 </div>
               )}
 

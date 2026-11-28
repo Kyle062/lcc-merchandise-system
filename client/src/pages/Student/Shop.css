@@ -126,6 +126,19 @@
 .shop-filters::-webkit-scrollbar {
   display: none;
 }
+
+.shop-course-hint {
+  margin: -8px 0 16px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.shop-course-hint a {
+  color: #15803d;
+  font-weight: 600;
+  text-decoration: underline;
+}
 .filter-tab {
   padding: 8px 16px;
   border-radius: 999px;

@@ -75,6 +75,31 @@ table {
   .reports-charts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .analytics-header,
+  .orders-header {
+    height: auto;
+    min-height: 64px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .analytics-header > div,
+  .orders-header > div {
+    min-width: 0;
+  }
+
+  .analytics-header-actions,
+  .orders-header-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .analytics-export-note {
+    display: none;
+  }
 }
 
 @media screen and (max-width: 1024px) {
@@ -94,15 +119,20 @@ table {
   .admin-header,
   .student-header,
   .inventory-header,
-  .orders-header,
   .users-header,
-  .analytics-header,
   .settings-header,
   .tailor-header,
   .shop-header,
   .track-header {
     height: 64px;
     padding: 0 20px;
+  }
+
+  .analytics-header,
+  .orders-header {
+    height: auto;
+    min-height: 64px;
+    padding: 10px 20px;
   }
 
   .admin-header-right,
@@ -485,12 +515,15 @@ table {
 
   .modal-content,
   .cart-modal,
+  .cart-drawer,
   .receipt-modal,
   .size-modal,
   .added-modal,
   .confirm-dialog,
   .tailor-modal,
-  .camera-modal {
+  .camera-modal,
+  .refund-modal,
+  .refund-receipt-card {
     width: 100%;
     max-width: 100%;
     max-height: calc(100vh - 24px);
@@ -563,6 +596,8 @@ table {
   .shop-sidebar-nav,
   .track-sidebar-nav {
     flex: 1;
+    height: 100%;
+    min-height: 0;
     flex-direction: row;
     align-items: center;
     justify-content: center;
@@ -603,10 +638,11 @@ table {
     max-width: 88px;
     flex-direction: column;
     justify-content: center;
-    gap: 3px;
-    padding: 6px 2px;
+    gap: 2px;
+    padding: 4px 2px;
     border-radius: 6px;
     font-size: 10px;
+    line-height: 1.05;
     text-align: center;
   }
 

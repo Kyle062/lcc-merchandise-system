@@ -1,3 +1,4 @@
+import { API_BASE, ANALYTICS_SERVICE_BASE } from "../config/api";
 import React, { useState, useEffect, useRef } from "react";
 import {
   EyeOff,
@@ -50,13 +51,6 @@ const VALID_STUDENTS = [
   },
   { barcode: "2024004213", names: ["Jan Robin Layog"] },
 ];
-
-const getHost = () => {
-  const host = window.location.hostname;
-  return host === "localhost" || host === "127.0.0.1"
-    ? "localhost"
-    : "172.20.10.4";
-};
 
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -214,8 +208,7 @@ const SignUp = () => {
     setIsLoading(true);
 
     try {
-      const host = getHost();
-      const response = await fetch(`http://${host}:8001/scan-id`, {
+      const response = await fetch(`${ANALYTICS_SERVICE_BASE}/scan-id`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: imageData }),
@@ -264,8 +257,7 @@ const SignUp = () => {
     setErrorMessage("");
 
     try {
-      const host = getHost();
-      const response = await fetch(`http://${host}:5000/api/auth/register`, {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

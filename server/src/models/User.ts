@@ -63,3 +63,36 @@ export const updateUserRole = async (id: number, role: string) => {
 export const deleteUser = async (id: number) => {
   await db.query("DELETE FROM users WHERE id = ?", [id]);
 };
+
+export const getUserProfileById = async (id: number) => {
+  const [rows]: any = await db.query(
+    `SELECT id, username, email, role, full_name, course, status, profile_picture, created_at
+     FROM users WHERE id = ?`,
+    [id],
+  );
+  return rows[0];
+};
+
+export const findUsernameOwner = async (username: string, excludeId: number) => {
+  const [rows]: any = await db.query(
+    "SELECT id FROM users WHERE username = ? AND id <> ? LIMIT 1",
+    [username, excludeId],
+  );
+  return rows[0];
+};
+
+export interface ProfileUpdate {
+  username: string;
+  email: string;
+  profile_picture: string | null;
+}
+
+export const updateUserProfile = async (id: number, data: ProfileUpdate) => {
+  await db.query(
+    `UPDATE users
+     SET username = ?, email = ?, profile_picture = ?
+     WHERE id = ?`,
+    [data.username, data.email, data.profile_picture, id],
+  );
+  return getUserProfileById(id);
+};

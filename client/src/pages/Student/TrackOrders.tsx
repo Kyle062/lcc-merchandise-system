@@ -1,3 +1,4 @@
+import { API_BASE, QR_SERVICE_BASE } from "../../config/api";
 import React, { useEffect, useState, useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -19,6 +20,7 @@ import {
   Store,
   Info,
   ReceiptText,
+  UserRound,
 } from "lucide-react";
 import "./TrackOrders.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -62,11 +64,12 @@ const TrackOrders = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const token = localStorage.getItem("token");
-  const studentName = localStorage.getItem("username") || "Student";
+  const studentName = localStorage.getItem("full_name") || "Student";
+  const profilePicture = localStorage.getItem("profile_picture") || "";
 
   const fetchRefunds = async () => {
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
+      const res = await fetch(`${API_BASE}/api/refunds`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -78,7 +81,7 @@ const TrackOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/orders/my-orders", {
+      const res = await fetch(`${API_BASE}/api/orders/my-orders`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -148,6 +151,9 @@ const TrackOrders = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
+    localStorage.removeItem("full_name");
+    localStorage.removeItem("course");
+    localStorage.removeItem("profile_picture");
     navigate("/login");
   };
 
@@ -189,7 +195,7 @@ const TrackOrders = () => {
     if (!confirmDelete.groupId) return;
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/orders/my-orders/${confirmDelete.groupId}`,
+        `${API_BASE}/api/orders/my-orders/${confirmDelete.groupId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -218,7 +224,7 @@ const TrackOrders = () => {
   const openRefundReceipt = async (refundId: number) => {
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/refunds/${refundId}`,
+        `${API_BASE}/api/refunds/${refundId}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       const data = await res.json();
@@ -242,7 +248,7 @@ const TrackOrders = () => {
     setRefunding(true);
 
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
+      const res = await fetch(`${API_BASE}/api/refunds`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -366,6 +372,14 @@ const TrackOrders = () => {
           >
             <Package size={20} /> <span>Track Orders</span>
           </NavLink>
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              isActive ? "track-nav-item active" : "track-nav-item"
+            }
+          >
+            <UserRound size={20} /> <span>My Profile</span>
+          </NavLink>
         </nav>
         <div className="track-sidebar-footer" onClick={handleLogout}>
           <LogOut size={20} /> <span>Logout</span>
@@ -377,9 +391,19 @@ const TrackOrders = () => {
           <h1 className="track-header-title">Track Orders</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
             <Bell size={20} color="#6b7280" />
-            <div className="track-avatar">
-              {studentName.charAt(0).toUpperCase()}
-            </div>
+            <NavLink to="/profile" className="avatar-link" aria-label="My profile">
+              {profilePicture ? (
+                <img
+                  src={profilePicture}
+                  alt="Profile"
+                  className="header-avatar"
+                />
+              ) : (
+                <div className="track-avatar">
+                  {studentName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </NavLink>
             <button className="mobile-logout-btn" onClick={handleLogout}>
               <LogOut size={20} color="#dc2626" />
             </button>
@@ -678,7 +702,7 @@ const TrackOrders = () => {
                 Group #GRP-{String(selectedQR).padStart(3, "0")}
               </p>
               <img
-                src={`http://172.20.10.4:8000/generate-qr?order_id=${selectedQR}`}
+                src={`${QR_SERVICE_BASE}/generate-qr?order_id=${selectedQR}`}
                 alt={`QR for Group ${selectedQR}`}
                 style={{ width: "180px", height: "180px" }}
               />

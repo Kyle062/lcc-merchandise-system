@@ -1,3 +1,4 @@
+import { API_BASE, QR_SERVICE_BASE } from "../../config/api";
 import React, { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Search,
   CheckCircle2,
+  UserRound,
 } from "lucide-react";
 import "./Shop.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -31,6 +33,9 @@ import bsitShirtImage from "../../assets/images/BSITT-SHIRT.jpg";
 import Toast from "../../components/Toast/Toast";
 import type { ToastMessage, ToastType } from "../../components/Toast/Toast";
 import ConfirmDialog from "../../components/Toast/ConfirmDialog";
+import { COURSES } from "../../constants/courses";
+
+const COURSE_FILTERS = ["My Course", "All", ...COURSES];
 
 const Shop = () => {
   const navigate = useNavigate();
@@ -38,6 +43,9 @@ const Shop = () => {
   const [groupedProducts, setGroupedProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>("All");
+  const [studentCourse, setStudentCourse] = useState(
+    localStorage.getItem("course") || "",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -74,7 +82,37 @@ const Shop = () => {
   });
 
   const token = localStorage.getItem("token");
-  const studentName = localStorage.getItem("username") || "Student";
+  const studentName = localStorage.getItem("full_name") || "Student";
+  const [profilePicture, setProfilePicture] = useState(
+    localStorage.getItem("profile_picture") || "",
+  );
+
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchStudentCourse = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/student/profile`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const course = data.course || "";
+        setStudentCourse(course);
+        localStorage.setItem("course", course);
+        if (data.profile_picture) {
+          setProfilePicture(data.profile_picture);
+          localStorage.setItem("profile_picture", data.profile_picture);
+        }
+      } catch (error) {
+        console.error("Unable to load student course:", error);
+      }
+    };
+
+    fetchStudentCourse();
+  }, [token]);
 
   // ✅ UPDATED STRICT IMAGE MAPPING
   const getProductImage = (name: string) => {
@@ -127,7 +165,7 @@ const Shop = () => {
     }
     const fetchData = async () => {
       try {
-        const res = await fetch("http://172.20.10.4:5000/api/products");
+        const res = await fetch(`${API_BASE}/api/products`);
         const data = await res.json();
         const available = data.filter((p: any) => p.stock_quantity > 0);
 
@@ -166,7 +204,11 @@ const Shop = () => {
   useEffect(() => {
     let result = groupedProducts;
 
-    if (selectedCourse !== "All") {
+    if (selectedCourse === "My Course") {
+      result = result.filter(
+        (p) => !studentCourse || p.course === studentCourse || p.course === "All",
+      );
+    } else if (selectedCourse !== "All") {
       result = result.filter((p) => p.course === selectedCourse);
     }
 
@@ -181,7 +223,7 @@ const Shop = () => {
     }
 
     setFilteredProducts(result);
-  }, [selectedCourse, groupedProducts, searchQuery]);
+  }, [selectedCourse, studentCourse, groupedProducts, searchQuery]);
 
   const handleOpenSizeModal = (product: any) => {
     setSelectedProduct(product);
@@ -301,96 +343,110 @@ const Shop = () => {
       return;
     }
 
+    const submitOrder = async (allowDuplicate: boolean) => {
+      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      try {
+        const payload: any = {
+          items: selectedCartItems.map((item) => ({
+            product_id: item.id,
+            quantity: item.cartQuantity,
+          })),
+        };
+        if (allowDuplicate) payload.allow_duplicate = true;
+
+        const res = await fetch(`${API_BASE}/api/orders`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 409 && data.duplicate) {
+            setConfirmDialog({
+              isOpen: true,
+              title: "Duplicate Order Detected",
+              message: `${data.message} Place this order anyway?`,
+              confirmLabel: "Place anyway",
+              variant: "warning",
+              onConfirm: () => submitOrder(true),
+            });
+            return;
+          }
+          showToast("error", "Checkout Failed", data.message);
+        } else {
+          showToast(
+            "success",
+            "Order Placed!",
+            `Successfully ordered ${selectedCartItems.length} item(s).`,
+          );
+
+          const orderSummary = selectedCartItems.map((item) => ({
+            name: item.displayName || item.name,
+            size: item.size,
+            qty: item.cartQuantity,
+            price: item.price * item.cartQuantity,
+          }));
+
+          setReceiptData({
+            groupId: data.groupId,
+            total: cartTotal,
+            items: orderSummary,
+            digitalSignature: data.digitalSignature,
+          });
+
+          setCart((prev) => prev.filter((item) => !item.isSelected));
+          setIsCartOpen(false);
+
+          const updatedRes = await fetch(
+            `${API_BASE}/api/products`,
+          );
+          const updatedData = await updatedRes.json();
+          const available = updatedData.filter(
+            (p: any) => p.stock_quantity > 0,
+          );
+
+          const grouped = available.reduce((acc: any, item: any) => {
+            if (!acc[item.name]) {
+              acc[item.name] = {
+                id: item.id,
+                name: item.name,
+                course: item.course,
+                description: item.description,
+                price: item.price,
+                sizes: [],
+              };
+            }
+            acc[item.name].sizes.push({
+              id: item.id,
+              size: item.size,
+              stock_quantity: item.stock_quantity,
+            });
+            return acc;
+          }, {});
+
+          setProducts(available);
+          setGroupedProducts(Object.values(grouped));
+        }
+      } catch {
+        showToast(
+          "error",
+          "Connection Error",
+          "Could not connect to server.",
+        );
+      }
+    };
+
     setConfirmDialog({
       isOpen: true,
       title: "Confirm Checkout",
       message: `Place order for ${selectedCartItems.length} item(s) totaling ₱${cartTotal.toLocaleString()}?`,
       confirmLabel: "Yes, Place Order",
       variant: "info",
-      onConfirm: async () => {
-        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-        try {
-          const payload = {
-            items: selectedCartItems.map((item) => ({
-              product_id: item.id,
-              quantity: item.cartQuantity,
-            })),
-          };
-
-          const res = await fetch("http://172.20.10.4:5000/api/orders", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload),
-          });
-          const data = await res.json();
-
-          if (!res.ok) {
-            showToast("error", "Checkout Failed", data.message);
-          } else {
-            showToast(
-              "success",
-              "Order Placed!",
-              `Successfully ordered ${selectedCartItems.length} item(s).`,
-            );
-
-            const orderSummary = selectedCartItems.map((item) => ({
-              name: item.displayName || item.name,
-              size: item.size,
-              qty: item.cartQuantity,
-              price: item.price * item.cartQuantity,
-            }));
-
-            setReceiptData({
-              groupId: data.groupId,
-              total: cartTotal,
-              items: orderSummary,
-              digitalSignature: data.digitalSignature,
-            });
-
-            setCart((prev) => prev.filter((item) => !item.isSelected));
-            setIsCartOpen(false);
-
-            const updatedRes = await fetch(
-              "http://172.20.10.4:5000/api/products",
-            );
-            const updatedData = await updatedRes.json();
-            const available = updatedData.filter(
-              (p: any) => p.stock_quantity > 0,
-            );
-
-            const grouped = available.reduce((acc: any, item: any) => {
-              if (!acc[item.name]) {
-                acc[item.name] = {
-                  id: item.id,
-                  name: item.name,
-                  course: item.course,
-                  description: item.description,
-                  price: item.price,
-                  sizes: [],
-                };
-              }
-              acc[item.name].sizes.push({
-                id: item.id,
-                size: item.size,
-                stock_quantity: item.stock_quantity,
-              });
-              return acc;
-            }, {});
-
-            setProducts(available);
-            setGroupedProducts(Object.values(grouped));
-          }
-        } catch {
-          showToast(
-            "error",
-            "Connection Error",
-            "Could not connect to server.",
-          );
-        }
-      },
+      onConfirm: () => submitOrder(false),
     });
   };
 
@@ -398,22 +454,11 @@ const Shop = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
+    localStorage.removeItem("full_name");
+    localStorage.removeItem("course");
+    localStorage.removeItem("profile_picture");
     navigate("/login");
   };
-
-  const COURSES = [
-    "All",
-    "BSIT",
-    "BSBA-FM",
-    "BSBA-MM",
-    "BSBA-HRM",
-    "BSC",
-    "BEED",
-    "BSED-ENG",
-    "BSED-SS",
-    "BSED-VE",
-    "BSTM",
-  ];
 
   return (
     <div className="shop-container">
@@ -468,6 +513,14 @@ const Shop = () => {
           >
             <Package size={20} /> <span>Track Orders</span>
           </NavLink>
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              isActive ? "shop-nav-item active" : "shop-nav-item"
+            }
+          >
+            <UserRound size={20} /> <span>My Profile</span>
+          </NavLink>
         </nav>
         <div className="shop-sidebar-footer" onClick={handleLogout}>
           <LogOut size={20} /> <span>Logout</span>
@@ -487,9 +540,19 @@ const Shop = () => {
               )}
             </button>
             <Bell size={20} color="#6b7280" />
-            <div className="shop-avatar">
-              {studentName.charAt(0).toUpperCase()}
-            </div>
+            <NavLink to="/profile" className="avatar-link" aria-label="My profile">
+              {profilePicture ? (
+                <img
+                  src={profilePicture}
+                  alt="Profile"
+                  className="header-avatar"
+                />
+              ) : (
+                <div className="shop-avatar">
+                  {studentName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </NavLink>
             <button className="mobile-logout-btn" onClick={handleLogout}>
               <LogOut size={20} color="#dc2626" />
             </button>
@@ -518,23 +581,35 @@ const Shop = () => {
             </div>
 
             <div className="shop-filters">
-              {COURSES.map((course) => (
+              {COURSE_FILTERS.map((course) => (
                 <button
                   key={course}
                   className={`filter-tab ${selectedCourse === course ? "active" : ""}`}
                   onClick={() => setSelectedCourse(course)}
+                  title={course === "My Course" && studentCourse ? `My Course (${studentCourse})` : course}
                 >
-                  {course === "All" ? "All" : course}
+                  {course === "My Course" && studentCourse
+                    ? `My Course · ${studentCourse}`
+                    : course}
                 </button>
               ))}
             </div>
+
+            {selectedCourse === "My Course" && !studentCourse && (
+              <p className="shop-course-hint">
+                Set your course in{" "}
+                <NavLink to="/profile">My Profile</NavLink> to use this filter.
+              </p>
+            )}
           </div>
 
           {loading ? (
             <div className="loading-state">Loading products...</div>
           ) : filteredProducts.length === 0 ? (
             <div className="empty-state">
-              No products found matching your search.
+              {selectedCourse === "My Course"
+                ? `No merchandise found for ${studentCourse || "your course"}.`
+                : "No products found matching your search."}
             </div>
           ) : (
             <div className="product-grid">
@@ -873,7 +948,7 @@ const Shop = () => {
                 Group #GRP-{String(receiptData.groupId).padStart(3, "0")}
               </div>
               <img
-                src={`http://172.20.10.4:8000/generate-qr?order_id=${receiptData.groupId}`}
+                src={`${QR_SERVICE_BASE}/generate-qr?order_id=${receiptData.groupId}`}
                 alt={`QR for Group ${receiptData.groupId}`}
                 className="receipt-qr-img"
               />

@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { API_BASE } from "../../config/api";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -25,6 +26,8 @@ import {
   Ban,
   Inbox,
   ReceiptText,
+  Download,
+  CalendarDays,
 } from "lucide-react";
 import "./Orders.css";
 import logo from "../../assets/images/LCClogo1.png";
@@ -81,11 +84,37 @@ const STATUS_TABS = [
 
 const REFUNDABLE_STATUSES = ["Processing", "Ready for Pickup"];
 
+const COURSES = [
+  "All",
+  "BSBA-FM",
+  "BSBA-MM",
+  "BSBA-HRM",
+  "BSC",
+  "BEED",
+  "BSED-ENG",
+  "BSED-SS",
+  "BSED-VE",
+  "BSIT",
+  "BSTM",
+];
+
 const Orders = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<OrderGroup[]>([]);
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchPending, setSearchPending] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All");
+  const [courseFilter, setCourseFilter] = useState("All");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [serverStatusCounts, setServerStatusCounts] = useState<
+    Record<string, number>
+  >({});
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderGroup | null>(null);
   const [refundOrder, setRefundOrder] = useState<OrderGroup | null>(null);
@@ -101,6 +130,8 @@ const Orders = () => {
   ]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [reconciliation, setReconciliation] = useState<any>(null);
+  const [reconciling, setReconciling] = useState(false);
 
   // ✅ NEW: verification state for tamper detection
   const [verification, setVerification] = useState<VerificationState>({
@@ -118,10 +149,20 @@ const Orders = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const token = localStorage.getItem("token");
+  const dateRangeInvalid = Boolean(dateFrom && dateTo && dateFrom > dateTo);
+
+  useEffect(() => {
+    setSearchPending(true);
+    const timer = window.setTimeout(() => {
+      setSearchTerm(searchInput.trim());
+      setSearchPending(false);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const fetchRefunds = async () => {
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
+      const res = await fetch(`${API_BASE}/api/refunds`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -133,25 +174,47 @@ const Orders = () => {
 
   const pendingRefunds = refunds.filter((refund) => refund.status === "pending");
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    if (dateRangeInvalid) {
+      setOrders([]);
+      setTotal(0);
+      setTotalPages(1);
+      setServerStatusCounts({});
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/orders", {
-        headers: { Authorization: `Bearer ${token}` },
+      const params = new URLSearchParams({
+        search: searchTerm,
+        page: String(page),
+        limit: String(limit),
+        sort: `${sortRules[0].key}:${sortRules[0].order}`,
       });
+      if (statusFilter !== "All") params.append("status", statusFilter);
+      if (courseFilter !== "All") params.append("course", courseFilter);
+      if (dateFrom) params.append("date_from", dateFrom);
+      if (dateTo) params.append("date_to", dateTo);
+
+      const res = await fetch(
+        `${API_BASE}/api/orders?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       const data = await res.json();
 
-      if (Array.isArray(data)) {
-        const grouped = data.reduce((acc: any, item: any) => {
+      if (Array.isArray(data?.rows)) {
+        const grouped = data.rows.reduce((acc: any, item: any) => {
           const gid = item.group_id;
           if (!acc[gid]) {
             acc[gid] = {
               group_id: gid,
+              group_code: item.group_code,
               user_id: item.user_id,
               full_name: item.full_name,
               username: item.username,
               course: item.user_course || item.product_course,
               status: item.status,
-              order_date: item.order_date,
+              order_date: item.group_created_at || item.order_date,
               total_price: 0,
               items: [],
             };
@@ -159,29 +222,52 @@ const Orders = () => {
           acc[gid].total_price += Number(item.total_price);
           acc[gid].items.push(item);
           return acc;
-        }, {});
-        // Tampered receipts flagged by the scanner are never listed here.
+        }, {} as Record<number, OrderGroup>);
+
         const blocked = getBlockedGroupIds();
-        const visibleGroups = Object.values(grouped).filter(
-          (group: any) => !blocked.includes(Number(group.group_id)),
-        );
+        const orderedIds: number[] = Array.isArray(data.groupOrder)
+          ? data.groupOrder.map(Number)
+          : Object.keys(grouped).map(Number);
+        const visibleGroups = orderedIds
+          .map((gid) => grouped[gid])
+          .filter(
+            (group): group is OrderGroup =>
+              Boolean(group) && !blocked.includes(Number(group.group_id)),
+          );
+
         setOrders(visibleGroups);
+        setTotal(Number(data.total || 0));
+        setTotalPages(Number(data.totalPages || 1));
+        setServerStatusCounts(data.statusCounts || {});
         fetchRefunds();
         setLastUpdated(new Date());
       }
       setLoading(false);
     } catch (error) {
+      console.error(error);
       setLoading(false);
     }
-  };
+  }, [
+    token,
+    searchTerm,
+    statusFilter,
+    courseFilter,
+    dateFrom,
+    dateTo,
+    page,
+    limit,
+    sortRules,
+    dateRangeInvalid,
+  ]);
 
   useEffect(() => {
     if (!token) {
       navigate("/login");
       return;
     }
+    setLoading(true);
     fetchOrders();
-  }, [token, navigate]);
+  }, [token, navigate, fetchOrders]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -196,14 +282,14 @@ const Orders = () => {
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [autoRefresh, token]);
+  }, [autoRefresh, fetchOrders]);
 
   // Scanner tamper blocks live in browser storage; react to cross-tab changes.
   useEffect(() => {
     const sync = () => fetchOrders();
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, [token]);
+  }, [fetchOrders]);
 
   // ✅ NEW: verify signature every time a receipt is opened
   useEffect(() => {
@@ -221,7 +307,7 @@ const Orders = () => {
       setVerification((prev) => ({ ...prev, loading: true }));
       try {
         const res = await fetch(
-          "http://172.20.10.4:5000/api/orders/verify-receipt",
+          `${API_BASE}/api/orders/verify-receipt`,
           {
             method: "POST",
             headers: {
@@ -252,6 +338,10 @@ const Orders = () => {
   }, [selectedOrder, token]);
 
   useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, courseFilter, dateFrom, dateTo, limit]);
+
+  useEffect(() => {
     if (!selectedOrder || selectedOrder.status !== "Refunded") {
       setRefundInfo(null);
       return;
@@ -273,50 +363,73 @@ const Orders = () => {
         return [{ key, order: prev[0].order === "asc" ? "desc" : "asc" }];
       return [{ key, order: "asc" }];
     });
+    setPage(1);
   };
 
-  const sortedAndFiltered = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    const filtered = orders.filter((o) => {
-      const matchesSearch =
-        String(o.group_id).includes(term) ||
-        o.full_name?.toLowerCase().includes(term) ||
-        o.items.some((i: any) => i.product_name.toLowerCase().includes(term));
-      return (
-        matchesSearch && (statusFilter === "All" || o.status === statusFilter)
-      );
-    });
+  const statusCounts = {
+    All: total,
+    Pending: 0,
+    Processing: 0,
+    "Ready for Pickup": 0,
+    Completed: 0,
+    Cancelled: 0,
+    Refunded: 0,
+    ...serverStatusCounts,
+  };
 
-    return [...filtered].sort((a, b) => {
-      for (const rule of sortRules) {
-        let aVal: any = a[rule.key];
-        let bVal: any = b[rule.key];
-        if (typeof aVal === "string") {
-          aVal = aVal.toLowerCase();
-          bVal = bVal.toLowerCase();
-        }
-        if (aVal < bVal) return rule.order === "asc" ? -1 : 1;
-        if (aVal > bVal) return rule.order === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
-  }, [orders, searchTerm, statusFilter, sortRules]);
+  const visibleOrders = orders;
 
-  const statusCounts = useMemo(() => {
-    const counts: any = {
-      All: orders.length,
-      Pending: 0,
-      Processing: 0,
-      "Ready for Pickup": 0,
-      Completed: 0,
-      Cancelled: 0,
-      Refunded: 0,
-    };
-    orders.forEach((o) => {
-      if (counts[o.status] !== undefined) counts[o.status]++;
+  const resetSort = () => {
+    setSortRules([{ key: "order_date", order: "desc" }]);
+    setPage(1);
+  };
+
+  const activeFilters: { key: string; label: string; clear: () => void }[] = [];
+  if (searchTerm)
+    activeFilters.push({
+      key: "search",
+      label: `Search: ${searchTerm}`,
+      clear: () => {
+        setSearchInput("");
+        setSearchTerm("");
+      },
     });
-    return counts;
-  }, [orders]);
+  if (statusFilter !== "All")
+    activeFilters.push({
+      key: "status",
+      label: `Status: ${statusFilter}`,
+      clear: () => setStatusFilter("All"),
+    });
+  if (courseFilter !== "All")
+    activeFilters.push({
+      key: "course",
+      label: `Course: ${courseFilter}`,
+      clear: () => setCourseFilter("All"),
+    });
+  if (dateFrom)
+    activeFilters.push({
+      key: "from",
+      label: `From: ${dateFrom}`,
+      clear: () => setDateFrom(""),
+    });
+  if (dateTo)
+    activeFilters.push({
+      key: "to",
+      label: `To: ${dateTo}`,
+      clear: () => setDateTo(""),
+    });
+  if (limit !== 10)
+    activeFilters.push({
+      key: "rows",
+      label: `${limit} rows`,
+      clear: () => setLimit(10),
+    });
+  if (sortRules[0].key !== "order_date" || sortRules[0].order !== "desc")
+    activeFilters.push({
+      key: "sort",
+      label: `Sort: ${sortRules[0].key} (${sortRules[0].order})`,
+      clear: resetSort,
+    });
 
   const handleStatusChange = async (
     groupId: number,
@@ -343,18 +456,24 @@ const Orders = () => {
 
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/orders/${groupId}/status`,
+        `${API_BASE}/api/orders/${groupId}/status`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify({
+            status: newStatus,
+            expected_status: currentStatus,
+          }),
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        if (res.status === 409) await fetchOrders();
+        throw new Error(data.message || "Could not update status.");
+      }
 
       showToast(
         "success",
@@ -370,7 +489,7 @@ const Orders = () => {
   const openRefundReceipt = async (refundId: number) => {
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/refunds/${refundId}`,
+        `${API_BASE}/api/refunds/${refundId}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       const data = await res.json();
@@ -392,7 +511,7 @@ const Orders = () => {
     setRefunding(true);
 
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/refunds", {
+      const res = await fetch(`${API_BASE}/api/refunds`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -427,7 +546,7 @@ const Orders = () => {
     setReviewingId(Number(request.id));
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/refunds/${request.id}/approve`,
+        `${API_BASE}/api/refunds/${request.id}/approve`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
@@ -454,7 +573,7 @@ const Orders = () => {
     setReviewingId(Number(request.id));
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/refunds/${request.id}/reject`,
+        `${API_BASE}/api/refunds/${request.id}/reject`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
@@ -494,6 +613,61 @@ const Orders = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  const buildQueryParams = () => {
+    const params = new URLSearchParams({
+      search: searchTerm,
+      sort: `${sortRules[0].key}:${sortRules[0].order}`,
+    });
+    if (statusFilter !== "All") params.append("status", statusFilter);
+    if (courseFilter !== "All") params.append("course", courseFilter);
+    if (dateFrom) params.append("date_from", dateFrom);
+    if (dateTo) params.append("date_to", dateTo);
+    return params;
+  };
+
+  const handleDownloadExport = (format: "csv" | "xls") => {
+    const params = buildQueryParams();
+    params.append("format", format);
+    window.location.href = `${API_BASE}/api/settings/export-orders?${params.toString()}`;
+  };
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setSearchTerm("");
+    setSearchPending(false);
+    setStatusFilter("All");
+    setCourseFilter("All");
+    setDateFrom("");
+    setDateTo("");
+    setLimit(10);
+    resetSort();
+  };
+
+  const runReconciliation = async () => {
+    setReconciling(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/orders/reconcile?from=33&to=42`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Reconciliation failed.");
+      setReconciliation(data);
+      const mismatches = Array.isArray(data.mismatches)
+        ? data.mismatches.length
+        : 0;
+      showToast(
+        mismatches === 0 ? "success" : "warning",
+        "Reconciliation Complete",
+        `${data.checked || 0} group(s) checked · ${mismatches} mismatch(es).`,
+      );
+    } catch (error: any) {
+      showToast("error", "Reconciliation Failed", error.message);
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   // ✅ Helper to display a diff value in a human-readable way
   const renderValue = (val: any) => {
@@ -573,21 +747,35 @@ const Orders = () => {
             </p>
           </div>
           <div className="orders-header-right">
-            <div className="orders-search-bar">
-              <Search size={16} color="#6b7280" />
-              <input
-                type="text"
-                placeholder="Search orders..."
-                className="orders-search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
             <button
               className={`auto-refresh-toggle ${autoRefresh ? "on" : "off"}`}
               onClick={() => setAutoRefresh(!autoRefresh)}
+              title="Toggle auto refresh"
             >
               <RefreshCw size={16} />
+            </button>
+            <button
+              className="orders-export-btn"
+              onClick={() => handleDownloadExport("csv")}
+              title="Export orders as CSV"
+            >
+              <Download size={16} /> CSV
+            </button>
+            <button
+              className="orders-export-btn"
+              onClick={() => handleDownloadExport("xls")}
+              title="Export orders for Excel"
+            >
+              <Download size={16} /> Excel
+            </button>
+            <button
+              className="orders-reconcile-btn"
+              onClick={runReconciliation}
+              disabled={reconciling}
+              title="Check GRP-033 to GRP-042 against signed receipts"
+            >
+              <ShieldCheck size={16} />
+              {reconciling ? "Checking..." : "Reconcile GRP-033–042"}
             </button>
             <div className="orders-avatar">A</div>
           </div>
@@ -597,13 +785,13 @@ const Orders = () => {
           <div className="admin-kpi-grid">
             <div className="admin-kpi-card">
               <span className="admin-kpi-label">Total Orders</span>
-              <strong className="admin-kpi-value">{orders.length}</strong>
+              <strong className="admin-kpi-value">{total}</strong>
               <span className="admin-kpi-foot">Groups in management</span>
             </div>
             <div className="admin-kpi-card">
               <span className="admin-kpi-label">Ready for Pickup</span>
               <strong className="admin-kpi-value">
-                {orders.filter((o) => o.status === "Ready for Pickup").length}
+                {statusCounts["Ready for Pickup"] ?? 0}
               </strong>
               <span className="admin-kpi-foot">Awaiting collection</span>
             </div>
@@ -615,7 +803,7 @@ const Orders = () => {
             <div className="admin-kpi-card">
               <span className="admin-kpi-label">Refunded</span>
               <strong className="admin-kpi-value">
-                {orders.filter((o) => o.status === "Refunded").length}
+                {statusCounts.Refunded ?? 0}
               </strong>
               <span className="admin-kpi-foot">Stock already restored</span>
             </div>
@@ -686,32 +874,239 @@ const Orders = () => {
             </section>
           )}
 
-          <div className="status-tabs">
-            {STATUS_TABS.map((s) => (
-              <button
-                key={s}
-                className={`status-tab ${statusFilter === s ? "active" : ""} ${getStatusClass(s)}`}
-                onClick={() => setStatusFilter(s)}
-              >
-                {s}
-                <span className="status-count">{statusCounts[s] ?? 0}</span>
-              </button>
-            ))}
-          </div>
+          <section className="orders-filters-card" aria-label="Order filters">
+            <div className="orders-filters-heading">
+              <div>
+                <Filter size={15} />
+                <h2>Filters</h2>
+              </div>
+              <span>Combine status, course, and date range</span>
+            </div>
 
-          <div className="orders-sort-info">
-            <span>
-              <Filter size={14} style={{ display: "inline", marginRight: 6 }} />
-              Showing <strong>{sortedAndFiltered.length}</strong> order group(s)
-            </span>
-          </div>
+            <div className="status-tabs">
+              {STATUS_TABS.map((s) => (
+                <button
+                  key={s}
+                  className={`status-tab ${statusFilter === s ? "active" : ""} ${getStatusClass(s)}`}
+                  onClick={() => setStatusFilter(s)}
+                >
+                  {s}
+                  <span className="status-count">{statusCounts[s] ?? 0}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="orders-filter-bar">
+              <label className="orders-filter-search">
+                <span>
+                  <Search size={13} /> Search
+                  {searchPending && (
+                    <em className="orders-search-pending">typing…</em>
+                  )}
+                </span>
+                <input
+                  type="search"
+                  placeholder="Group, student, product..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+              </label>
+              <label>
+                <span>Course / Department</span>
+                <select
+                  value={courseFilter}
+                  onChange={(e) => setCourseFilter(e.target.value)}
+                >
+                  {COURSES.map((course) => (
+                    <option key={course} value={course}>
+                      {course}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>
+                  <CalendarDays size={13} /> From
+                </span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </label>
+              <label>
+                <span>
+                  <CalendarDays size={13} /> To
+                </span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </label>
+              <label>
+                <span>Rows</span>
+                <select
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="orders-clear-filters"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            </div>
+
+            {dateRangeInvalid && (
+              <div className="orders-filter-warning" role="alert">
+                <AlertTriangle size={14} />
+                From date must be on or before To date.
+              </div>
+            )}
+
+            {activeFilters.length > 0 && (
+              <div
+                className="orders-active-filters"
+                aria-label="Active filters"
+              >
+                <span className="orders-active-filters-label">
+                  Active filters
+                </span>
+                {activeFilters.map((filter) => (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    className="orders-filter-chip"
+                    onClick={filter.clear}
+                  >
+                    {filter.label} <X size={12} />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="orders-clear-filters compact"
+                  onClick={clearFilters}
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+
+            <div className="orders-sort-info">
+              <span>
+                Showing <strong>{visibleOrders.length}</strong> of{" "}
+                <strong>{total}</strong> order group(s)
+              </span>
+              <span className="orders-export-note">
+                CSV / Excel follow active filters
+              </span>
+            </div>
+          </section>
+
+          {reconciliation && (
+            <section className="reconciliation-panel">
+              <div className="reconciliation-header">
+                <div>
+                  <ShieldCheck size={18} />
+                  <strong>Receipt / Database Reconciliation</strong>
+                </div>
+                <span>
+                  {Number(reconciliation.checked || 0)} checked ·{" "}
+                  {Array.isArray(reconciliation.mismatches)
+                    ? reconciliation.mismatches.length
+                    : 0}{" "}
+                  mismatch(es)
+                </span>
+              </div>
+
+              {Array.isArray(reconciliation.mismatches) &&
+              reconciliation.mismatches.length > 0 ? (
+                <div className="reconciliation-table-wrapper">
+                  <table className="reconciliation-table">
+                    <thead>
+                      <tr>
+                        <th>Group</th>
+                        <th>Signed Items</th>
+                        <th>Live Items</th>
+                        <th>Signed Total</th>
+                        <th>Live Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reconciliation.mismatches.map((item: any) => (
+                        <tr key={item.groupId}>
+                          <td>{item.groupCode}</td>
+                          <td>{item.signedItems}</td>
+                          <td>{item.liveItems}</td>
+                          <td>₱{Number(item.signedTotal).toLocaleString()}</td>
+                          <td>₱{Number(item.liveTotal).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="reconciliation-ok">
+                  All checked groups match their signed receipt snapshots.
+                </p>
+              )}
+
+              {Array.isArray(reconciliation.results) &&
+                reconciliation.results.length > 0 && (
+                  <details className="reconciliation-details">
+                    <summary>
+                      View all {reconciliation.results.length} checked groups
+                    </summary>
+                    <div className="reconciliation-table-wrapper">
+                      <table className="reconciliation-table">
+                        <thead>
+                          <tr>
+                            <th>Group</th>
+                            <th>Items</th>
+                            <th>Total</th>
+                            <th>Signature</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reconciliation.results.map((item: any) => (
+                            <tr key={item.groupId}>
+                              <td>{item.groupCode}</td>
+                              <td>
+                                {item.signedItems} signed / {item.liveItems} live
+                              </td>
+                              <td>
+                                ₱{Number(item.liveTotal).toLocaleString()}
+                              </td>
+                              <td>{item.matches ? "Matches" : "Mismatch"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                )}
+            </section>
+          )}
 
           {loading ? (
             <div className="orders-loading">Loading orders...</div>
-          ) : sortedAndFiltered.length === 0 ? (
+          ) : visibleOrders.length === 0 ? (
             <div className="orders-empty">
               <ShoppingCart size={48} color="#9ca3af" />
-              <h3>No orders found</h3>
+              <h3>No matching records</h3>
+              <p>Try a different status, course, or date range.</p>
+              <button className="orders-clear-filters" onClick={clearFilters}>
+                Clear filters
+              </button>
             </div>
           ) : (
             <div className="orders-table-card">
@@ -748,7 +1143,7 @@ const Orders = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedAndFiltered.map((order) => (
+                  {visibleOrders.map((order) => (
                     <tr key={order.group_id}>
                       <td>#GRP-{String(order.group_id).padStart(3, "0")}</td>
                       <td>
@@ -818,6 +1213,26 @@ const Orders = () => {
               </table>
             </div>
           )}
+
+          <div className="orders-pagination">
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <div>
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                Previous
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

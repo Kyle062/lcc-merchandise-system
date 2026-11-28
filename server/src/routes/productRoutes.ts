@@ -5,12 +5,14 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  getProductsPaged,
 } from '../controllers/productController';
 import { protect, authorize } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
 router.get('/', getProducts);
+router.get('/paged', protect, authorize(['admin', 'staff']), getProductsPaged);
 router.get('/:id', getProduct);
 router.post('/', protect, authorize(['admin', 'staff']), createProduct);
 router.put('/:id', protect, authorize(['admin', 'staff']), updateProduct);

@@ -1,3 +1,4 @@
+import { API_BASE } from "../../config/api";
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { BarChart3 } from "lucide-react";
@@ -112,7 +113,7 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       // ✅ FIXED: Using your local IP instead of localhost
-      const res = await fetch("http://172.20.10.4:5000/api/users", {
+      const res = await fetch(`${API_BASE}/api/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -185,7 +186,7 @@ const Users = () => {
       onConfirm: async () => {
         try {
           const res = await fetch(
-            `http://172.20.10.4:5000/api/users/${user.id}`,
+            `${API_BASE}/api/users/${user.id}`,
             {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` },
@@ -212,7 +213,7 @@ const Users = () => {
   const handleRoleChange = async (userId: number, newRole: string) => {
     try {
       const res = await fetch(
-        `http://172.20.10.4:5000/api/users/${userId}/role`,
+        `${API_BASE}/api/users/${userId}/role`,
         {
           method: "PUT",
           headers: {
@@ -240,7 +241,7 @@ const Users = () => {
     setErrorMessage("");
 
     try {
-      const res = await fetch("http://172.20.10.4:5000/api/users", {
+      const res = await fetch(`${API_BASE}/api/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

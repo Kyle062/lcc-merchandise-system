@@ -1,3 +1,4 @@
+import { API_BASE } from "../../config/api";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -16,6 +17,10 @@ import {
   DollarSign,
   Printer,
   Download,
+  CalendarDays,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   BarChart,
@@ -33,18 +38,94 @@ import jsPDF from "jspdf";
 import "./Analytics.css";
 import logo from "../../assets/images/LCClogo1.png";
 
+const LOW_STOCK_PAGE_SIZE = 6;
+
 const formatDayTick = (value: string) => {
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+type ReportPeriod = "all" | "today" | "week" | "month" | "custom";
+type AppliedPeriod = { type: ReportPeriod; from: string; to: string };
+
 const Analytics = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [period, setPeriod] = useState<ReportPeriod>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [appliedPeriod, setAppliedPeriod] = useState<AppliedPeriod>({
+    type: "all",
+    from: "",
+    to: "",
+  });
+  const [periodError, setPeriodError] = useState("");
+  const [lowStockPage, setLowStockPage] = useState(0);
   const token = localStorage.getItem("token");
+
+  const buildPeriodParams = () => {
+    const params = new URLSearchParams();
+    if (appliedPeriod.type !== "all")
+      params.append("period", appliedPeriod.type);
+    if (appliedPeriod.type === "custom") {
+      if (appliedPeriod.from) params.append("date_from", appliedPeriod.from);
+      if (appliedPeriod.to) params.append("date_to", appliedPeriod.to);
+    }
+    return params;
+  };
+
+  const applyPreset = (next: ReportPeriod) => {
+    setPeriod(next);
+    setPeriodError("");
+    setAppliedPeriod({ type: next, from: "", to: "" });
+  };
+
+  const applyCustomPeriod = () => {
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      setPeriodError("From date must be on or before To date.");
+      return;
+    }
+    if (!dateFrom && !dateTo) {
+      setPeriodError("Choose a From or To date for a custom range.");
+      return;
+    }
+    setPeriodError("");
+    setPeriod("custom");
+    setAppliedPeriod({ type: "custom", from: dateFrom, to: dateTo });
+  };
+
+  const activePeriodLabel =
+    data?.period ||
+    (appliedPeriod.type === "all"
+      ? "All Dates"
+      : appliedPeriod.type === "custom"
+        ? `Custom (${appliedPeriod.from || "start"} – ${appliedPeriod.to || "end"})`
+        : appliedPeriod.type);
+
+  const reportKey = `${appliedPeriod.type}|${appliedPeriod.from}|${appliedPeriod.to}`;
+
+  const lowStockItems: any[] = Array.isArray(data?.lowStock)
+    ? data.lowStock
+    : [];
+  const lowStockPageCount = Math.max(
+    1,
+    Math.ceil(lowStockItems.length / LOW_STOCK_PAGE_SIZE),
+  );
+  const safeLowStockPage = Math.min(lowStockPage, lowStockPageCount - 1);
+  const lowStockStart = safeLowStockPage * LOW_STOCK_PAGE_SIZE;
+  const lowStockEnd = Math.min(
+    lowStockStart + LOW_STOCK_PAGE_SIZE,
+    lowStockItems.length,
+  );
+
+  const periodFileLabel = () =>
+    activePeriodLabel
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase();
 
   useEffect(() => {
     if (!token) {
@@ -53,10 +134,13 @@ const Analytics = () => {
     }
 
     const fetchAnalytics = async () => {
+      setLoading(true);
       try {
-        const res = await fetch("http://172.20.10.4:8001/analytics", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const params = buildPeriodParams();
+        const res = await fetch(
+          `${API_BASE}/api/analytics?${params.toString()}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         const result = await res.json();
         if (res.ok) setData(result);
         setLoading(false);
@@ -66,7 +150,7 @@ const Analytics = () => {
       }
     };
     fetchAnalytics();
-  }, [token, navigate]);
+  }, [token, navigate, appliedPeriod]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -126,6 +210,18 @@ const Analytics = () => {
                 el.style.opacity = "1";
               }
             });
+
+            // The PDF is a complete report, so include every low-stock alert
+            // instead of only the rows visible on the current page.
+            clonedInput
+              .querySelectorAll(".analytics-low-stock-row")
+              .forEach((row: any) => {
+                row.style.display = "table-row";
+              });
+            const clonedPager = clonedInput.querySelector(
+              ".analytics-pager",
+            ) as HTMLElement | null;
+            if (clonedPager) clonedPager.style.display = "none";
           }
         },
       });
@@ -144,7 +240,7 @@ const Analytics = () => {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save("LCC-Analytics-Report.pdf");
+      pdf.save(`LCC-Analytics-Report-${periodFileLabel()}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
     } finally {
@@ -152,13 +248,26 @@ const Analytics = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ padding: 50, textAlign: "center", fontWeight: "bold" }}>
-        Loading Analytics...
-      </div>
-    );
-  }
+  const handleDownloadSales = async (format: "csv" | "xls") => {
+    const params = buildPeriodParams();
+    params.append("format", format);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/settings/export-sales?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sales_summary_${periodFileLabel()}.${format === "xls" ? "xls" : "csv"}`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
     <div className="analytics-container">
@@ -221,8 +330,110 @@ const Analytics = () => {
       {/* MAIN CONTENT */}
       <div className="analytics-main-content">
         <div className="analytics-header no-print">
-          <h1 className="analytics-header-title">Analytics & Reports</h1>
+          <div>
+            <h1 className="analytics-header-title">Analytics & Reports</h1>
+            <div className="analytics-period-toolbar">
+              <span className="analytics-period-toolbar-label">
+                Reporting period
+              </span>
+              <div
+                className="analytics-period-filters"
+                role="group"
+                aria-label="Reporting period"
+              >
+                <button
+                  className={period === "all" ? "active" : ""}
+                  aria-pressed={period === "all"}
+                  onClick={() => applyPreset("all")}
+                >
+                  All
+                </button>
+                <button
+                  className={period === "today" ? "active" : ""}
+                  aria-pressed={period === "today"}
+                  onClick={() => applyPreset("today")}
+                >
+                  Today
+                </button>
+                <button
+                  className={period === "week" ? "active" : ""}
+                  aria-pressed={period === "week"}
+                  onClick={() => applyPreset("week")}
+                >
+                  This Week
+                </button>
+                <button
+                  className={period === "month" ? "active" : ""}
+                  aria-pressed={period === "month"}
+                  onClick={() => applyPreset("month")}
+                >
+                  This Month
+                </button>
+                <button
+                  className={period === "custom" ? "active" : ""}
+                  aria-pressed={period === "custom"}
+                  onClick={() => {
+                    setPeriod("custom");
+                    setPeriodError("");
+                  }}
+                >
+                  <CalendarDays size={13} /> Custom
+                </button>
+              </div>
+              {period === "custom" && (
+                <div className="analytics-custom-range">
+                  <input
+                    type="date"
+                    aria-label="From date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                  <span>to</span>
+                  <input
+                    type="date"
+                    aria-label="To date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="analytics-period-apply"
+                    onClick={applyCustomPeriod}
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+              <span className="analytics-period-active">
+                Active: <strong>{activePeriodLabel}</strong>
+              </span>
+            </div>
+            {periodError && (
+              <div className="analytics-period-error" role="alert">
+                {periodError}
+              </div>
+            )}
+          </div>
           <div className="analytics-header-actions">
+            <span className="analytics-export-note">
+              Exports use the active period
+            </span>
+            <button
+              className="analytics-action-btn"
+              onClick={() => handleDownloadSales("csv")}
+              title="Download sales summary as CSV"
+            >
+              <Download size={18} /> CSV
+            </button>
+            <button
+              className="analytics-action-btn"
+              onClick={() => handleDownloadSales("xls")}
+              title="Download sales summary for Excel"
+            >
+              <Download size={18} /> Excel
+            </button>
             <button className="analytics-action-btn" onClick={handlePrint}>
               <Printer size={18} />
               Print
@@ -246,6 +457,7 @@ const Analytics = () => {
           <div className="print-header-titles">
             <h1 className="print-title">LCC Merchandise System</h1>
             <p className="print-subtitle">Analytics & Reports</p>
+            <p className="print-period">Period: {activePeriodLabel}</p>
           </div>
           <div className="print-date">
             {new Date().toLocaleDateString("en-US", {
@@ -257,15 +469,28 @@ const Analytics = () => {
         </div>
 
         <div
+          key={reportKey}
           className="analytics-content fade-in"
           id="analytics-report-content"
         >
+          {loading && (
+            <div className="analytics-loading-banner" role="status">
+              <span className="analytics-loading-spinner" />
+              Refreshing reports for {activePeriodLabel}…
+            </div>
+          )}
+
+          <div className="report-period-label">
+            <span>Reporting Period</span>
+            <strong>{activePeriodLabel}</strong>
+          </div>
+
           {/* KPI CARDS ROW */}
           <div className="analytics-kpi-grid">
             <div className="analytics-kpi-card">
               <div
                 className="kpi-icon-wrap"
-                style={{ backgroundColor: "#ecfdf5", color: "#00874e" }}
+                style={{ backgroundColor: "#ecfdf5", color: "#15803d" }}
               >
                 <Clock size={24} />
               </div>
@@ -308,12 +533,59 @@ const Analytics = () => {
             </div>
           </div>
 
+          {/* STOCK AND QUEUE DIAGNOSTICS */}
+          <div className="analytics-card diagnostics-card">
+            <div className="analytics-card-header">
+              <AlertCircle size={20} color="#dc2626" />
+              <h3 className="analytics-card-title">
+                Stock & Queue Diagnostics
+              </h3>
+            </div>
+            <p className="diagnostics-message">
+              {data?.diagnostics?.message || "No aging bottlenecks detected."}
+            </p>
+            <div className="diagnostics-grid">
+              <div>
+                <span>Pending past 24h</span>
+                <strong>{data?.diagnostics?.pendingStuck || 0}</strong>
+              </div>
+              <div>
+                <span>Processing past 48h</span>
+                <strong>{data?.diagnostics?.processingStuck || 0}</strong>
+              </div>
+              <div>
+                <span>In Tailoring past 72h</span>
+                <strong>{data?.diagnostics?.tailoringStuck || 0}</strong>
+              </div>
+              <div>
+                <span>Avg. Fulfillment</span>
+                <strong>{data?.avgFulfillmentHours || 0} hours</strong>
+              </div>
+            </div>
+            {data?.diagnostics?.bottlenecks?.length > 0 && (
+              <div className="diagnostics-bottlenecks">
+                <strong>Oldest active orders</strong>
+                <ul>
+                  {data.diagnostics.bottlenecks.map((item: any) => (
+                    <li key={item.groupId}>
+                      {item.groupCode || `#GRP-${item.groupId}`} · {item.status} ·{" "}
+                      {item.ageHours}h
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
           {/* CHARTS ROW 1 */}
           <div className="analytics-charts-grid">
             <div className="analytics-card">
               <h3 className="analytics-card-title">
-                Stock Inventory per Faculty
+                Current Stock by Faculty
               </h3>
+              <p className="analytics-report-note">
+                Current inventory snapshot — not affected by the selected period.
+              </p>
               <div className="chart-frame">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data?.stockByFaculty || []}>
@@ -335,7 +607,7 @@ const Analytics = () => {
                     />
                     <Bar
                       dataKey="value"
-                      fill="#00874e"
+                      fill="#15803d"
                       radius={[4, 4, 0, 0]}
                       name="Units in Stock"
                     />
@@ -346,38 +618,44 @@ const Analytics = () => {
 
             <div className="analytics-card">
               <h3 className="analytics-card-title">
-                Daily Order Volume (Last 14 Days)
+                Daily Order Volume · {activePeriodLabel}
               </h3>
-              <div className="chart-frame">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data?.dailyOrders || []}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="day"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={formatDayTick}
-                    />
-                    <YAxis axisLine={false} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 8,
-                        border: "none",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="orders"
-                      stroke="#00874e"
-                      strokeWidth={3}
-                      dot={{ r: 4, fill: "#00874e" }}
-                      name="Orders"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {data?.dailyOrders?.length ? (
+                <div className="chart-frame">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.dailyOrders}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="day"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={formatDayTick}
+                      />
+                      <YAxis axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 8,
+                          border: "none",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="orders"
+                        stroke="#15803d"
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: "#15803d" }}
+                        name="Orders"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="analytics-empty chart-empty">
+                  No orders placed in this period.
+                </div>
+              )}
             </div>
           </div>
 
@@ -386,9 +664,9 @@ const Analytics = () => {
             {/* Top Sellers Table */}
             <div className="analytics-card">
               <div className="analytics-card-header">
-                <TrendingUp size={20} color="#00874e" />
+                <TrendingUp size={20} color="#15803d" />
                 <h3 className="analytics-card-title">
-                  Peek of the Month: Top Sellers
+                  Top Sellers · {activePeriodLabel}
                 </h3>
               </div>
               <table className="analytics-table">
@@ -406,7 +684,7 @@ const Analytics = () => {
                       <td
                         style={{
                           fontWeight: 700,
-                          color: index === 0 ? "#00874e" : "#6b7280",
+                          color: index === 0 ? "#15803d" : "#6b7280",
                         }}
                       >
                         #{index + 1}
@@ -440,17 +718,32 @@ const Analytics = () => {
                   Low Stock Alerts
                 </h3>
               </div>
+              <p className="analytics-report-note">
+                Movement flags use the active period; stock levels are current.
+              </p>
               <table className="analytics-table">
                 <thead>
                   <tr>
                     <th>Product</th>
                     <th>Course</th>
                     <th>Stock</th>
+                    <th>Reorder At</th>
+                    <th>Units Sold (period)</th>
+                    <th>Movement</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data?.lowStock?.map((item: any, index: number) => (
-                    <tr key={index}>
+                  {lowStockItems.map((item: any, index: number) => (
+                    <tr
+                      key={index}
+                      className="analytics-low-stock-row"
+                      style={{
+                        display:
+                          index >= lowStockStart && index < lowStockEnd
+                            ? "table-row"
+                            : "none",
+                      }}
+                    >
                       <td style={{ fontWeight: 600 }}>{item.name}</td>
                       <td>
                         <span
@@ -480,67 +773,114 @@ const Analytics = () => {
                           {item.stock} left
                         </span>
                       </td>
+                      <td>{item.reorderThreshold ?? 10}</td>
+                      <td>{item.unitsSoldPeriod ?? item.unitsSold30d ?? 0}</td>
+                      <td>
+                        <span
+                          className={`velocity-badge velocity-${item.velocity || "slow"}`}
+                        >
+                          {item.velocity || "slow"}
+                        </span>
+                      </td>
                     </tr>
                   ))}
-                  {data?.lowStock?.length === 0 && (
+                  {lowStockItems.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="analytics-empty">
+                      <td colSpan={6} className="analytics-empty">
                         All products are well-stocked.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              {lowStockPageCount > 1 && (
+                <div className="analytics-pager no-print">
+                  <button
+                    type="button"
+                    className="analytics-pager-btn"
+                    aria-label="Previous low stock alerts"
+                    disabled={safeLowStockPage === 0}
+                    onClick={() =>
+                      setLowStockPage((page) => Math.max(0, page - 1))
+                    }
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="analytics-pager-label">
+                    {lowStockStart + 1}–{lowStockEnd} of {lowStockItems.length} ·
+                    Page {safeLowStockPage + 1} of {lowStockPageCount}
+                  </span>
+                  <button
+                    type="button"
+                    className="analytics-pager-btn"
+                    aria-label="Next low stock alerts"
+                    disabled={safeLowStockPage >= lowStockPageCount - 1}
+                    onClick={() =>
+                      setLowStockPage((page) =>
+                        Math.min(lowStockPageCount - 1, page + 1),
+                      )
+                    }
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* REVENUE PER FACULTY CHART */}
           <div className="analytics-card">
             <div className="analytics-card-header">
-              <DollarSign size={20} color="#00874e" />
+              <DollarSign size={20} color="#15803d" />
               <h3 className="analytics-card-title">
-                Total Revenue per Faculty (Completed Orders)
+                Revenue per Faculty · {activePeriodLabel}
               </h3>
             </div>
-            <div className="chart-frame">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={data?.revenueByFaculty || []}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tickFormatter={(value) => `₱${value.toLocaleString()}`}
-                  />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    width={100}
-                    tick={{ fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    formatter={(value: any) =>
-                      `₱${Number(value).toLocaleString()}`
-                    }
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    }}
-                  />
-                  <Bar
-                    dataKey="revenue"
-                    fill="#3b82f6"
-                    radius={[0, 4, 4, 0]}
-                    name="Revenue"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {data?.revenueByFaculty?.length ? (
+              <div className="chart-frame">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={data.revenueByFaculty}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickFormatter={(value) => `₱${value.toLocaleString()}`}
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={100}
+                      tick={{ fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      formatter={(value: any) =>
+                        `₱${Number(value).toLocaleString()}`
+                      }
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    <Bar
+                      dataKey="revenue"
+                      fill="#3b82f6"
+                      radius={[0, 4, 4, 0]}
+                      name="Revenue"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="analytics-empty chart-empty">
+                No completed sales in this period.
+              </div>
+            )}
           </div>
         </div>
       </div>

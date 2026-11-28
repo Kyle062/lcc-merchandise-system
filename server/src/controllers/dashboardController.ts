@@ -51,6 +51,87 @@ export const getRecentOrders = async (req: Request, res: Response) => {
   }
 };
 
+// Actionable stock and queue diagnostics for the admin dashboard
+export const getDiagnostics = async (req: Request, res: Response) => {
+  try {
+    const threshold = Number.parseInt(String(req.query.threshold || "10"), 10);
+    const reorderThreshold = Number.isFinite(threshold)
+      ? Math.min(100, Math.max(1, threshold))
+      : 10;
+
+    const [lowStock]: any = await db.query(
+      `SELECT p.id, p.name, p.course, p.stock_quantity AS stock,
+              ? AS reorder_threshold,
+              COALESCE((
+                SELECT SUM(o.quantity)
+                FROM orders o
+                JOIN order_groups g ON o.group_id = g.id
+                WHERE o.product_id = p.id
+                  AND g.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              ), 0) AS units_sold_30d
+       FROM products p
+       WHERE p.stock_quantity < ?
+       ORDER BY p.stock_quantity ASC, units_sold_30d DESC, p.name ASC`,
+      [reorderThreshold, reorderThreshold],
+    );
+
+    const [aging]: any = await db.query(`
+      SELECT
+        SUM(CASE WHEN status = 'Pending' AND TIMESTAMPDIFF(HOUR, created_at, NOW()) >= 24 THEN 1 ELSE 0 END) AS pending_stuck,
+        SUM(CASE WHEN status = 'Processing' AND TIMESTAMPDIFF(HOUR, created_at, NOW()) >= 48 THEN 1 ELSE 0 END) AS processing_stuck,
+        SUM(CASE WHEN status = 'In Tailoring' AND TIMESTAMPDIFF(HOUR, created_at, NOW()) >= 72 THEN 1 ELSE 0 END) AS tailoring_stuck,
+        AVG(CASE WHEN status IN ('Completed', 'Ready for Pickup')
+          THEN TIMESTAMPDIFF(HOUR, created_at, NOW()) END) AS avg_fulfillment_hours
+      FROM order_groups
+    `);
+
+    const [bottlenecks]: any = await db.query(`
+      SELECT id, group_code, status, TIMESTAMPDIFF(HOUR, created_at, NOW()) AS age_hours
+      FROM order_groups
+      WHERE status IN ('Pending', 'Processing', 'In Tailoring')
+      ORDER BY age_hours DESC, created_at ASC
+      LIMIT 5
+    `);
+
+    const row = aging[0] || {};
+    res.json({
+      reorderThreshold,
+      lowStockTotal: lowStock.length,
+      lowStock: lowStock.map((item: any) => {
+        const sold = Number(item.units_sold_30d || 0);
+        return {
+          id: Number(item.id),
+          name: item.name,
+          course: item.course,
+          stock: Number(item.stock),
+          reorderThreshold: Number(item.reorder_threshold),
+          unitsSold30d: sold,
+          velocity: sold >= 10 ? "fast" : sold === 0 ? "slow" : "steady",
+        };
+      }),
+      aging: {
+        pendingStuck: Number(row.pending_stuck || 0),
+        processingStuck: Number(row.processing_stuck || 0),
+        tailoringStuck: Number(row.tailoring_stuck || 0),
+      },
+      avgFulfillmentHours: row.avg_fulfillment_hours
+        ? Math.round(Number(row.avg_fulfillment_hours))
+        : 0,
+      bottlenecks: bottlenecks.map((item: any) => ({
+        groupId: Number(item.id),
+        groupCode: item.group_code,
+        status: item.status,
+        ageHours: Number(item.age_hours),
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      message: "Error fetching diagnostics",
+      details: error.message,
+    });
+  }
+};
+
 // Get monthly sales data (for bar chart)
 export const getMonthlySales = async (req: Request, res: Response) => {
   try {
